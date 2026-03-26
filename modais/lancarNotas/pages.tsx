@@ -10,19 +10,8 @@ import Swal from "sweetalert2";
 import { salvarNota } from "./actions";
 import Loading from "@/componentes/loading";
 
-type Notas = {
-    id: number,
-    id_cliente: number,
-    valor_inicial: number,
-    valor_abatido: number,
-    data: Date,
-    empresa_id: number,
-    descricao: string,
-    quantidade: number,
-    valor_extra: number,
-    segmento: string,
-    valor_unitario: number
-}
+// types
+import { Cliente, Notas } from '@/types'
 
 type lancarNotas = {
     clientes: Cliente[],
@@ -30,13 +19,6 @@ type lancarNotas = {
     sair: () => void
 }
 
-type Cliente = {
-    id: number,
-    nome: string,
-    whatsapp: string | null,
-    empresa_id: number,
-    documento: string
-}
 export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarNotas) {
 
     const [cliente, setCliete] = useState('')
@@ -69,7 +51,6 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
         } else {
             valorTotal = valorUnitario + extra;
         }
-
         if (!cliente) {
             Swal.fire('Opa...', 'Informar o cliente é obrigatório!', 'warning');
             return;
@@ -81,30 +62,42 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
 
         setLoading(true)
 
-        const dadosParaEnviar = {
-            cliente,
-            data,
-            valor: valorUnitario, // O back recebe o valor de 1 unidade
-            valorTotal,          // O back recebe o total calculado
-            descricao,
-            extra,
-            segmento,
-            quantidade
-        };
+        try {
+            const dadosParaEnviar = {
+                cliente,
+                data,
+                valor: valorUnitario,
+                valor_total: valorTotal,
+                descricao,
+                exta: extra,
+                segmento,
+                quantidade
+            };
 
-        const response = await salvarNota(dadosParaEnviar);
+            const response = await salvarNota(dadosParaEnviar)
 
-        if (response.success === false) {
-            Swal.fire('Erro!', response.error, 'error');
+            if (response.success === false || !response.novaNota) {
+                Swal.fire('Erro!', response.error, 'error');
+                setLoading(false)
+                return;
+            }
+
+            Swal.fire('Nota Lançada!!', '', 'success');
+
+            atualizar(response.novaNota as unknown as Notas);
+            sair()
+        } catch (error: any) {
+            Swal.fire('Erro!', error, 'error')
+        } finally {
             setLoading(false)
-            return;
         }
-
-        Swal.fire('Nota Lançada!!', '', 'success');
-
-        setLoading(false)
-        atualizar(response.nota)
     }
+
+    const formatarDataParaInput = (data: Date) => {
+        return data.toISOString().split('T')[0];
+    };
+
+    const [data, setData] = useState(formatarDataParaInput(new Date()))
 
     return (
 
@@ -130,7 +123,7 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
                     </Label>
 
                     <Label texto="Data">
-                        <Input type="date" tamanho="g" name="data" placeholder="" />
+                        <Input type="date" value={data} onChange={(e) => setData(e)} tamanho="g" name="data" placeholder="" />
                     </Label>
 
                     {segmento === 'pet' && (

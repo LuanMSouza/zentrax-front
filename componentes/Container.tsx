@@ -2,15 +2,16 @@ import React from "react";
 
 type LayoutProps = {
     children: React.ReactNode;
-    tamanho: 'g' | 'm' | 'mg'
+    tamanho: 'g' | 'm' | 'mg' | 'p'
 };
 
 export default function Container({ children, tamanho }: LayoutProps) {
 
     const tamanhos = {
-        g: 'w-11/12',
+        g: 'w-11/12 z-100',
         m: 'w-7/12 fixed inset-0 m-auto h-fit',
-        mg: 'w-10/12 fixed inset-0 m-auto h-fit'
+        mg: 'w-10/12 fixed inset-0 m-auto h-fit',
+        p: 'w-fit fixed inset-0 m-auto h-fit'
     }
 
     return (

@@ -16,8 +16,8 @@ export function Button({ texto, tipo, tamanho, corTexto, onClick, funcao = 'butt
         btn03: 'bg-cyan-700 hover:bg-cyan-900 duration-200',
         btn04: 'bg-green-700 hover:bg-green-500 duration-200 font-bold',
         btn05: 'bg-red-800 hover:bg-red-500 duration-200 font-bold ',
-        sair: "bg-red-500 hover:bg-red-700 duration-200",
-        fechar: "bg-red-500 hover:bg-red-700 absolute top-5 right-3 duration-200",
+        sair: "bg-red-500 hover:bg-red-700 duration-200 ",
+        fechar: "bg-red-500 hover:bg-red-700 absolute top-3 right-1 duration-200",
         config: "bg-none hover:scale-110 hover:rotate-360 duration-5000"
     };
 

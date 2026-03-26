@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model alteracoes {
+  id                                  Int       @id @default(autoincrement())
+  tabela                              String?   @db.VarChar(20)
+  operacao                            String?
+  empresa                             Int?
+  usuario                             Int?
+  data                                DateTime? @default(now()) @db.Timestamptz(6)
+  empresa_alteracoes_empresaToempresa empresa?  @relation("alteracoes_empresaToempresa", fields: [empresa], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  usuarios                            usuarios? @relation(fields: [usuario], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model clientes {
+  id           Int          @id @default(autoincrement())
+  nome         String       @db.VarChar(20)
+  whatsapp     BigInt?
+  papel_grande Boolean?
+  empresa_id   Int?
+  documento    String?      @db.VarChar(12)
+  empresa      empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pagamentos   pagamentos[]
+  pedidos      pedidos[]
+}
+
+model contas {
+  id         Int       @id @default(autoincrement())
+  empresa_id Int?
+  usuario_id Int?
+  criacao    DateTime? @default(now()) @db.Timestamp(6)
+  data_conta DateTime  @db.Date
+  descricao  String    @db.VarChar(50)
+  valor      Decimal   @db.Decimal(10, 2)
+  status     String?   @db.VarChar(15)
+  empresa    empresa?  @relation(fields: [empresa_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuarios   usuarios? @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model empresa {
+  id                                     Int               @id @default(autoincrement())
+  nome                                   String
+  documento                              String?           @unique @db.VarChar(20)
+  created_at                             DateTime?         @default(now()) @db.Timestamp(6)
+  data_expiracao                         DateTime?         @db.Timestamp(6)
+  status                                 String?           @default("ativo") @db.VarChar(20)
+  plano                                  String?           @default("basico") @db.VarChar(50)
+  segmento                               String?           @default("geral") @db.VarChar(20)
+  valor_diaria                           Decimal?          @default(0) @db.Decimal(10, 2)
+  alteracoes_alteracoes_empresaToempresa alteracoes[]      @relation("alteracoes_empresaToempresa")
+  clientes                               clientes[]
+  contas                                 contas[]
+  empresa_settings                       empresa_settings?
+  pagamentos                             pagamentos[]
+  pedidos                                pedidos[]
+  usuarios                               usuarios[]
+}
+
+model empresa_settings {
+  id                Int       @id @default(autoincrement())
+  empresa_id        Int       @unique
+  usar_papel_grande Boolean   @default(false)
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+  cobranca_text     Int?
+  empresa           empresa   @relation(fields: [empresa_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model pagamentos {
+  id           Int      @id @default(autoincrement())
+  id_cliente   Int
+  valor        Decimal  @db.Decimal(10, 2)
+  nota_abatida Int
+  data         DateTime @db.Date
+  empresa_id   Int?
+  clientes     clientes @relation(fields: [id_cliente], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pagamentos_cliente")
+  empresa      empresa? @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pedidos      pedidos  @relation(fields: [nota_abatida], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model pedidos {
+  id             Int          @id @default(autoincrement())
+  id_cliente     Int?
+  valor_inicial  Decimal?     @default(0) @db.Decimal(10, 2)
+  valor_abatido  Decimal?     @default(0) @db.Decimal(10, 2)
+  valor_restante Decimal?     @default(0) @db.Decimal(10, 2)
+  data           DateTime     @db.Date
+  empresa_id     Int?
+  descricao      String?      @db.VarChar(255)
+  quantidade     Int?         @default(1)
+  valor_extra    Decimal?     @default(0) @db.Decimal(10, 2)
+  segmento       String?      @db.VarChar(20)
+  valor_unitario Decimal?     @db.Decimal(10, 2)
+  pagamentos     pagamentos[]
+  clientes       clientes?    @relation(fields: [id_cliente], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pedidos_cliente")
+  empresa        empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model snapshots {
+  id         Int       @id @default(autoincrement())
+  valor      Decimal?  @db.Decimal
+  empresa_id Int?
+  data       DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
+
+  @@unique([empresa_id, data], map: "snapshot_empresa_data_unique")
+}
+
+model usuarios {
+  id         Int          @id @default(autoincrement())
+  nome       String       @db.VarChar(30)
+  usuario    String       @unique(map: "usuarios_email_key") @db.VarChar(50)
+  senha      String
+  criacao    DateTime?    @default(now()) @db.Timestamp(6)
+  empresa_id Int?
+  role       String?      @default("user") @db.VarChar(20)
+  tipo       String       @default("cliente") @db.VarChar(10)
+  alteracoes alteracoes[]
+  contas     contas[]
+  empresa    empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}

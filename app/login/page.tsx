@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { enviarLogin } from './actions';
 import Swal from 'sweetalert2';
-import Cookies from 'js-cookie';
 import { useEffect } from 'react';
 
 export default function LoginPage() {
@@ -13,14 +12,12 @@ export default function LoginPage() {
     async function handleSubmit(formData: FormData) {
         const result = await enviarLogin(formData);
 
-        if (result.success) {
+        if (!result.success || !result.data) {
+            Swal.fire('Opa...', result.error || "Erro inesperado", 'error');
+            return;
+        }
 
-            Cookies.set('token', result.data.token, {
-                expires: 1,
-                path: '/',
-                sameSite: 'lax', // Garante que o cookie viaje entre rotas
-                secure: process.env.NODE_ENV === 'production'
-            });
+        if (result.success) {
 
             localStorage.setItem('empresa', JSON.stringify(result.data.empresa));
             localStorage.setItem('usuario', JSON.stringify(result.data.usuario));

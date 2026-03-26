@@ -8,13 +8,13 @@ import Titulo from "@/componentes/Titulo";
 import { useState, useTransition } from "react";
 import Swal from "sweetalert2";
 import cadastrarClienteBack from "./actions";
+import { Cliente } from "@/types";
 
-type Cliente = {
-    id: number,
-    nome: string,
-    whatsapp: string | null,
-    empresa_id: number,
-    documento: string
+
+interface RespostaCadastro {
+    success: boolean;
+    novoCliente?: Cliente; // Opcional, pois no erro ele pode não vir
+    error?: string;        // Opcional, para o caso de falha
 }
 
 type CriarProps = {
@@ -27,31 +27,26 @@ export default function CriarCliente({ sair, atualizar }: CriarProps) {
     const [nome, setNome] = useState('')
     const [whatsapp, setWhatsapp] = useState('')
     const [documento, setDocumento] = useState('')
+    const [loading, setLoading] = useState(false)
 
-    const [isPending, startTransition] = useTransition(); // 2. Defina o transition
 
 
     async function cadastrarCliente(formData: FormData) {
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        setLoading(true)
 
-        startTransition(async () => {
+        const result = await cadastrarClienteBack(formData) as RespostaCadastro
 
-            const result = await cadastrarClienteBack(formData)
+        if (result.success && result.novoCliente) {
+            Swal.fire('Sucesso!', 'Cliente cadastrado com sucesso!!', 'success')
+            atualizar(result.novoCliente)
 
-            if (result.success) {
-                Swal.fire('Sucesso!', 'Cliente cadastrado com sucesso!!', 'success')
-
-                console.log(result.data);
-
-
-                atualizar(result.data)
-
-                sair()
-            } else {
-                Swal.fire('Erro', result.error, 'error')
-            }
-        })
+            sair()
+            setLoading(false)
+        } else {
+            Swal.fire('Erro', result.error, 'error')
+            setLoading(false)
+        }
 
     }
 
@@ -69,7 +64,7 @@ export default function CriarCliente({ sair, atualizar }: CriarProps) {
                         </Label>
 
                         <Label texto="Whatsapp do cliente">
-                            <Input name="whatsaspp" tamanho="g" placeholder="ex: 11 99887-7665" type="text" value={whatsapp} onChange={(e) => setWhatsapp(e)} />
+                            <Input name="whatsapp" tamanho="g" placeholder="ex: 11 99887-7665" type="text" value={whatsapp} onChange={(e) => setWhatsapp(e)} />
                         </Label>
 
                         <Label texto="CPF/CNPJ">
@@ -82,7 +77,7 @@ export default function CriarCliente({ sair, atualizar }: CriarProps) {
                 </Container>
             </Cortina>
 
-            <Loading ativo={isPending} />
+            <Loading ativo={loading} />
         </>
     )
 }

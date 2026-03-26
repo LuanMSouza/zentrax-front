@@ -3,10 +3,22 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 export async function middleware(request: NextRequest) {
+
     const token = request.cookies.get('token')?.value;
+    
     const { pathname } = request.nextUrl;
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback_secret_key');
+    console.log('Path:', pathname, 'Tem Token:', !!token, 'env: ', process.env.JWT_SECRET)
+
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+
+    if (pathname === '/') {
+        if (token) {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+        return NextResponse.redirect(new URL('/login', request.url));
+    }
+
 
     if (pathname === '/login') {
         if (!token) return NextResponse.next();
@@ -28,6 +40,7 @@ export async function middleware(request: NextRequest) {
             await jwtVerify(token, secret);
             return NextResponse.next();
         } catch (error) {
+            console.error("FALHA NO VERIFY DO DASHBOARD:", error); // Adicione isso!
             const response = NextResponse.redirect(new URL('/login', request.url));
             response.cookies.delete('token');
             return response;

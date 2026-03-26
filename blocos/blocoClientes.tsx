@@ -1,28 +1,7 @@
-import { useState } from "react";
+'use client'
 
-type ClienteEmAberto = {
-    id: number,
-    nome: string,
-    total: string,
-    quantidade_de_notas: number,
-    mais_nova: string,
-    mais_antiga: string
-}
+import { Notas, ClienteEmAberto } from '@/types'
 
-type Notas = {
-    id: number,
-    id_cliente: number,
-    valor_inicial: number,
-    valor_abatido: number,
-    valor_restante?: number, // Adicionado para garantir o cálculo
-    data: Date,
-    empresa_id: number,
-    descricao: string,
-    quantidade: number,
-    valor_extra: number,
-    segmento: string,
-    valor_unitario: number
-}
 
 type BlocoProps = {
     clientes: ClienteEmAberto[],
@@ -56,7 +35,7 @@ export function BlocoClientes({ clientes, onClick, valor }: BlocoProps) {
                 <div
                     onClick={() => onClick(c)}
                     className="bg-white p-6 px-4 border border-gray-300 shadow-md shadow-gray-700 rounded-2xl w-2/9 cursor-pointer
-                    duration-200 flex flex-col items-center justify-center hover:bg-blue-100 hover:scale-105"
+                    duration-200 flex flex-col items-center justify-center hover:bg-blue-100 hover:scale-105 "
                     key={c.id}>
 
                     <p className="text-2xl font-bold">{c.nome}</p>

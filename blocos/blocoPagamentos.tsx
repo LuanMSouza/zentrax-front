@@ -3,21 +3,19 @@
 import { Button } from "@/componentes/Buttons";
 import { useState } from "react";
 
-type Pagamento = {
-    id: number,
-    cliente: string,
-    valor: number,
-    data: string
-}
+import { Pagamentos } from "@/types";
 
-type Pagamentos = {
-    pagamentos: Pagamento[],
+type PagamentoProps = {
+    pagamentos: Pagamentos[],
     MostrarValor: boolean
 }
 
-export default function BlocoPagamentos({ pagamentos, MostrarValor }: Pagamentos) {
+export default function BlocoPagamentos({ pagamentos, MostrarValor }: PagamentoProps) {
+
+
+
     const [mostrando, setMostrando] = useState(4);
-    const lista = pagamentos.length;
+    const lista = pagamentos?.length;
 
     function formatarValor(valor: number) {
         return new Intl.NumberFormat('pt-BR', {
@@ -44,9 +42,10 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor }: Pagamentos
                                 className="bg-white p-2 px-4 border border-gray-300 shadow-md shadow-gray-700 rounded-2xl w-2/9 duration-200 flex flex-col items-center"
                                 key={p.id}
                             >
-                                <p className="text-xl font-semibold">{p.cliente}</p>
-                                <p className="text-sm italic text-gray-600">{p.data}</p>
-                                <p className="text-xl font-semibold">{formatarValor(p.valor)}</p>
+                                <p className="text-xl font-semibold">{p.clientes?.nome}</p>
+                                <p className="text-sm italic text-gray-600">
+                                    {new Date(p.data).toLocaleDateString('pt-BR')}
+                                </p>                                <p className="text-xl font-semibold">{formatarValor(p.valor)}</p>
                             </div>
                         ))}
                     </div>
