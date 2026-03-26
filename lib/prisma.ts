@@ -7,8 +7,7 @@ const prismaClientSingleton = () => {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
     // 2. Cria o adaptador que o Prisma 7 exige
-    const adapter = new PrismaPg(pool)
-
+    const adapter = new PrismaPg(pool as unknown as ConstructorParameters<typeof PrismaPg>[0])
     // 3. Instancia o cliente passando o adaptador
     return new PrismaClient({ adapter })
 }
