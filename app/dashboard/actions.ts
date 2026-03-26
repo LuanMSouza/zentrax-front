@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from 'next/headers';
 import { jwtVerify } from 'jose';
 import autenticar from "@/lib/auth";
-import { success } from "zod";
+import { any, success } from "zod";
 
 interface ClienteSQL {
     id: number;
@@ -59,7 +59,7 @@ export async function pegarClientesBack() {
         });
 
         // 3. Limpeza dos dados para o Client Component (JSON Safe)
-        const emAbertoLimpo = emAberto.map(item => ({
+        const emAbertoLimpo = emAberto.map((item: any) => ({
             ...item,
             id: Number(item.id),
             quantidade_de_notas: Number(item.quantidade_de_notas),
