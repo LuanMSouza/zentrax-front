@@ -1,42 +1,16 @@
 'use server'
 
 import prisma from "@/lib/prisma";
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
 import autenticar from "@/lib/auth";
-import { any, success } from "zod";
-
-interface ClienteSQL {
-    id: number;
-    nome: string;
-    whatsapp: string | null;
-    papel_grande: boolean;
-    quantidade_de_notas: number | bigint;
-    total: any;
-    mais_antiga: Date | string;
-    mais_nova: Date | string;
-}
-
-interface Pagamento {
-    id: Number,
-    data: Date,
-    valor: Number,
-    nome: String
-}
 
 export async function pegarClientesBack() {
 
+    const payload = (await autenticar())!
+
+    const empresaId = Number(payload.empresa_id);
+
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('token')?.value;
 
-        if (!token) return { success: false, error: "Não autenticado" };
-
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-        const { payload } = await jwtVerify(token, secret);
-        const empresaId = Number(payload.empresa_id);
-
-        // 1. Descomentei e Tipagem correta para evitar o erro de Decimal
         const emAberto = await prisma.$queryRaw<any[]>`
             SELECT 
                 c.id, c.nome, c.whatsapp, c.papel_grande,
@@ -89,16 +63,10 @@ export async function pegarClientesBack() {
 
 export async function pegarNotasBack() {
 
+    const payload = (await autenticar())!
+    const empresaId = Number(payload.empresa_id);
+
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('token')?.value;
-
-        if (!token) return { success: false, error: "Sessão expirada." };
-
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback');
-        const { payload } = await jwtVerify(token, secret);
-        const empresaId = Number(payload.empresa_id);
-
         const notas = await prisma.pedidos.findMany({
             where: { empresa_id: empresaId },
             orderBy: { data: 'desc' }
@@ -117,16 +85,10 @@ export async function pegarNotasBack() {
 
 export async function pegarPagamentosBack() {
 
+    const payload = (await autenticar())!
+    const empresaId = Number(payload.empresa_id);
+
     try {
-
-        const cookieStore = await cookies();
-        const token = cookieStore.get('token')?.value;
-
-        if (!token) return { success: false, error: "Sessão expirada." };
-
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback');
-        const { payload } = await jwtVerify(token, secret);
-        const empresaId = Number(payload.empresa_id);
 
         const pagamentosRaw = await prisma.pagamentos.findMany({
             where: {

@@ -2,19 +2,29 @@
 
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { redirect } from 'next/navigation'
 
 export default async function autenticar() {
+    let authenticated = false;
+    let payload = null;
+
     try {
         const cookieStore = await cookies()
         const token = cookieStore.get('token')?.value
 
-        if (!token) return { success: false, error: "Não autenticado" };
-
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-        const { payload } = await jwtVerify(token, secret);
-        return payload
-        
+        if (token) {
+            const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+            const verified = await jwtVerify(token, secret);
+            payload = verified.payload;
+            authenticated = true;
+        }
     } catch (error) {
-        return null
+        authenticated = false;
     }
+
+    if (!authenticated) {
+        redirect('/login');
+    }
+
+    return payload;
 }

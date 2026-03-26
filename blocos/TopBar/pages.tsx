@@ -37,7 +37,7 @@ export default function TopBar() {
         window.location.href = '/login';
     }
 
-    const [config, setConfig] = useState(true)
+    const [config, setConfig] = useState(false)
 
     const atualizarDadosPerfil = (res: any) => {
         const novoUsuario = res.usuarioNovo[0];
