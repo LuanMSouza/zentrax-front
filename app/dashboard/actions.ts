@@ -69,7 +69,10 @@ export async function pegarNotasBack() {
     try {
         const notas = await prisma.pedidos.findMany({
             where: { empresa_id: empresaId },
-            orderBy: { data: 'desc' }
+            orderBy: [
+                { data: 'desc' },
+                { id: 'desc' }
+            ]
         });
 
         return {
@@ -94,6 +97,7 @@ export async function pegarPagamentosBack() {
             where: {
                 empresa_id: Number(empresaId)
             },
+            orderBy: { data: 'desc', id: 'desc' },
             include: { clientes: true }
         });
 

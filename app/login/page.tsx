@@ -3,11 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { enviarLogin } from './actions';
 import Swal from 'sweetalert2';
-import { useEffect } from 'react';
+import { useEffect, useTransition } from 'react';
 
 export default function LoginPage() {
 
     const router = useRouter();
+    const [isPending, startTransition] = useTransition();
 
     async function handleSubmit(formData: FormData) {
         const result = await enviarLogin(formData);
@@ -23,7 +24,10 @@ export default function LoginPage() {
             localStorage.setItem('usuario', JSON.stringify(result.data.usuario));
             localStorage.setItem('settings', JSON.stringify(result.data.settings));
 
-            router.push('/dashboard');
+            startTransition(() => {
+                router.push('/dashboard');
+                router.refresh();
+            });
         } else {
             Swal.fire('Opa...', result.error, 'error');
         }

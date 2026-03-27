@@ -50,11 +50,11 @@ export async function enviarLogin(formData: FormData) {
 
         const cookieStore = await cookies();
         cookieStore.set('token', token, {
-            httpOnly: true, // O JS do front NÃO consegue ler. Protege contra roubo.
+            httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
-            maxAge: 60 * 60 * 24 // 1 dia
+            maxAge: 60 * 60 * 24
         });
 
         return {

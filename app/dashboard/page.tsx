@@ -2,7 +2,7 @@
 import Titulo from "@/componentes/Titulo";
 import Container from "@/componentes/Container";
 import { Button } from "@/componentes/Buttons";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import Input from "@/componentes/Inputs"
 import Selects from "@/componentes/Select";
 import { BlocoClientes } from "@/blocos/blocoClientes";
@@ -19,49 +19,45 @@ import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import { Cliente, Pagamentos, Notas, ClienteEmAberto } from '@/types'
 
 export default function Home() {
-
     // Modais
     const [modalCriarCliente, setModalCriarCliente] = useState(false)
     const [modalLancarNotas, setModalLancarNotas] = useState(false)
     const [modalClienteDetalhado, setModalClienteDetalhado] = useState(false)
-    // 
-
 
     const [mostrarValores, setMostrarValores] = useState(false)
     const [filtro, setFiltro] = useState('')
     const [arrumacao, setArrumacao] = useState('nome_asc')
     const [loading, setLoading] = useState(true)
 
-    // 
     const [clientes, setClientes] = useState<Cliente[]>([])
     const [notas, setNotas] = useState<Notas[]>([])
     const [pagamentos, setPagamentos] = useState<Pagamentos[]>([])
     const [clienteSelect, setClienteSelect] = useState<ClienteEmAberto | null>(null);
 
-
     async function carregarDados() {
-
-        setLoading(true)
-
+        setLoading(true);
         try {
-            const resClientes = await pegarClientesBack()
-            const resNotas = await pegarNotasBack()
-            const resPagamentos = await pegarPagamentosBack()
+            const resClientes = await pegarClientesBack();
+            const resNotas = await pegarNotasBack();
+            const resPagamentos = await pegarPagamentosBack();
 
-            if (!resClientes.data) {
-                throw new Error
+            if (resClientes.success && resClientes.data) {
+                setClientes(resClientes.data.clientes);
             }
 
-            if (resClientes.success) setClientes(resClientes.data.clientes)
-            if (resNotas.success) setNotas(resNotas.data)
-
-            if (resPagamentos.pagamentos) {
-                if (resPagamentos.success) setPagamentos(resPagamentos.pagamentos)
+            if (resNotas.success && resNotas.data) {
+                setNotas(resNotas.data);
             }
+
+            if (resPagamentos.success && resPagamentos.pagamentos) {
+                setPagamentos(resPagamentos.pagamentos);
+            }
+
         } catch (error) {
-            Swal.fire('Erro', 'Erro ao buscar clientes', 'error')
+            console.error("Erro no fetch:", error);
+            Swal.fire('Erro', 'Erro ao buscar dados', 'error');
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     }
 
@@ -70,7 +66,6 @@ export default function Home() {
     }, [])
 
     function atualizarNotas(novaNota: Notas) {
-
         try {
             setNotas((prev) => [novaNota, ...prev]);
         } catch (error) {
@@ -83,27 +78,26 @@ export default function Home() {
     }
 
     const listaDinamica = clientes.map(c => {
+        if (!notas) return null;
 
-        if (!notas) return
-
-        const notasDoCliente = notas?.filter(n =>
+        const notasDoCliente = notas.filter(n =>
             Number(n.id_cliente) === Number(c.id) &&
             (Number(n.valor_inicial) - Number(n.valor_abatido) > 0)
         );
 
-        if (notasDoCliente?.length === 0) return null;
+        if (notasDoCliente.length === 0) return null;
 
-        const total = notasDoCliente?.reduce((acc, n) =>
+        const total = notasDoCliente.reduce((acc, n) =>
             acc + (Number(n.valor_inicial) - Number(n.valor_abatido)), 0
         );
 
-        const datas = notasDoCliente?.map(n => new Date(n.data).getTime());
+        const datas = notasDoCliente.map(n => new Date(n.data).getTime());
 
         return {
             id: c.id,
             nome: c.nome,
-            total: total?.toString(),
-            quantidade_de_notas: notasDoCliente?.length,
+            total: total.toString(),
+            quantidade_de_notas: notasDoCliente.length,
             mais_antiga: new Date(Math.min(...datas)).toISOString(),
             mais_nova: new Date(Math.max(...datas)).toISOString()
         };
@@ -121,11 +115,10 @@ export default function Home() {
         return 0;
     });
 
+    // LOG FINAL DE PROCESSAMENTO
     function atualizarNotasAposPagamento(notasAbatidas: Notas[]) {
         setNotas(prevNotas => prevNotas.map(notaOriginal => {
-            // 1. Procura se a nota original está dentro do array de notas que foram mexidas
             const notaNova = notasAbatidas.find(n => n.id === notaOriginal.id);
-
             if (notaNova) {
                 return {
                     ...notaOriginal,
@@ -179,20 +172,9 @@ export default function Home() {
             </Container>
 
             {/* Modais */}
-
-            {modalCriarCliente &&
-                <CriarCliente
-                    atualizar={atualizarClientes}
-                    sair={() => setModalCriarCliente(false)} />}
-
-            {modalLancarNotas &&
-                <ModalLançarNotas
-                    clientes={clientes}
-                    atualizar={atualizarNotas}
-                    sair={() => setModalLancarNotas(false)} />}
-
-            {modalClienteDetalhado &&
-                clienteSelect &&
+            {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}
+            {modalLancarNotas && <ModalLançarNotas clientes={clientes} atualizar={atualizarNotas} sair={() => setModalLancarNotas(false)} />}
+            {modalClienteDetalhado && clienteSelect && (
                 <ClienteDetalhado
                     sair={() => {
                         setClienteSelect(null)
@@ -201,10 +183,10 @@ export default function Home() {
                     cliente={clienteSelect}
                     notas={notas.filter(n => Number(n.id_cliente) === Number(clienteSelect.id))}
                     atualizar={atualizarNotasAposPagamento}
-                />}
-
+                />
+            )}
 
             <Loading ativo={loading} />
         </>
     );
-}   
+}

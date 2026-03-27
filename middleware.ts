@@ -3,13 +3,8 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 export async function middleware(request: NextRequest) {
-
     const token = request.cookies.get('token')?.value;
-    
     const { pathname } = request.nextUrl;
-
-    console.log('Path:', pathname, 'Tem Token:', !!token, 'env: ', process.env.JWT_SECRET)
-
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
     if (pathname === '/') {
@@ -51,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/dashboard/:path*', '/login'],
+    matcher: ['/dashboard/:path*', '/login', '/'],
 };

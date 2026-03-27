@@ -1,7 +1,6 @@
 import prisma from "./prisma";
 
 type Log = {
-    // Adicionei 'string' para não travar em outras tabelas do Zentrax
     tabela: 'Pagamentos' | 'Clientes' | 'Pedidos' | string,
     operacao: string,
     empresa_id: number, // Use minúsculo
