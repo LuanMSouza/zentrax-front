@@ -256,7 +256,7 @@ export async function CobrarBack(id: number) {
 
 
     switch (modalDaMensagem?.cobranca_text) {
-
+ 
         case 1:
             mensagem = `Olá, ${dadosDoCliente.nome}! Tudo bem? Passando apenas para te lembrar da(s) nota(s) em aberto no valor de ${FormatarValor(dadosDoCliente.totalDevedor)}. Consegue nos enviar o comprovante?`;
             break;

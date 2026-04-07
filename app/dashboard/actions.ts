@@ -97,7 +97,7 @@ export async function pegarPagamentosBack() {
             where: {
                 empresa_id: Number(empresaId)
             },
-            orderBy: { data: 'desc', id: 'desc' },
+            orderBy: [{ data: 'desc' }, { id: 'desc' }],
             include: { clientes: true }
         });
 
@@ -115,7 +115,7 @@ export async function pegarPagamentosBack() {
             pagamentos
         }
     } catch (error) {
-
+        console.error("Erro ao buscar pagamentos:", error);
         return {
             success: false,
             error

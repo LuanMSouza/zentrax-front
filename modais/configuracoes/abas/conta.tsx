@@ -117,7 +117,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
 
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-cyan-400">Usuários</h2>
+            <h2 className="text-xl font-semibold text-indigo-400">Usuários</h2>
 
             <div className="grid gap-2 relative p-2 px-4 min-h-45">
 
@@ -156,7 +156,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
 
                 <button
                     onClick={criarConta}
-                    className="bg-cyan-400 active:scale-95 duration-100 cursor-pointer p-2 text-xl text-black rounded ">Adicionar Conta</button>
+                    className="bg-indigo-400 active:scale-95 duration-100 cursor-pointer p-2 text-xl text-white rounded ">Adicionar Conta</button>
             </div>
 
 

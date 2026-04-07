@@ -39,7 +39,7 @@ export default function Home() {
         try {
             const resClientes = await pegarClientesBack();
             const resNotas = await pegarNotasBack();
-            const resPagamentos = await pegarPagamentosBack();
+            const resPagamentos = await pegarPagamentosBack(); 
 
             if (resClientes.success && resClientes.data) {
                 setClientes(resClientes.data.clientes);
