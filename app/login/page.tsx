@@ -49,9 +49,9 @@ export default function LoginPage() {
 
     return (
         <div className='w-screen flex items-center justify-center h-screen overflow-hidden '>
-            <div className="grid grid-cols-[3fr_1fr] gap-7 w-11/12 h-full items-center">
+            <div className="lg:grid flex justify-center lg:grid-cols-[3fr_1fr] gap-7 w-11/12 h-full items-center">
 
-                <div className='bg-amber-600 h-11/12 rounded-3xl shadow-lg shadow-gray-900 border-3 border-white overflow-hidden relative'>
+                <div className='bg-amber-600 h-11/12 rounded-3xl shadow-lg lg:block hidden shadow-gray-900 border-3 border-white overflow-hidden relative'>
                     <img
                         className='w-full h-full filter grayscale-100 z-0'
                         src="https://images.pexels.com/photos/164686/pexels-photo-164686.jpeg" alt="Foto caderno cheio" />

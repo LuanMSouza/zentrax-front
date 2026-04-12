@@ -10,7 +10,7 @@ type SelectProps = {
 export default function Selects({ children, value, onChange, tamanho }: SelectProps) {
 
     const tamanhos = {
-        p: 'w-1/5',
+        p: 'lg:w-1/5  ',
         g: 'w-full'
     }
 

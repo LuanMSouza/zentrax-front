@@ -36,13 +36,13 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor }: PagamentoP
         <>
             {MostrarValor ? (
                 <div className="flex flex-col items-center w-full"> {/* Container para alinhar tudo */}
-                    <div className="w-full flex items-center justify-center gap-4 flex-wrap py-4 rounded-2xl">
+                    <div className="w-full  flex items-center justify-center gap-4 flex-wrap py-4 rounded-2xl">
                         {pagamentos.slice(0, mostrando).map(p => (
                             <div
-                                className="bg-white p-2 px-4 border border-gray-300 shadow-md shadow-gray-700 rounded-2xl w-2/9 duration-200 flex flex-col items-center"
+                                className="bg-white min-w-full sm:min-w-35 p-2 px-4 border border-gray-300 shadow-md shadow-gray-700 rounded-2xl w-2/9 duration-200 flex flex-col items-center"
                                 key={p.id}
                             >
-                                <p className="text-xl font-semibold">{p.clientes?.nome}</p>
+                                <p className="lg:text-xl text-base font-semibold truncate">{p.clientes?.nome}</p>
                                 <p className="text-sm italic text-gray-600">
                                     {new Date(p.data).toLocaleDateString('pt-BR')}
                                 </p>                                <p className="text-xl font-semibold">{formatarValor(p.valor)}</p>

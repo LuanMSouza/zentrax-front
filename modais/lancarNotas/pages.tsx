@@ -106,7 +106,7 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
                 <Titulo texto="Lançar nota" cor="preto" />
                 <Button tamanho="g" texto="X" tipo="fechar" corTexto="branco" onClick={sair} />
 
-                <form className="w-5/6 flex items-center justify-center flex-col gap-4   "
+                <form className="w-full flex items-center justify-center flex-col gap-4 "
                     onSubmit={enviar}>
 
                     <Label texto="Cliente">

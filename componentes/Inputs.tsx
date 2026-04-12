@@ -10,7 +10,7 @@ type InputProps = {
 export default function Input({ placeholder, type, value, onChange, tamanho, name }: InputProps) {
 
     const tamanhos = {
-        m: 'w-2/5',
+        m: 'lg:w-2/5',
         g: 'w-full',
         a: 'w-fit'
     }

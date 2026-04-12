@@ -11,7 +11,7 @@ export default function Titulo({ texto, cor }: titulo) {
     }
 
     return (
-        <h1 className={`text-4xl text-center font-bold ${cores[cor]}`}>
+        <h1 className={`md:text-4xl text-2xl text-center font-bold ${cores[cor]}`}>
             {texto}
         </h1 >
     )

@@ -211,24 +211,24 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: De
                 <Titulo cor="preto" texto={cliente.nome} />
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="g" corTexto="branco" />
 
-                <div className="grid grid-cols-4 w-8/9 p-4 items-center justify-center gap-4">
+                <div className="grid  md:grid-cols-4 sm:grid-cols-2 w-8/9 p-4 items-center justify-center gap-1 md:gap-4">
 
                     <div className="bg-cyan-100  p-2 w-full border-3 rounded-2xl flex flex-col justify-center items-center border-cyan-400 shadow shadow-cyan-700">
-                        <p className=" text-xl">Total em aberto:</p>
-                        <p className="text-2xl font-bold">{formatarValor(String(totalAtualizado))}</p>
+                        <p className=" md:text-xl">Total em aberto:</p>
+                        <p className="md:text-2xl text-xl font-bold">{formatarValor(String(totalAtualizado))}</p>
                     </div>
 
                     <Button maxw="full" onClick={() => lancarPagamento(cliente.id)} texto="Pagamento" tipo="btn03" tamanho="g" corTexto="branco" />
                     <Button maxw="full" onClick={() => cobrar(cliente.id)} texto="Cobrar Cliente" tipo="btn03" tamanho="g" corTexto="branco" />
 
                     <div className="bg-cyan-100  p-2 w-full border-3 rounded-2xl flex flex-col justify-center items-center border-cyan-400 shadow shadow-cyan-700">
-                        <p className=" text-xl">Notas em aberto:</p>
+                        <p className=" md:text-xl">Notas em aberto:</p>
                         <p className="text-2xl font-bold">{quantidadeNotasAtivas}</p>
                     </div>
 
                 </div>
 
-                <div className=" cursor-default flex flex-col w-full gap-2 max-h-120 overflow-y-auto">
+                <div className=" cursor-default flex flex-col w-full gap-2 max-h-80 overflow-y-auto">
                     {notas.map((n) => {
 
                         let taPago = Number(n.valor_inicial) - Number(n.valor_abatido) === 0
@@ -245,14 +245,13 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: De
                                 className={` ${taPago ? opacidades.pago : opacidades.aberto} border border-gray-400 p-2 px-7 rounded-2xl shadow shadow-cyan-500 
                             justify-between flex`}>
 
-
                                 {/* esquerda */}
                                 {segmento === 'geral' &&
                                     <div className=" flex flex-col justify-center">
                                         <p className="text-xl font-bold">{formatarValor(String(n.valor_inicial - n.valor_abatido))}</p>
                                         <p className=" italic text-gray-800">{n.descricao}</p>
                                         <p className="text-gray-600">{formatarData(n.data)}</p>
-                                        {(Number(n.valor_abatido) > 0 && Number(n.valor_abatido) < Number(n.valor_inicial)) && (
+                                        {(Number(n.valor_abatido) > 0) && (
                                             <div className="italic text-sm text-gray-500">
                                                 <hr className="border-gray-300 my-1" />
                                                 <p>Valor inicial: {formatarValor(n.valor_inicial)}</p>

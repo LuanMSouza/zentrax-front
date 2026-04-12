@@ -115,7 +115,6 @@ export default function Home() {
         return 0;
     });
 
-    // LOG FINAL DE PROCESSAMENTO
     function atualizarNotasAposPagamento(notasAbatidas: Notas[]) {
         setNotas(prevNotas => prevNotas.map(notaOriginal => {
             const notaNova = notasAbatidas.find(n => n.id === notaOriginal.id);

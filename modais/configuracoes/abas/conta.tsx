@@ -133,7 +133,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
                         if (u.id === usuario.id) return
 
                         return (
-                            <div key={u.id} className="p-3 bg-gray-800 rounded border border-gray-700 flex justify-between">
+                            <div key={u.id} className="p-3 w-full bg-gray-800 rounded border border-gray-700 flex justify-between">
                                 <p>{u.nome} - <span className="text-gray-400 text-sm">{u.usuario}</span></p>
                                 <div className=" flex gap-1">
                                     <button onClick={() => excluirConta(u.id)} className="bg-red-700 cursor-pointer rounded w-5 h-5 flex justify-center items-center">X</button>

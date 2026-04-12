@@ -1,5 +1,7 @@
 @import "tailwindcss";
-html, body {
+
+html,
+body {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
@@ -26,4 +28,8 @@ html, body {
   src: url('../public/PlaywriteNZBasic-VariableFont_wght.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+}
+
+.is-electron body {
+  padding-top: 32px;
 }

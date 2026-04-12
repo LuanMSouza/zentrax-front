@@ -2,6 +2,7 @@
 import autenticar from "@/lib/auth";
 import prisma from "@/lib/prisma"
 import bcrypt from 'bcrypt';
+import { boolean, success } from "zod";
 
 export async function ConfirmarSenha({ id, senha }: { id: number, senha: string }) {
     try {
@@ -107,9 +108,6 @@ export async function PegarUsuariosDaConta({ id }: { id: number }) {
         }
     })
 
-    console.log(id);
-
-
     return {
         success: true,
         usuarios
@@ -148,4 +146,87 @@ export async function ApagarContaBack(id: number) {
 
     }
 
+}
+
+// pegar preferencias
+
+type Preferencias = {
+    empresa_id: number,
+    usar_papel_grande?: boolean,
+    cobranca_text?: number | null
+    avisar: boolean
+}
+
+export async function PegarPreferenciasBack() {
+    const Auth = await autenticar()
+
+    if (!Auth) {
+        return {
+            success: false,
+            error: "Sessão expirada ou inválida"
+        }
+    }
+
+    const preferencias: Preferencias | null = await prisma.empresa_settings.findFirst({
+        where: {
+            empresa_id: Number(Auth.empresa_id)
+        },
+        select: {
+            empresa_id: true,
+            cobranca_text: true,
+            avisar: true
+        }
+    })
+
+    if (preferencias) {
+        return {
+            success: true,
+            data: preferencias
+        }
+    }
+
+    else {
+        return {
+            success: false,
+            error: `erro ao buscar dados!!`
+        }
+    }
+
+
+}
+
+// enviar preferencias
+export async function AtualizarPreferencias(preferencias: Preferencias) {
+
+    const Auth = await autenticar()
+
+    if (!Auth) {
+        return {
+            success: false,
+            error: "Sessão expirada ou inválida"
+        }
+    }
+
+    try {
+        await prisma.empresa_settings.update({
+            where: {
+                empresa_id: Number(Auth.empresa_id)
+            },
+            data: {
+                avisar: Boolean(preferencias.avisar),
+                cobranca_text: Number(preferencias.cobranca_text)
+            }
+        })
+
+        return {
+            success: true,
+        }
+
+    } catch (error: any) {
+
+        return {
+            success: false,
+            error
+        }
+    }
 }

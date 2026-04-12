@@ -9,7 +9,7 @@ export default function Container({ children, tamanho }: LayoutProps) {
 
     const tamanhos = {
         g: 'w-11/12 z-100',
-        m: 'w-7/12 fixed inset-0 m-auto h-fit',
+        m: 'md:w-7/12 w-10/12 fixed inset-0 m-auto h-fit',
         mg: 'w-10/12 fixed inset-0 m-auto h-fit',
         p: 'w-fit fixed inset-0 m-auto h-fit'
     }
