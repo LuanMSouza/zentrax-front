@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ZentraX",
   description: "Gerenciador de cobranças",
+  appleWebApp: {
+    title: 'Zentrax',
+    statusBarStyle: 'default',
+  },
 };
 
 export default function RootLayout({
