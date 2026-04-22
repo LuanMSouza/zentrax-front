@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import './globals.css'
+import { Titlebar } from "@/blocos/titlebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,20 +29,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-br">
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                if (navigator.userAgent.toLowerCase().includes('electron')) {
-                  document.documentElement.classList.add('is-electron');
-                }
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="...">
+        <Titlebar /> {/* O Next.js entende que só este pedaço é Client Side */}
         {children}
       </body>
     </html>
