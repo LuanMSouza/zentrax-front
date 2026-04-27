@@ -51,6 +51,16 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
 
     const [abrirTextoCobranca, setAbrirTextoCobranca] = useState(false)
 
+    const hardRefresh = async () => {
+        if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let registration of registrations) {
+                registration.unregister();
+            }
+        }
+        window.location.href = window.location.href;
+    };
+
     return (
         <div className="space-y-4">
             <h2 className="text-xl font-semibold">Preferências do App</h2>
@@ -90,6 +100,8 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                 />}
 
             {/* ver se teve alteracao */}
+
+            <button onClick={hardRefresh} className=" w-full pc-2 py-1 bg-red-600 text-white font-bold cursor-pointer rounded">Forçar atualiação</button>
 
             {preferenciasSalvas !== novasPreferencias && (
                 <div className="w-full flex alig-center justify-center">
