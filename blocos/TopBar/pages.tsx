@@ -16,48 +16,6 @@ export default function TopBar() {
     const [diasRestantes, setDiasRestantes] = useState(0o0);
 
     useEffect(() => {
-        Swal.fire(`O ZentraX ta de cara nova!!`,
-            `Como atualizacoes podem gerar desconforto, qualquer duvidas, podem chamar diretamente no whataspp da DVLS, (13)99808-7787`,
-            `success`)
-
-        const userSalvo = localStorage.getItem('usuario');
-        const empresaSalva = localStorage.getItem('empresa');
-        const settingsSalva = localStorage.getItem('settings');
-
-        if (userSalvo) {
-            try {
-                const parsedUser = JSON.parse(userSalvo);
-                setUsuario(parsedUser);
-                setNome(parsedUser?.nome ?? '');
-            } catch (e) { console.error(e); }
-        }
-
-        if (empresaSalva) {
-            try {
-                const empresaObj = JSON.parse(empresaSalva);
-                setEmpresa(empresaObj);
-
-                const dataExp = new Date(empresaObj.expiracao);
-                const hoje = new Date();
-
-                const diferencaMs = dataExp.getTime() - hoje.getTime();
-                const dias = Math.ceil(diferencaMs / (1000 * 60 * 60 * 24));
-
-                setDiasRestantes(dias);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        if (settingsSalva) {
-            try {
-                const parsedSettings = JSON.parse(settingsSalva);
-                setSettings(parsedSettings);
-            } catch (e) { console.error(e); }
-        }
-    }, []);
-
-    useEffect(() => {
         if (settings && diasRestantes !== null) {
 
             // Aviso de tela nova

@@ -11,8 +11,7 @@ type PagamentoProps = {
 }
 
 export default function BlocoPagamentos({ pagamentos, MostrarValor }: PagamentoProps) {
-
-
+    
 
     const [mostrando, setMostrando] = useState(4);
     const lista = pagamentos?.length;
