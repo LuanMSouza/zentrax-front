@@ -42,5 +42,5 @@ Acesse [http://localhost:3000](http://localhost:3000).
 
 <p align="center">
   Feito por <a href="https://github.com/LuanMSouza"><b>Luan Souza</b></a> •
-  <a href="https://luansouzadev.com.br">luansouzadev.com.br</a>
+  <a href="https://dvls.com.br"><b>DVLS.com.br</b></a> — Criação de sites na região de Santos, SP
 </p>
