@@ -2,7 +2,6 @@ import TextoCobrancaConfig from "@/modais/textoCobranca/pages"
 import { useEffect, useState } from "react"
 import { AtualizarPreferencias, PegarPreferenciasBack } from "./actions"
 import Swal from "sweetalert2"
-import { Button } from "@/componentes/Buttons"
 
 type Preferencias = {
     empresa_id: number,
@@ -63,9 +62,12 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
 
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Preferências do App</h2>
+            <h2 className="text-xl font-semibold text-indigo-400">Preferências do App</h2>
 
-            <div className="flex items-center gap-3">
+            <label
+                htmlFor="notif"
+                className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded p-3 cursor-pointer"
+            >
                 <input
                     type="checkbox"
                     id="notif"
@@ -77,15 +79,20 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                             avisar: valor
                         }));
                     }}
-                    className="accent-indigo-400 w-5 h-5 cursor-pointer"
+                    className="accent-indigo-400 w-5 h-5 cursor-pointer shrink-0"
                 />
-                <label className="cursor-pointer text-sm md:text-base" htmlFor="notif">Avisar 4 dias antes de vencer a assinatura</label>
-            </div>
+                <span className="text-gray-300 text-sm md:text-base">Avisar 4 dias antes de vencer a assinatura</span>
+            </label>
 
-            <div className="flex items-center gap-3 mt-5">
-                <label className="text-sm md:text-base" htmlFor="cobranca">Selecione seu texto de cobrança</label>
-                <button id="cobranca" onClick={() => setAbrirTextoCobranca(true)} className="cursor-pointer bg-indigo-400 hover:bg-indigo-500 text-white py-2 px-4 rounded">
-                    Clique aqui</button>
+            <div className="flex items-center justify-between gap-3 bg-gray-800 border border-gray-700 rounded p-3">
+                <span className="text-gray-300 text-sm md:text-base">Selecione seu texto de cobrança</span>
+                <button
+                    id="cobranca"
+                    onClick={() => setAbrirTextoCobranca(true)}
+                    className="cursor-pointer bg-indigo-500 hover:bg-indigo-600 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0"
+                >
+                    Clique aqui
+                </button>
             </div>
 
             {abrirTextoCobranca &&
@@ -99,14 +106,20 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                     sair={() => setAbrirTextoCobranca(false)}
                 />}
 
-            {/* ver se teve alteracao */}
-
-            <button onClick={hardRefresh} className=" w-full pc-2 py-1 bg-red-600 text-white font-bold cursor-pointer rounded">Forçar atualiação</button>
+            <button
+                onClick={hardRefresh}
+                className="w-full py-2 bg-red-700 hover:bg-red-800 active:scale-95 transition-all text-white font-semibold cursor-pointer rounded"
+            >
+                Forçar atualização
+            </button>
 
             {preferenciasSalvas !== novasPreferencias && (
-                <div className="w-full flex alig-center justify-center">
-                    <Button onClick={enviar} tamanho="g" tipo="btn01" corTexto="branco" texto="Salvar" />
-                </div>
+                <button
+                    onClick={enviar}
+                    className="w-full bg-indigo-500 hover:bg-indigo-600 active:scale-95 transition-all text-white font-bold py-2 px-4 rounded"
+                >
+                    Salvar
+                </button>
             )}
 
         </div>
