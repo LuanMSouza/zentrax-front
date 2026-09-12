@@ -36,6 +36,14 @@ export async function enviarLogin(formData: FormData) {
             senhaValida = await bcrypt.compare(senha, usuario.senha);
         } else {
             senhaValida = senha === usuario.senha;
+
+            if (senhaValida) {
+                const novoHash = await bcrypt.hash(senha, 10);
+                await prisma.usuarios.update({
+                    where: { id: usuario.id },
+                    data: { senha: novoHash }
+                });
+            }
         }
 
         if (!senhaValida) {
