@@ -42,6 +42,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
                 text: 'Toda alteração de conta precisa de autenticação!',
                 icon: 'question',
                 input: 'password',
+                inputAttributes: { autocomplete: 'new-password' },
                 confirmButtonText: 'Prosseguir!',
                 showCancelButton: true,
                 cancelButtonText: 'Cancelar!'
@@ -68,6 +69,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
             text: 'Toda alteração de conta precisa de autenticação!',
             icon: 'question',
             input: 'password',
+            inputAttributes: { autocomplete: 'new-password' },
             confirmButtonText: 'Prosseguir!',
             showCancelButton: true,
             cancelButtonText: 'Cancelar!'
@@ -92,6 +94,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
             text: 'Toda alteração de conta precisa de autenticação!',
             icon: 'question',
             input: 'password',
+            inputAttributes: { autocomplete: 'new-password' },
             confirmButtonText: 'Prosseguir!',
             showCancelButton: true,
             cancelButtonText: 'Cancelar!'

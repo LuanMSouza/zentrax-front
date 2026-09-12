@@ -97,6 +97,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                 text: 'Toda exclusão precisa de autenticação!',
                 icon: 'question',
                 input: 'password',
+                inputAttributes: { autocomplete: 'new-password' },
                 confirmButtonText: 'Excluir definitivamente',
                 confirmButtonColor: '#dc2626',
                 showCancelButton: true,

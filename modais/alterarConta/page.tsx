@@ -74,6 +74,7 @@ export default function AlterarUsuario({ usuario, sair, atualizar }: { usuario: 
                                     name={i.name}
                                     placeholder={i.placeholder}
                                     type={i.tipoInput}
+                                    autoComplete={i.tipoInput === 'password' ? 'new-password' : 'off'}
                                     value={dados[i.name as keyof typeof dados]}
                                     onChange={e => setDados({ ...dados, [i.name]: e.target.value })}
                                 />

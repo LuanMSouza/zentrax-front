@@ -42,6 +42,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
                 text: 'Toda alteração de senha precisa de autenticação!',
                 icon: 'question',
                 input: 'password',
+                inputAttributes: { autocomplete: 'new-password' },
                 confirmButtonText: 'Alterar!',
                 showCancelButton: true,
                 cancelButtonText: 'Cancelar!',
