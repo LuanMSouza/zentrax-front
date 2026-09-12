@@ -12,6 +12,7 @@ export type Pagamentos = {
     valor: number;
     empresa_id: number | null;
     nota_abatida: number;
+    quantidade?: number;
     clientes: Cliente
 };
 

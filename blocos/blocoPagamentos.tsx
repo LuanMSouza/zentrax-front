@@ -4,6 +4,7 @@ import { Button } from "@/componentes/Buttons";
 import { useState } from "react";
 
 import { Pagamentos } from "@/types";
+import { formatarDataBR } from "@/lib/mask";
 
 type PagamentoProps = {
     pagamentos: Pagamentos[],
@@ -43,8 +44,12 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor }: PagamentoP
                             >
                                 <p className="lg:text-xl text-base font-semibold truncate">{p.clientes?.nome}</p>
                                 <p className="text-sm italic text-gray-600">
-                                    {new Date(p.data).toLocaleDateString('pt-BR')}
-                                </p>                                <p className="text-xl font-semibold">{formatarValor(p.valor)}</p>
+                                    {formatarDataBR(p.data)}
+                                </p>
+                                <p className="text-xl font-semibold">{formatarValor(p.valor)}</p>
+                                {(p.quantidade ?? 1) > 1 && (
+                                    <p className="text-xs text-gray-500">{p.quantidade} notas abatidas</p>
+                                )}
                             </div>
                         ))}
                     </div>

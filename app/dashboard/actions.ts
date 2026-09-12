@@ -101,14 +101,37 @@ export async function pegarPagamentosBack() {
             include: { clientes: true }
         });
 
-        const pagamentos = pagamentosRaw.map(p => ({
-            ...p,
-            valor: Number(p.valor),
-            clientes: {
-                ...p.clientes,
-                whatsapp: p.clientes.whatsapp ? String(p.clientes.whatsapp) : null
+        // Um pagamento avulso que abate varias notas gera uma linha por nota
+        // (uma pra cada `pedidos` quitado/abatido). Pro usuario isso e um
+        // pagamento so, entao agrupamos por cliente + dia antes de exibir.
+        const agrupados = new Map<string, any>();
+
+        for (const p of pagamentosRaw) {
+            const diaChave = new Date(p.data).toISOString().slice(0, 10);
+            const chave = `${p.id_cliente}-${diaChave}`;
+            const existente = agrupados.get(chave);
+
+            if (existente) {
+                existente.valor += Number(p.valor);
+                existente.quantidade += 1;
+            } else {
+                agrupados.set(chave, {
+                    id: p.id,
+                    id_cliente: p.id_cliente,
+                    empresa_id: p.empresa_id,
+                    nota_abatida: p.nota_abatida,
+                    data: p.data,
+                    valor: Number(p.valor),
+                    quantidade: 1,
+                    clientes: {
+                        ...p.clientes,
+                        whatsapp: p.clientes.whatsapp ? String(p.clientes.whatsapp) : null
+                    }
+                });
             }
-        }));
+        }
+
+        const pagamentos = Array.from(agrupados.values());
 
         return {
             success: true,
