@@ -15,6 +15,8 @@ model alteracoes {
   data                                DateTime? @default(now()) @db.Timestamptz(6)
   empresa_alteracoes_empresaToempresa empresa?  @relation("alteracoes_empresaToempresa", fields: [empresa], references: [id], onDelete: NoAction, onUpdate: NoAction)
   usuarios                            usuarios? @relation(fields: [usuario], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([empresa])
 }
 
 model clientes {
@@ -27,6 +29,8 @@ model clientes {
   empresa      empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pagamentos   pagamentos[]
   pedidos      pedidos[]
+
+  @@index([empresa_id])
 }
 
 model contas {
@@ -81,6 +85,8 @@ model pagamentos {
   clientes     clientes @relation(fields: [id_cliente], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pagamentos_cliente")
   empresa      empresa? @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pedidos      pedidos  @relation(fields: [nota_abatida], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([empresa_id])
 }
 
 model pedidos {
@@ -99,6 +105,8 @@ model pedidos {
   pagamentos     pagamentos[]
   clientes       clientes?    @relation(fields: [id_cliente], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pedidos_cliente")
   empresa        empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([empresa_id, id_cliente])
 }
 
 model snapshots {
@@ -124,4 +132,6 @@ model usuarios {
   alteracoes       alteracoes[]
   contas           contas[]
   empresa          empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([empresa_id])
 }
