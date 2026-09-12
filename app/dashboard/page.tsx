@@ -14,6 +14,7 @@ import Loading from "@/componentes/loading";
 import { pegarClientesBack, pegarNotasBack, pegarPagamentosBack } from "./actions";
 import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
+import EditarClientes from "@/modais/editarClientes/page";
 import { FormatarValor } from "@/lib/mask";
 
 // types
@@ -24,6 +25,7 @@ export default function Home() {
     const [modalCriarCliente, setModalCriarCliente] = useState(false)
     const [modalLancarNotas, setModalLancarNotas] = useState(false)
     const [modalClienteDetalhado, setModalClienteDetalhado] = useState(false)
+    const [modalEditarClientes, setModalEditarClientes] = useState(false)
 
     const [mostrarValores, setMostrarValores] = useState(false)
     const [filtro, setFiltro] = useState('')
@@ -99,6 +101,10 @@ export default function Home() {
         setClientes((prev) => [novoCliente, ...prev]);
     }
 
+    function atualizarClienteEditado(clienteEditado: Cliente) {
+        setClientes((prev) => prev.map(c => c.id === clienteEditado.id ? clienteEditado : c));
+    }
+
     const listaDinamica = clientes.map(c => {
         if (!notas) return null;
 
@@ -163,6 +169,7 @@ export default function Home() {
                 <div className="gap-2 flex mb-4">
                     <Button onClick={() => setModalCriarCliente(true)} texto="Cadastrar cliente" tipo="btn01" tamanho="g" corTexto="branco" />
                     <Button onClick={() => setModalLancarNotas(true)} texto="Cadastrar nota" tipo="btn01" tamanho="g" corTexto="branco" />
+                    <Button onClick={() => setModalEditarClientes(true)} texto="Editar clientes" tipo="btn01" tamanho="g" corTexto="branco" />
                 </div>
 
                 <Button onClick={() => setMostrarValores(!mostrarValores)} texto={mostrarValores ? 'Esconder valores' : 'Visualizar valores'} tipo="btn03" tamanho="gg" corTexto="branco" />
@@ -203,6 +210,7 @@ export default function Home() {
 
             {/* Modais */}
             {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}
+            {modalEditarClientes && <EditarClientes clientes={clientes} atualizar={atualizarClienteEditado} sair={() => setModalEditarClientes(false)} />}
             {modalLancarNotas && <ModalLançarNotas clientes={clientes} atualizar={atualizarNotas} sair={() => setModalLancarNotas(false)} />}
             {modalClienteDetalhado && clienteSelect && (
                 <ClienteDetalhado
