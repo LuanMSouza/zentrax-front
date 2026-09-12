@@ -20,23 +20,43 @@ export async function salvarNota(dados: any) {
             }
         }
 
+        const empresaId = Number(auth.empresa_id)
+        const valorTotalNumerico = Number(valor_total)
+
+        if (!valorTotalNumerico || valorTotalNumerico <= 0) {
+            return {
+                success: false,
+                error: "O valor da nota precisa ser maior que zero."
+            }
+        }
+
+        // Confirma que o cliente pertence a essa empresa antes de criar a nota -
+        // sem isso, dava pra anexar uma nota a um cliente de outra empresa so
+        // adivinhando o id (Server Action e chamavel direto, sem passar pela UI).
+        const clienteInfos = await prisma.clientes.findFirst({
+            where: { id: Number(cliente), empresa_id: empresaId }
+        })
+
+        if (!clienteInfos) {
+            return {
+                success: false,
+                error: "Cliente não encontrado."
+            }
+        }
+
         const novaNota = await prisma.pedidos.create({
             data: {
                 id_cliente: Number(cliente),
                 data: new Date(data),
                 valor_unitario: Number(valor) || 0,
-                valor_inicial: Number(valor_total) || 0,
-                valor_restante: Number(valor_total) || 0,
+                valor_inicial: valorTotalNumerico,
+                valor_restante: valorTotalNumerico,
                 descricao: String(descricao) || null,
                 valor_extra: Number(exta) || 0,
                 quantidade: Number(quantidade) || 1,
-                empresa_id: Number(auth.empresa_id),
+                empresa_id: empresaId,
                 segmento: String(segmento)
             }
-        })
-
-        const clienteInfos = await prisma.clientes.findFirst({
-            where: { id: Number(cliente) }
         })
 
         revalidatePath('/dashboard');
