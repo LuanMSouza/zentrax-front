@@ -38,6 +38,13 @@ export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
         }
     }
 
+    if (dados.senha.trim().length < 6) {
+        return {
+            success: false,
+            error: 'A senha precisa ter pelo menos 6 caracteres.'
+        }
+    }
+
     const jaExiste = await prisma.usuarios.findFirst({
         where: {
             usuario: {

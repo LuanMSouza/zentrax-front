@@ -75,6 +75,13 @@ export async function Alterarperfil(form: AlterarPerfilProps) {
         }
 
         if (senha && senha.trim() !== "") {
+            if (senha.trim().length < 6) {
+                return {
+                    success: false,
+                    error: "A senha precisa ter pelo menos 6 caracteres."
+                }
+            }
+
             dataUpdate.senha = await bcrypt.hash(senha.trim(), 10)
         }
 

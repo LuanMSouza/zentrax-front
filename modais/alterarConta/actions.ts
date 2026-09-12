@@ -52,14 +52,21 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
         let DATA: UsuarioUpdate = { nome: dados.nome, usuario: dados.usuario, role: dados.role };
 
         if (dados.senha.trim()) {
-            if (dados.senha.trim() === dados.senhaConfirm.trim()) {
-                DATA.senha = await bcrypt.hash(dados.senha.trim(), 10);
-            } else {
+            if (dados.senha.trim() !== dados.senhaConfirm.trim()) {
                 return {
                     success: false,
                     error: 'As senhas não coincidem'
                 };
             }
+
+            if (dados.senha.trim().length < 6) {
+                return {
+                    success: false,
+                    error: 'A senha precisa ter pelo menos 6 caracteres.'
+                };
+            }
+
+            DATA.senha = await bcrypt.hash(dados.senha.trim(), 10);
         }
 
         const jaExiste = await prisma.usuarios.findFirst({
