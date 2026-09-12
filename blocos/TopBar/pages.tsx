@@ -4,6 +4,7 @@ import { Button } from "@/componentes/Buttons";
 import { useEffect, useState } from "react";
 import { logout } from "./actions";
 import Configuracoes from "@/modais/configuracoes/page";
+import HistoricoAtividades from "@/blocos/HistoricoAtividades/pages";
 import Swal from "sweetalert2";
 
 export default function TopBar() {
@@ -136,6 +137,8 @@ export default function TopBar() {
                     usuario={usuario}
                     empresa={empresa}
                     sair={() => setConfig(false)} />}
+
+            {usuario?.role === 'gestor' && <HistoricoAtividades />}
         </>
     );
 }
