@@ -14,6 +14,7 @@ import Loading from "@/componentes/loading";
 import { pegarClientesBack, pegarNotasBack, pegarPagamentosBack } from "./actions";
 import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
+import { FormatarValor } from "@/lib/mask";
 
 // types
 import { Cliente, Pagamentos, Notas, ClienteEmAberto } from '@/types'
@@ -28,6 +29,7 @@ export default function Home() {
     const [filtro, setFiltro] = useState('')
     const [arrumacao, setArrumacao] = useState('nome_asc')
     const [loading, setLoading] = useState(true)
+    const [role, setRole] = useState<string | null>(null)
 
     const [clientes, setClientes] = useState<Cliente[]>([])
     const [notas, setNotas] = useState<Notas[]>([])
@@ -63,6 +65,15 @@ export default function Home() {
 
     useEffect(() => {
         carregarDados()
+
+        try {
+            const usuarioSalvo = localStorage.getItem('usuario')
+            if (usuarioSalvo) {
+                setRole(JSON.parse(usuarioSalvo)?.role ?? null)
+            }
+        } catch (error) {
+            console.error('Erro ao carregar usuario do localStorage:', error)
+        }
     }, [])
 
     async function recarregarPagamentos() {
@@ -114,6 +125,8 @@ export default function Home() {
         };
     }).filter(Boolean) as ClienteEmAberto[];
 
+    const valorTotalNaRua = listaDinamica.reduce((acc, c) => acc + Number(c.total), 0);
+
     const listaOrdenada = listaDinamica.sort((a, b) => {
         if (arrumacao === 'nome_asc') return a.nome.localeCompare(b.nome);
         if (arrumacao === 'nome_desc') return b.nome.localeCompare(a.nome);
@@ -153,6 +166,13 @@ export default function Home() {
                 </div>
 
                 <Button onClick={() => setMostrarValores(!mostrarValores)} texto={mostrarValores ? 'Esconder valores' : 'Visualizar valores'} tipo="btn03" tamanho="gg" corTexto="branco" />
+
+                {role === 'gestor' && mostrarValores && (
+                    <div className="w-full bg-cyan-100 border-2 border-cyan-400 rounded-2xl p-4 flex flex-col items-center shadow shadow-cyan-700">
+                        <p className="text-lg text-gray-700">Valor total na rua</p>
+                        <p className="text-3xl font-bold text-gray-900">{FormatarValor(valorTotalNaRua)}</p>
+                    </div>
+                )}
 
                 <Input name="nome" tamanho="m" type="text" value={filtro} placeholder={'Filtre o cliente pelo nome...'} onChange={(e) => setFiltro(e)} />
 
