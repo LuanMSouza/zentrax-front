@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { logout } from "./actions";
 import Configuracoes from "@/modais/configuracoes/page";
 import Swal from "sweetalert2";
-import { success } from "zod";
 
 export default function TopBar() {
 
@@ -13,7 +12,39 @@ export default function TopBar() {
     const [empresa, setEmpresa] = useState<any>({});
     const [settings, setSettings] = useState<any>(null);
     const [nome, setNome] = useState("");
-    const [diasRestantes, setDiasRestantes] = useState(0o0);
+    const [diasRestantes, setDiasRestantes] = useState<number | null>(null);
+
+    // Carrega os dados salvos no login (antes disso, nada aqui era preenchido
+    // e o aviso de vencimento nunca disparava).
+    useEffect(() => {
+        try {
+            const usuarioSalvo = localStorage.getItem('usuario');
+            const empresaSalva = localStorage.getItem('empresa');
+            const settingsSalvas = localStorage.getItem('settings');
+
+            if (usuarioSalvo) {
+                const u = JSON.parse(usuarioSalvo);
+                setUsuario(u);
+                setNome(u.nome ?? "");
+            }
+
+            if (empresaSalva) {
+                const e = JSON.parse(empresaSalva);
+                setEmpresa(e);
+
+                if (e.expiracao) {
+                    const diffMs = new Date(e.expiracao).getTime() - Date.now();
+                    setDiasRestantes(Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+                }
+            }
+
+            if (settingsSalvas) {
+                setSettings(JSON.parse(settingsSalvas));
+            }
+        } catch (error) {
+            console.error('Erro ao carregar dados salvos do login:', error);
+        }
+    }, []);
 
     useEffect(() => {
         if (settings && diasRestantes !== null) {
@@ -79,9 +110,9 @@ export default function TopBar() {
 
                 <div className="gap-2 flex">
                     <div className="flex items-center justify-center flex-col">
-                        <p className="text-sm italic text-gray-800">{diasRestantes} Dia(s) restante(s)</p>
+                        <p className="text-sm italic text-gray-800">{diasRestantes ?? '--'} Dia(s) restante(s)</p>
 
-                        {diasRestantes < 10 &&
+                        {diasRestantes !== null && diasRestantes < 10 &&
                             <Button onClick={naoHabilitado} texto="Renovar agora" tipo="btn02" tamanho="p" corTexto="preto" />
                         }
                     </div>
