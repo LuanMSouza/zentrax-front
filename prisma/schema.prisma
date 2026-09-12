@@ -19,11 +19,11 @@ model alteracoes {
 
 model clientes {
   id           Int          @id @default(autoincrement())
-  nome         String       @db.VarChar(20)
+  nome         String       @db.VarChar(120)
   whatsapp     BigInt?
   papel_grande Boolean?
   empresa_id   Int?
-  documento    String?      @db.VarChar(12)
+  documento    String?      @db.VarChar(20)
   empresa      empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pagamentos   pagamentos[]
   pedidos      pedidos[]

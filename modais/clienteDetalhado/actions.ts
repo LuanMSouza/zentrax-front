@@ -163,7 +163,8 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
             const notaAlterada = await prisma.pedidos.update({
                 where: { id: Number(id) },
                 data: {
-                    valor_abatido: Number(notaInfos?.valor_abatido) + Number(valor)
+                    valor_abatido: Number(notaInfos?.valor_abatido) + Number(valor),
+                    valor_restante: Number((emAberto - Number(valor)).toFixed(2))
                 }
             })
 

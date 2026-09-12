@@ -26,6 +26,7 @@ export async function salvarNota(dados: any) {
                 data: new Date(data),
                 valor_unitario: Number(valor) || 0,
                 valor_inicial: Number(valor_total) || 0,
+                valor_restante: Number(valor_total) || 0,
                 descricao: String(descricao) || null,
                 valor_extra: Number(exta) || 0,
                 quantidade: Number(quantidade) || 1,
