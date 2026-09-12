@@ -7,7 +7,9 @@ import RegistrarAcao from "@/lib/logger"
 
 export default async function cadastrarClienteBack(formData: FormData) {
     const nome = String(formData.get('nome'))
-    const whatsapp = Number(formData.get('whatsapp'))
+    // Aceita o whatsapp com espacos/tracos (ex: "11 99887-7665", como o
+    // placeholder sugere) filtrando so os digitos antes de converter.
+    const whatsappDigitos = String(formData.get('whatsapp') ?? '').replace(/\D/g, '')
     const documento = String(formData.get('documento'))
  
     if (!nome) {
@@ -26,7 +28,7 @@ export default async function cadastrarClienteBack(formData: FormData) {
         const { payload } = await jwtVerify(token, secret);
 
         const empresaId = payload.empresa_id
-        const userId = payload.user_id
+        const userId = payload.usuario_id
 
         const condicoes: any[] = [{ nome: String(nome) }];
 
@@ -52,7 +54,7 @@ export default async function cadastrarClienteBack(formData: FormData) {
         const novoCliente = await prisma.clientes.create({
             data: {
                 nome: nome,
-                whatsapp: whatsapp ? BigInt(whatsapp) : null,
+                whatsapp: whatsappDigitos ? BigInt(whatsappDigitos) : null,
                 documento: documento || null,
                 empresa_id: Number(empresaId)
             }
