@@ -117,14 +117,14 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
 
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-indigo-400">Usuários</h2>
+            <h2 className="text-xl font-semibold text-blue-600">Usuários</h2>
 
             <div className="grid gap-2 relative p-2 px-4 min-h-45">
 
                 {usuario.role !== 'gestor' &&
-                    <div className="w-full h-full bg-purple-950/50 absolute backdrop-blur rounded-2xl shadow-2xl shadow-black flex flex-col justify-center items-center" >
-                        <p className="text-2xl">Opa...</p>
-                        <p className="">Essa area é somente para <strong>gestores</strong>!!</p>
+                    <div className="w-full h-full bg-slate-900/70 absolute backdrop-blur rounded-2xl shadow-2xl flex flex-col justify-center items-center text-center px-4" >
+                        <p className="text-2xl text-white font-bold">Opa...</p>
+                        <p className="text-white">Essa area é somente para <strong>gestores</strong>!!</p>
                     </div>}
 
                 {usuarios.length > 1 ? (
@@ -133,18 +133,29 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
                         if (u.id === usuario.id) return
 
                         return (
-                            <div key={u.id} className="p-3 w-full bg-gray-800 rounded border border-gray-700 flex justify-between">
-                                <p>{u.nome} - <span className="text-gray-400 text-sm">{u.usuario}</span></p>
-                                <div className=" flex gap-1">
-                                    <button onClick={() => excluirConta(u.id)} className="bg-red-700 cursor-pointer rounded w-5 h-5 flex justify-center items-center">X</button>
+                            <div key={u.id} className="p-3 w-full bg-gray-50 rounded border border-gray-200 flex justify-between items-center">
+                                <p className="text-gray-900">{u.nome} <span className="text-gray-500 text-sm">· {u.usuario}</span></p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => excluirConta(u.id)}
+                                        aria-label="Remover usuário"
+                                        title="Remover usuário"
+                                        className="bg-red-600 hover:bg-red-700 active:scale-95 transition-all cursor-pointer rounded-lg w-8 h-8 flex justify-center items-center text-white text-lg shrink-0"
+                                    >
+                                        ✕
+                                    </button>
 
                                     <button
                                         onClick={() => {
                                             alterarConta(u.id)
                                             setUsuarioSelecionado(u)
                                         }}
-                                        className="bg-yellow-700 cursor-pointer rounded w-5 h-5 flex justify-center items-center">
-                                        A</button>
+                                        aria-label="Editar usuário"
+                                        title="Editar usuário"
+                                        className="bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all cursor-pointer rounded-lg w-8 h-8 flex justify-center items-center text-white text-base shrink-0"
+                                    >
+                                        ✎
+                                    </button>
 
                                 </div>
                             </div>
@@ -156,7 +167,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
 
                 <button
                     onClick={criarConta}
-                    className="bg-indigo-400 active:scale-95 duration-100 cursor-pointer p-2 text-xl text-white rounded ">Adicionar Conta</button>
+                    className="bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all cursor-pointer p-2 text-xl text-white rounded ">Adicionar Conta</button>
             </div>
 
 

@@ -75,44 +75,44 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-indigo-400">Editar Perfil</h2>
+            <h2 className="text-xl font-semibold text-blue-600">Editar Perfil</h2>
 
             <div className="grid grid-cols-1 gap-4">
                 {/* nome */}
                 <label className="block">
-                    <span className="text-gray-400 text-sm">Nome</span>
+                    <span className="text-gray-600 text-sm">Nome</span>
                     <input
                         name='nome'
                         type='text'
                         value={form.nome}
                         onChange={(e) => setForm(prev => ({ ...prev, nome: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 mt-1 focus:outline-none focus:border-indigo-400 transition-colors"
+                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-blue-500 transition-colors"
                         placeholder='Seu nome...'
                     />
                 </label>
 
                 {/* usuario */}
                 <label className="block">
-                    <span className="text-gray-400 text-sm">Nome de usuario</span>
+                    <span className="text-gray-600 text-sm">Nome de usuario</span>
                     <input
                         name='nome'
                         type='text'
                         value={form.usuario}
                         onChange={(e) => setForm(prev => ({ ...prev, usuario: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 mt-1 focus:outline-none focus:border-indigo-400 transition-colors"
+                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-blue-500 transition-colors"
                         placeholder='Seu usuario...'
                     />
                 </label>
 
                 {/* senha */}
                 <label className="block">
-                    <span className="text-gray-400 text-sm">Nova senha</span>
+                    <span className="text-gray-600 text-sm">Nova senha</span>
                     <input
                         name='senha'
                         type='password'
                         value={form.senha}
                         onChange={(e) => setForm(prev => ({ ...prev, senha: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 mt-1 focus:outline-none focus:border-indigo-400 transition-colors"
+                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-blue-500 transition-colors"
                         placeholder='Nova senha...'
                         autoComplete="new-password"
                     />
@@ -127,13 +127,13 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
                             className="overflow-hidden" // Essencial para o efeito de deslize
                         >
                             <label className="block animate-in fade-in slide-in-from-top-2 duration-300">
-                                <span className="text-gray-400 text-sm">Confirmar nova senha</span>
+                                <span className="text-gray-600 text-sm">Confirmar nova senha</span>
                                 <input
                                     name="confirmarSenha" // Mudei o name para não conflitar com 'nome'
                                     type="password"
                                     value={form.confirmarSenha} // Use o estado da senha de confirmação aqui
                                     onChange={(e) => setForm(prev => ({ ...prev, confirmarSenha: e.target.value }))}
-                                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 mt-1 focus:outline-none focus:border-indigo-400 transition-all"
+                                    className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-blue-500 transition-all"
                                     placeholder="Confirme a nova senha..."
                                     autoComplete="new-password"
                                 />
@@ -144,7 +144,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
 
                 <button
                     onClick={handleSubmit}
-                    className="bg-indigo-500 cursor-pointer hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded transition-all active:scale-95 mt-2"
+                    className="bg-blue-600 cursor-pointer hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-all active:scale-95 mt-2"
                 >
                     Salvar Alterações
                 </button>

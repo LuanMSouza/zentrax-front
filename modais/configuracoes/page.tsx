@@ -19,15 +19,15 @@ export default function Configuracoes({ sair, usuario, empresa, atualizarPerfil 
     const [selecionado, setSelecionado] = useState("perfil")
 
     const tabBase = "cursor-pointer pb-2 px-4 text-lg transition-all duration-300 border-b-2"
-    const tabAtiva = "border-indigo-400 text-indigo-400 font-bold"
-    const tabInativa = "border-transparent text-gray-400 hover:text-gray-200"
+    const tabAtiva = "border-blue-600 text-blue-600 font-bold"
+    const tabInativa = "border-transparent text-gray-400 hover:text-gray-600"
 
     return (
         <Cortina onClick={sair} classname="flex z-50 items-center justify-center p-4">
 
-            <div className="bg-[#1a1a1a] relative z-50 text-white shadow-2xl rounded-2xl p-6 px-10 lg:px-20 w-fit max-w-full lg:max-w-2xl mx-auto border border-gray-800">
+            <div className="bg-white relative z-50 text-gray-900 shadow-2xl rounded-2xl p-6 px-10 lg:px-20 w-fit max-w-full lg:max-w-2xl mx-auto border border-gray-200">
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="m" corTexto="branco" />
-                <nav className="flex gap-2 md:flex-row flex-col lg:gap-8 md:border-b border-gray-700 mb-6">
+                <nav className="flex gap-2 md:flex-row flex-col lg:gap-8 md:border-b border-gray-200 mb-6">
                     <button
                         onClick={() => setSelecionado("perfil")}
                         className={`${tabBase} ${selecionado === "perfil" ? tabAtiva : tabInativa}`}

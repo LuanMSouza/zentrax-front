@@ -62,11 +62,11 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
 
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-indigo-400">Preferências do App</h2>
+            <h2 className="text-xl font-semibold text-blue-600">Preferências do App</h2>
 
             <label
                 htmlFor="notif"
-                className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded p-3 cursor-pointer"
+                className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded p-3 cursor-pointer"
             >
                 <input
                     type="checkbox"
@@ -79,17 +79,17 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                             avisar: valor
                         }));
                     }}
-                    className="accent-indigo-400 w-5 h-5 cursor-pointer shrink-0"
+                    className="accent-blue-600 w-5 h-5 cursor-pointer shrink-0"
                 />
-                <span className="text-gray-300 text-sm md:text-base">Avisar 4 dias antes de vencer a assinatura</span>
+                <span className="text-gray-700 text-sm md:text-base">Avisar 4 dias antes de vencer a assinatura</span>
             </label>
 
-            <div className="flex items-center justify-between gap-3 bg-gray-800 border border-gray-700 rounded p-3">
-                <span className="text-gray-300 text-sm md:text-base">Selecione seu texto de cobrança</span>
+            <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
+                <span className="text-gray-700 text-sm md:text-base">Selecione seu texto de cobrança</span>
                 <button
                     id="cobranca"
                     onClick={() => setAbrirTextoCobranca(true)}
-                    className="cursor-pointer bg-indigo-500 hover:bg-indigo-600 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0"
+                    className="cursor-pointer bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0"
                 >
                     Clique aqui
                 </button>
@@ -116,7 +116,7 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
             {preferenciasSalvas !== novasPreferencias && (
                 <button
                     onClick={enviar}
-                    className="w-full bg-indigo-500 hover:bg-indigo-600 active:scale-95 transition-all text-white font-bold py-2 px-4 rounded"
+                    className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all text-white font-bold py-2 px-4 rounded"
                 >
                     Salvar
                 </button>
