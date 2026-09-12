@@ -167,13 +167,6 @@ export default function Home() {
 
                 <Button onClick={() => setMostrarValores(!mostrarValores)} texto={mostrarValores ? 'Esconder valores' : 'Visualizar valores'} tipo="btn03" tamanho="gg" corTexto="branco" />
 
-                {role === 'gestor' && mostrarValores && (
-                    <div className="w-full bg-cyan-100 border-2 border-cyan-400 rounded-2xl p-4 flex flex-col items-center shadow shadow-cyan-700">
-                        <p className="text-lg text-gray-700">Valor total na rua</p>
-                        <p className="text-3xl font-bold text-gray-900">{FormatarValor(valorTotalNaRua)}</p>
-                    </div>
-                )}
-
                 <Input name="nome" tamanho="m" type="text" value={filtro} placeholder={'Filtre o cliente pelo nome...'} onChange={(e) => setFiltro(e)} />
 
                 <Selects tamanho="p" value={arrumacao} onChange={(e) => setArrumacao(e)}>
@@ -196,6 +189,13 @@ export default function Home() {
                         setModalClienteDetalhado(true)
                     }}
                 />
+
+                {role === 'gestor' && mostrarValores && (
+                    <div className="w-full bg-cyan-100 border-2 border-cyan-400 rounded-2xl p-4 flex flex-col items-center shadow shadow-cyan-700">
+                        <p className="text-lg text-gray-700">Valor total na rua</p>
+                        <p className="text-3xl font-bold text-gray-900">{FormatarValor(valorTotalNaRua)}</p>
+                    </div>
+                )}
 
                 <Titulo texto="Pagamentos" cor="preto" />
                 <BlocoPagamentos MostrarValor={mostrarValores} pagamentos={pagamentos} />
