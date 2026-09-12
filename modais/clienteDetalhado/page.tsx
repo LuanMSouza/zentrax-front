@@ -21,9 +21,10 @@ type DetalhadoPops = {
     notas: any[]
     sair: () => void; // Dica: adicione uma função para fechar o modal
     atualizar: (notasAbatidas: any[]) => void; // <--- Adicione aqui
+    atualizarPagamentos: () => void;
 }
 
-export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: DetalhadoPops) {
+export default function ClienteDetalhado({ cliente, sair, notas, atualizar, atualizarPagamentos }: DetalhadoPops) {
     if (!cliente) return null;
 
     const totalAtualizado = notas.reduce((acc, n) =>
@@ -76,6 +77,7 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: De
                     Swal.fire('Sucesso!', 'Pagamento registrado com sucesso.', 'success');
 
                     atualizar(res.notaAtualizada);
+                    atualizarPagamentos();
 
                 } else {
                     Swal.fire('Erro no servidor', res.error, 'error');
@@ -123,6 +125,7 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: De
                         Swal.fire('Sucesso!!', 'Nota lançada com sucesso!!', 'success')
 
                         atualizar([res.notaAtualizada] as any);
+                        atualizarPagamentos();
 
                     } else {
                         Swal.fire('Opa!!', res?.error, 'error')
@@ -147,6 +150,7 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: De
                     if (res?.success && res.notaAtualizada) {
                         Swal.fire('Sucesso!!', 'Nota lançada com sucesso!!', 'success')
                         atualizar([res.notaAtualizada] as any);
+                        atualizarPagamentos();
 
                     } else {
                         Swal.fire('Opa!!', res?.error, 'error')

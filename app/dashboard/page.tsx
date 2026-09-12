@@ -65,6 +65,17 @@ export default function Home() {
         carregarDados()
     }, [])
 
+    async function recarregarPagamentos() {
+        try {
+            const resPagamentos = await pegarPagamentosBack();
+            if (resPagamentos.success && resPagamentos.pagamentos) {
+                setPagamentos(resPagamentos.pagamentos);
+            }
+        } catch (error) {
+            console.error("Erro ao recarregar pagamentos:", error);
+        }
+    }
+
     function atualizarNotas(novaNota: Notas) {
         try {
             setNotas((prev) => [novaNota, ...prev]);
@@ -182,6 +193,7 @@ export default function Home() {
                     cliente={clienteSelect}
                     notas={notas.filter(n => Number(n.id_cliente) === Number(clienteSelect.id))}
                     atualizar={atualizarNotasAposPagamento}
+                    atualizarPagamentos={recarregarPagamentos}
                 />
             )}
 
