@@ -76,10 +76,11 @@ export default async function cadastrarClienteBack(formData: FormData) {
         })
 
     } catch (error: unknown) {
+        console.error("Erro ao cadastrar cliente:", error)
 
         return ({
             success: false,
-            error
+            error: "Erro ao cadastrar o cliente."
         })
     }
-} 
+}

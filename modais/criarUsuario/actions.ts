@@ -73,10 +73,11 @@ export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
         }
 
     } catch (error) {
+        console.error("Erro ao criar usuario:", error)
 
         return {
             success: false,
-            error
+            error: "Erro ao criar o usuário."
         }
 
     }

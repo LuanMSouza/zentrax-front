@@ -92,10 +92,11 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
         }
 
     } catch (error: any) {
+        console.error("Erro ao alterar usuario:", error)
 
         return {
             success: false,
-            error
+            error: "Erro ao alterar o usuário."
         }
 
     }

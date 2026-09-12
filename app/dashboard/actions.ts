@@ -141,7 +141,7 @@ export async function pegarPagamentosBack() {
         console.error("Erro ao buscar pagamentos:", error);
         return {
             success: false,
-            error
+            error: "Erro ao buscar pagamentos no servidor."
         }
 
     }

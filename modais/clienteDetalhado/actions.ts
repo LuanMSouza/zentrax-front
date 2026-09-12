@@ -199,9 +199,10 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
 
 
         } catch (error: any) {
+            console.error("Erro no pagamento parcial:", error)
             return {
                 success: false,
-                error
+                error: "Erro ao registrar o pagamento parcial."
             }
 
         }
@@ -243,10 +244,11 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                     notaAtualizada: updateNota
                 };
             } catch (error: any) {
+                console.error("Erro no pagamento total:", error)
 
                 return {
                     success: false,
-                    error
+                    error: "Erro ao registrar o pagamento total."
                 };
             }
         }

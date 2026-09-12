@@ -176,10 +176,11 @@ export async function ApagarContaBack(id: number) {
         }
 
     } catch (error: any) {
+        console.error("Erro ao apagar conta:", error)
 
         return {
             success: false,
-            error
+            error: "Erro ao remover o usuário."
         }
 
     }
@@ -261,10 +262,11 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
         }
 
     } catch (error: any) {
+        console.error("Erro ao atualizar preferencias:", error)
 
         return {
             success: false,
-            error
+            error: "Erro ao atualizar as preferências."
         }
     }
 }
