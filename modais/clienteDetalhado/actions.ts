@@ -177,6 +177,17 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                 return { success: false, error: 'Nota não encontrada.' }
             }
 
+            const cliente = notaAlterada.id_cliente
+                ? await prisma.clientes.findUnique({ where: { id: notaAlterada.id_cliente }, select: { nome: true } })
+                : null;
+
+            await RegistrarAcao({
+                tabela: 'Pagamentos',
+                operacao: `Registrou pagamento parcial de ${FormatarValor(valorNumerico)}${cliente?.nome ? ` para o cliente ${cliente.nome}` : ''}`,
+                empresa_id: empresaId,
+                usuario_id: Number(dados.usuario_id)
+            });
+
             return {
                 success: true,
                 notaAtualizada: {
@@ -215,6 +226,17 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                 }
 
                 const updateNota = await prisma.pedidos.findUnique({ where: { id: Number(id) } })
+
+                const cliente = updateNota?.id_cliente
+                    ? await prisma.clientes.findUnique({ where: { id: updateNota.id_cliente }, select: { nome: true } })
+                    : null;
+
+                await RegistrarAcao({
+                    tabela: 'Pagamentos',
+                    operacao: `Registrou pagamento total${cliente?.nome ? ` para o cliente ${cliente.nome}` : ''}`,
+                    empresa_id: empresaId,
+                    usuario_id: Number(dados.usuario_id)
+                });
 
                 return {
                     success: true,
