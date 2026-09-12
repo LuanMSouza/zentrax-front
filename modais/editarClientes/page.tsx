@@ -7,21 +7,25 @@ import Container from "@/componentes/Container"
 import Titulo from "@/componentes/Titulo"
 import { Button } from "@/componentes/Buttons"
 import Input from "@/componentes/Inputs"
-import { AlterarClienteBack } from "./actions"
+import { AlterarClienteBack, ApagarClienteBack, PegarImpactoClienteBack } from "./actions"
+import { ConfirmarSenha } from "@/modais/configuracoes/abas/actions"
 import { Cliente } from "@/types"
 
 type EditarClientesProps = {
     clientes: Cliente[],
+    role: string | null,
     sair: () => void,
-    atualizar: (cliente: Cliente) => void
+    atualizar: (cliente: Cliente) => void,
+    remover: (id: number) => void
 }
 
-export default function EditarClientes({ clientes, sair, atualizar }: EditarClientesProps) {
+export default function EditarClientes({ clientes, role, sair, atualizar, remover }: EditarClientesProps) {
 
     const [filtro, setFiltro] = useState('')
     const [editandoId, setEditandoId] = useState<number | null>(null)
     const [form, setForm] = useState({ nome: '', whatsapp: '', documento: '' })
     const [salvando, setSalvando] = useState(false)
+    const [excluindoId, setExcluindoId] = useState<number | null>(null)
 
     function iniciarEdicao(c: Cliente) {
         setEditandoId(c.id)
@@ -58,6 +62,68 @@ export default function EditarClientes({ clientes, sair, atualizar }: EditarClie
             Swal.fire('Erro', 'Erro ao atualizar cliente.', 'error')
         } finally {
             setSalvando(false)
+        }
+    }
+
+    async function excluir(c: Cliente) {
+        setExcluindoId(c.id)
+
+        try {
+            const impacto = await PegarImpactoClienteBack(c.id)
+
+            if (!impacto.success) {
+                Swal.fire('Opa...', impacto.error, 'error')
+                return
+            }
+
+            const temHistorico = (impacto.quantidadeNotas ?? 0) > 0 || (impacto.quantidadePagamentos ?? 0) > 0
+
+            const confirm1 = await Swal.fire({
+                title: `Excluir ${c.nome}?`,
+                html: temHistorico
+                    ? `Esse cliente tem <b>${impacto.quantidadeNotas} nota(s)</b> e <b>${impacto.quantidadePagamentos} pagamento(s)</b> registrados.<br/><br/><span style="color:#b91c1c">Tudo isso será apagado PERMANENTEMENTE junto com o cliente. Não dá pra desfazer.</span>`
+                    : 'Esse cliente não tem notas nem pagamentos registrados. A exclusão não pode ser desfeita.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Continuar',
+                confirmButtonColor: '#dc2626',
+                cancelButtonText: 'Cancelar'
+            })
+
+            if (!confirm1.isConfirmed) return
+
+            const confirm2 = await Swal.fire({
+                title: 'Sua senha...',
+                text: 'Toda exclusão precisa de autenticação!',
+                icon: 'question',
+                input: 'password',
+                confirmButtonText: 'Excluir definitivamente',
+                confirmButtonColor: '#dc2626',
+                showCancelButton: true,
+                cancelButtonText: 'Cancelar'
+            })
+
+            if (!confirm2.isConfirmed) return
+
+            const resSenha = await ConfirmarSenha({ senha: String(confirm2.value) })
+
+            if (!resSenha.success) {
+                Swal.fire('Opa...', 'Sua senha não coincide!', 'error')
+                return
+            }
+
+            const res = await ApagarClienteBack(c.id)
+
+            if (res.success) {
+                Swal.fire('Excluído!', 'Cliente removido com sucesso.', 'success')
+                remover(c.id)
+            } else {
+                Swal.fire('Opa...', res.error, 'error')
+            }
+        } catch (error) {
+            Swal.fire('Erro', 'Erro ao excluir cliente.', 'error')
+        } finally {
+            setExcluindoId(null)
         }
     }
 
@@ -123,7 +189,18 @@ export default function EditarClientes({ clientes, sair, atualizar }: EditarClie
                                             {c.documento ? ` · Doc: ${c.documento}` : ''}
                                         </p>
                                     </div>
-                                    <Button onClick={() => iniciarEdicao(c)} texto="Editar" tipo="btn03" tamanho="p" corTexto="branco" />
+                                    <div className="flex gap-1 shrink-0">
+                                        <Button onClick={() => iniciarEdicao(c)} texto="Editar" tipo="btn03" tamanho="p" corTexto="branco" />
+                                        {role === 'gestor' && (
+                                            <Button
+                                                onClick={() => excluir(c)}
+                                                texto={excluindoId === c.id ? '...' : 'Excluir'}
+                                                tipo="btn05"
+                                                tamanho="p"
+                                                corTexto="branco"
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>

@@ -105,6 +105,12 @@ export default function Home() {
         setClientes((prev) => prev.map(c => c.id === clienteEditado.id ? clienteEditado : c));
     }
 
+    function removerCliente(id: number) {
+        setClientes((prev) => prev.filter(c => c.id !== id));
+        setNotas((prev) => prev.filter(n => Number(n.id_cliente) !== id));
+        recarregarPagamentos();
+    }
+
     const listaDinamica = clientes.map(c => {
         if (!notas) return null;
 
@@ -210,7 +216,7 @@ export default function Home() {
 
             {/* Modais */}
             {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}
-            {modalEditarClientes && <EditarClientes clientes={clientes} atualizar={atualizarClienteEditado} sair={() => setModalEditarClientes(false)} />}
+            {modalEditarClientes && <EditarClientes clientes={clientes} role={role} atualizar={atualizarClienteEditado} remover={removerCliente} sair={() => setModalEditarClientes(false)} />}
             {modalLancarNotas && <ModalLançarNotas clientes={clientes} atualizar={atualizarNotas} sair={() => setModalLancarNotas(false)} />}
             {modalClienteDetalhado && clienteSelect && (
                 <ClienteDetalhado
