@@ -6,6 +6,10 @@ node_modules/
 out/
 build/
 
+# Gerado automaticamente por "next dev" (contexto pra agentes de IA)
+/AGENTS.md
+/CLAUDE.md
+
 # Variáveis de Ambiente
 .env
 .env.local
