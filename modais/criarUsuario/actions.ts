@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma"
 import bcrypt from 'bcrypt'
+import autenticar from "@/lib/auth"
 
 type NovoUsuarioProps = {
     empresa_id: number,
@@ -13,6 +14,22 @@ type NovoUsuarioProps = {
 }
 
 export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
+
+    const Auth = await autenticar()
+
+    if (!Auth) {
+        return {
+            success: false,
+            error: "Sessão expirada ou inválida"
+        }
+    }
+
+    if (Auth.role !== 'gestor') {
+        return {
+            success: false,
+            error: "Apenas gestores podem criar novos usuários."
+        }
+    }
 
     if (dados.senha !== dados.senhaConfirm) {
         return {
@@ -42,7 +59,7 @@ export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
 
         const novoUsuario = await prisma.usuarios.create({
             data: {
-                empresa_id: Number(dados.empresa_id),
+                empresa_id: Number(Auth.empresa_id),
                 nome: dados.nome,
                 usuario: dados.usuario,
                 senha: senhaHash,

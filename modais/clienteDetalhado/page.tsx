@@ -5,6 +5,7 @@ import Cortina from "@/componentes/cortina";
 import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
 import { CobrarBack, pagamentoAvulso, pagamentoEspecifico } from "./actions";
+import { formatarDataBR } from "@/lib/mask";
 
 type ClienteEmAberto = {
     id: number;
@@ -39,14 +40,6 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: De
             style: 'currency',
             currency: 'BRL'
         }).format(valorNumerico);
-    }
-
-    function formatarData(isoString: string) {
-        const date = new Date(isoString);
-        const dia = String(date.getDate() + 1).padStart(2, '0');
-        const mes = String(date.getMonth() + 1).padStart(2, '0'); // meses começam do 0
-        const ano = date.getFullYear();
-        return `${dia}/${mes}/${ano}`;
     }
 
     function lancarPagamento(id: Number) {
@@ -250,7 +243,7 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: De
                                     <div className=" flex flex-col justify-center">
                                         <p className="text-xl font-bold">{formatarValor(String(n.valor_inicial - n.valor_abatido))}</p>
                                         <p className=" italic text-gray-800">{n.descricao}</p>
-                                        <p className="text-gray-600">{formatarData(n.data)}</p>
+                                        <p className="text-gray-600">{formatarDataBR(n.data)}</p>
                                         {(Number(n.valor_abatido) > 0) && (
                                             <div className="italic text-sm text-gray-500">
                                                 <hr className="border-gray-300 my-1" />
@@ -268,7 +261,7 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar }: De
                                         <p className="  text-gray-800">🐶 Pet : {n.descricao ?? 'Não informado'}</p>
                                         <p className="  text-gray-800">📃 {n.quantidade} (diarias) : x {formatarValor(n.valor_unitario)}</p>
                                         <p className=" italic text-gray-800">⭐ Extras : {formatarValor(n.valor_extra) ?? formatarValor('0')}</p>
-                                        <p className="text-gray-600">{formatarData(n.data)}</p>
+                                        <p className="text-gray-600">{formatarDataBR(n.data)}</p>
 
 
                                         {(Number(n.valor_abatido) > 0 && Number(n.valor_abatido) < Number(n.valor_inicial)) && (

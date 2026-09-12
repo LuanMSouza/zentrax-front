@@ -1,6 +1,7 @@
 'use client'
 
 import { Notas, ClienteEmAberto } from '@/types'
+import { formatarDataBR } from '@/lib/mask'
 
 
 type BlocoProps = {
@@ -19,14 +20,6 @@ export function BlocoClientes({ clientes, onClick, valor }: BlocoProps) {
             style: 'currency',
             currency: 'BRL'
         }).format(valorNumerico);
-    }
-
-    function formatarData(isoString: string) {
-        const date = new Date(isoString);
-        const dia = String(date.getDate()).padStart(2, '0');
-        const mes = String(date.getMonth() + 1).padStart(2, '0'); // meses começam do 0
-        const ano = date.getFullYear();
-        return `${dia}/${mes}/${ano}`;
     }
 
     return (
@@ -51,12 +44,12 @@ export function BlocoClientes({ clientes, onClick, valor }: BlocoProps) {
 
                     <div className="flex gap-1 pt-2">
                         {c.mais_antiga === c.mais_nova ? (
-                            <p className="text-base font-bold text-blue-700">{formatarData(c.mais_antiga)}</p>
+                            <p className="text-base font-bold text-blue-700">{formatarDataBR(c.mais_antiga)}</p>
                         ) : (
                             <>
-                                <p className="text-base font-bold text-red-700">{formatarData(c.mais_antiga)}</p>
+                                <p className="text-base font-bold text-red-700">{formatarDataBR(c.mais_antiga)}</p>
                                 <p className="text-base text-gray-600">-</p>
-                                <p className="text-base font-bold text-green-700">{formatarData(c.mais_nova)}</p>
+                                <p className="text-base font-bold text-green-700">{formatarDataBR(c.mais_nova)}</p>
                             </>
                         )}
                     </div>

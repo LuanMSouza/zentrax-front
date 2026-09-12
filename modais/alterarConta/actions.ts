@@ -2,6 +2,7 @@
 
 import autenticar from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import bcrypt from 'bcrypt';
 
 type AlterarUsuarioProps = {
     id: number,
@@ -32,12 +33,27 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
             }
         }
 
+        if (Auth.role !== 'gestor') {
+            return {
+                success: false,
+                error: "Apenas gestores podem alterar outros usuários."
+            }
+        }
+
+        const alvo = await prisma.usuarios.findUnique({ where: { id: Number(dados.id) } })
+
+        if (!alvo || Number(alvo.empresa_id) !== Number(Auth.empresa_id)) {
+            return {
+                success: false,
+                error: "Usuário não encontrado."
+            }
+        }
 
         let DATA: UsuarioUpdate = { nome: dados.nome, usuario: dados.usuario, role: dados.role };
 
         if (dados.senha.trim()) {
             if (dados.senha.trim() === dados.senhaConfirm.trim()) {
-                DATA.senha = dados.senha;
+                DATA.senha = await bcrypt.hash(dados.senha.trim(), 10);
             } else {
                 return {
                     success: false,
@@ -48,6 +64,7 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
 
         const jaExiste = await prisma.usuarios.findFirst({
             where: {
+                id: { not: Number(dados.id) },
                 usuario: {
                     equals: dados.usuario,
                     mode: 'insensitive',

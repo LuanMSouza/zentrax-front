@@ -4,10 +4,16 @@ import prisma from "@/lib/prisma"
 import bcrypt from 'bcrypt';
 import { boolean, success } from "zod";
 
-export async function ConfirmarSenha({ id, senha }: { id: number, senha: string }) {
+export async function ConfirmarSenha({ senha }: { id?: number, senha: string }) {
     try {
+        const Auth = await autenticar()
+
+        if (!Auth) {
+            return { success: false, error: 'Sessão expirada ou inválida' };
+        }
+
         const dadosUser = await prisma.usuarios.findUnique({
-            where: { id: Number(id) }
+            where: { id: Number(Auth.usuario_id) }
         });
 
         if (!dadosUser || !dadosUser.senha) {
@@ -50,7 +56,7 @@ type AlterarPerfilProps = {
 }
 
 export async function Alterarperfil(form: AlterarPerfilProps) {
-    const { id, nome, usuario, senha } = form
+    const { nome, usuario, senha } = form
 
 
     const Auth = await autenticar()
@@ -69,11 +75,11 @@ export async function Alterarperfil(form: AlterarPerfilProps) {
         }
 
         if (senha && senha.trim() !== "") {
-            dataUpdate.senha = String(senha)
+            dataUpdate.senha = await bcrypt.hash(senha.trim(), 10)
         }
 
         const update = await prisma.usuarios.update({
-            where: { id: Number(id) },
+            where: { id: Number(Auth.usuario_id) },
             data: dataUpdate
         })
 
@@ -91,7 +97,7 @@ export async function Alterarperfil(form: AlterarPerfilProps) {
     }
 }
 
-export async function PegarUsuariosDaConta({ id }: { id: number }) {
+export async function PegarUsuariosDaConta({ id }: { id?: number }) {
 
     const Auth = await autenticar()
 
@@ -104,7 +110,16 @@ export async function PegarUsuariosDaConta({ id }: { id: number }) {
 
     const usuarios = await prisma.usuarios.findMany({
         where: {
-            empresa_id: Number(id)
+            empresa_id: Number(Auth.empresa_id)
+        },
+        select: {
+            id: true,
+            nome: true,
+            usuario: true,
+            role: true,
+            tipo: true,
+            empresa_id: true,
+            criacao: true
         }
     })
 
@@ -128,7 +143,30 @@ export async function ApagarContaBack(id: number) {
         }
     }
 
+    if (Auth.role !== 'gestor') {
+        return {
+            success: false,
+            error: "Apenas gestores podem remover usuários."
+        }
+    }
+
+    if (Number(id) === Number(Auth.usuario_id)) {
+        return {
+            success: false,
+            error: "Você não pode remover a própria conta por aqui."
+        }
+    }
+
     try {
+        const alvo = await prisma.usuarios.findUnique({ where: { id: Number(id) } })
+
+        if (!alvo || Number(alvo.empresa_id) !== Number(Auth.empresa_id)) {
+            return {
+                success: false,
+                error: "Usuário não encontrado."
+            }
+        }
+
         await prisma.usuarios.delete({
             where: { id: Number(id) }
         })
