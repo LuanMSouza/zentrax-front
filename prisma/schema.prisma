@@ -14,7 +14,7 @@ model alteracoes {
   usuario                             Int?
   data                                DateTime? @default(now()) @db.Timestamptz(6)
   empresa_alteracoes_empresaToempresa empresa?  @relation("alteracoes_empresaToempresa", fields: [empresa], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  usuarios                            usuarios? @relation(fields: [usuario], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  usuarios                            usuarios? @relation(fields: [usuario], references: [id], onDelete: SetNull, onUpdate: NoAction)
 }
 
 model clientes {
