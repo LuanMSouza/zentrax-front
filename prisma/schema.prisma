@@ -111,15 +111,17 @@ model snapshots {
 }
 
 model usuarios {
-  id         Int          @id @default(autoincrement())
-  nome       String       @db.VarChar(30)
-  usuario    String       @unique(map: "usuarios_email_key") @db.VarChar(50)
-  senha      String
-  criacao    DateTime?    @default(now()) @db.Timestamp(6)
-  empresa_id Int?
-  role       String?      @default("user") @db.VarChar(20)
-  tipo       String       @default("cliente") @db.VarChar(10)
-  alteracoes alteracoes[]
-  contas     contas[]
-  empresa    empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id               Int          @id @default(autoincrement())
+  nome             String       @db.VarChar(120)
+  usuario          String       @unique(map: "usuarios_email_key") @db.VarChar(50)
+  senha            String
+  criacao          DateTime?    @default(now()) @db.Timestamp(6)
+  empresa_id       Int?
+  role             String?      @default("user") @db.VarChar(20)
+  tipo             String       @default("cliente") @db.VarChar(10)
+  tentativas_login Int?         @default(0)
+  bloqueado_ate    DateTime?    @db.Timestamp(6)
+  alteracoes       alteracoes[]
+  contas           contas[]
+  empresa          empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }

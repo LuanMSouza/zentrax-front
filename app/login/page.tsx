@@ -45,6 +45,15 @@ export default function LoginPage() {
             });
         }
 
+        if (params.get('msg') === 'sessao-invalida') {
+            Swal.fire({
+                title: 'Sessão encerrada',
+                text: 'Sua sessão não é mais válida. Faça login novamente.',
+                icon: 'warning',
+                confirmButtonColor: '#008CBA'
+            });
+        }
+
     }, []);
 
     return (

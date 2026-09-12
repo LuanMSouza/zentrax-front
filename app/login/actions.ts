@@ -5,6 +5,9 @@ import bcrypt from 'bcrypt';
 import { sign } from 'jsonwebtoken'; // Substitui o fastify.jwt
 import { cookies } from 'next/headers'
 
+const MAX_TENTATIVAS = 5;
+const BLOQUEIO_MINUTOS = 15;
+
 export async function enviarLogin(formData: FormData) {
     const email = formData.get('email') as string;
     const senha = formData.get('password') as string;
@@ -28,6 +31,9 @@ export async function enviarLogin(formData: FormData) {
             return { success: false, error: "Usuário sem empresa vinculada." };
         }
 
+        if (usuario.bloqueado_ate && new Date(usuario.bloqueado_ate) > new Date()) {
+            return { success: false, error: `Muitas tentativas incorretas. Tente novamente em alguns minutos.` };
+        }
 
         let senhaValida = false;
         const hashRegex = /^\$2[aby]\$.{56}$/;
@@ -47,7 +53,39 @@ export async function enviarLogin(formData: FormData) {
         }
 
         if (!senhaValida) {
+            const tentativas = (usuario.tentativas_login ?? 0) + 1;
+            const atingiuLimite = tentativas >= MAX_TENTATIVAS;
+
+            await prisma.usuarios.update({
+                where: { id: usuario.id },
+                data: {
+                    tentativas_login: atingiuLimite ? 0 : tentativas,
+                    bloqueado_ate: atingiuLimite
+                        ? new Date(Date.now() + BLOQUEIO_MINUTOS * 60 * 1000)
+                        : null
+                }
+            });
+
+            if (atingiuLimite) {
+                return { success: false, error: `Muitas tentativas incorretas. Conta bloqueada por ${BLOQUEIO_MINUTOS} minutos.` };
+            }
+
             return { success: false, error: 'Usuário ou senha inválidos' };
+        }
+
+        if (usuario.empresa.status !== 'ativo') {
+            return { success: false, error: 'Sua assinatura está inativa. Entre em contato com o suporte.' };
+        }
+
+        if (usuario.empresa.data_expiracao && new Date(usuario.empresa.data_expiracao) < new Date()) {
+            return { success: false, error: 'Seu período de teste/assinatura expirou. Entre em contato para renovar.' };
+        }
+
+        if (usuario.tentativas_login || usuario.bloqueado_ate) {
+            await prisma.usuarios.update({
+                where: { id: usuario.id },
+                data: { tentativas_login: 0, bloqueado_ate: null }
+            });
         }
 
         const token = sign({

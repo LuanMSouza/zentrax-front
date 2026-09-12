@@ -29,20 +29,19 @@ export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
         const { payload } = await jwtVerify(token, secret);
 
         const empresaId = Number(payload.empresa_id);
-        const userId = Number(payload.user_id);
+        const userId = Number(payload.usuario_id);
         const valorNumerico = Number(valor)
 
         const resultado = await prisma.$transaction(async (tx) => {
-            const notasRowRaw = await tx.pedidos.findMany({
-                where: {
-                    id_cliente: Number(id),
-                    empresa_id: Number(empresaId),
-                },
-                orderBy: [
-                    { data: 'asc' },
-                    { id: 'asc' } // Desempate obrigatório
-                ]
-            });
+            // Trava as linhas (FOR UPDATE) para impedir que outro pagamento concorrente
+            // leia o mesmo saldo "velho" antes deste terminar.
+            const notasRowRaw = await tx.$queryRaw<any[]>`
+                SELECT * FROM pedidos
+                WHERE id_cliente = ${Number(id)}
+                  AND empresa_id = ${Number(empresaId)}
+                ORDER BY data ASC, id ASC
+                FOR UPDATE
+            `;
             const notasComSaldo = notasRowRaw
                 .map(n => ({
                     ...n,
@@ -143,33 +142,40 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
         }
     }
 
+    const empresaId = Number(dados.empresa_id)
+
     if (tipo === 'parcial') {
 
         try {
-            const notaInfos = await prisma.pedidos.findFirst({
+            const valorNumerico = Number(valor)
+
+            // Update atomico e guardado: so aplica se a nota for dessa empresa
+            // e ainda tiver saldo suficiente no momento exato da escrita —
+            // evita corrida entre dois pagamentos simultaneos na mesma nota.
+            const resultado = await prisma.pedidos.updateMany({
                 where: {
-                    id: Number(id)
+                    id: Number(id),
+                    empresa_id: empresaId,
+                    valor_restante: { gte: valorNumerico }
+                },
+                data: {
+                    valor_abatido: { increment: valorNumerico },
+                    valor_restante: { decrement: valorNumerico }
                 }
             })
-            const emAberto = Number(notaInfos?.valor_inicial) - Number(notaInfos?.valor_abatido)
 
-            if (emAberto < Number(valor)) {
+            if (resultado.count === 0) {
                 return {
                     success: false,
-                    error: 'Valor informado maior do que valor devedor!'
+                    error: 'Não foi possível registrar o pagamento — valor maior que o saldo da nota, ou nota inválida.'
                 }
             }
 
-            const notaAlterada = await prisma.pedidos.update({
-                where: { id: Number(id) },
-                data: {
-                    valor_abatido: Number(notaInfos?.valor_abatido) + Number(valor),
-                    valor_restante: Number((emAberto - Number(valor)).toFixed(2))
-                }
-            })
+            const notaAlterada = await prisma.pedidos.findUnique({ where: { id: Number(id) } })
 
-            console.log(notaAlterada);
-
+            if (!notaAlterada) {
+                return { success: false, error: 'Nota não encontrada.' }
+            }
 
             return {
                 success: true,
@@ -191,23 +197,24 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
     } else
         if (tipo === 'total') {
 
-            console.log(tipo, id, Number(valor));
-
             try {
+                // SET direto contra valor_inicial (imutavel) em SQL: idempotente e
+                // sempre correto mesmo se outro pagamento tiver alterado a nota
+                // entre o clique do usuario e a execucao aqui.
+                const linhasAfetadas = await prisma.$executeRaw`
+                    UPDATE pedidos
+                    SET valor_abatido = valor_inicial, valor_restante = 0
+                    WHERE id = ${Number(id)} AND empresa_id = ${empresaId}
+                `;
 
-                const notasInfos = await prisma.pedidos.findFirst({
-                    where: { id: Number(id) }
-                })
-
-                const updateNota = await prisma.pedidos.update({
-                    where: {
-                        id: Number(id)
-                    },
-                    data: {
-                        valor_abatido: Number(notasInfos?.valor_abatido) + Number(valor),
-                        valor_restante: 0
+                if (linhasAfetadas === 0) {
+                    return {
+                        success: false,
+                        error: 'Nota não encontrada.'
                     }
-                })
+                }
+
+                const updateNota = await prisma.pedidos.findUnique({ where: { id: Number(id) } })
 
                 return {
                     success: true,
@@ -226,8 +233,14 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
 
 export async function CobrarBack(id: number) {
 
+    const Auth = await autenticar()
+
+    if (!Auth) {
+        return null
+    }
+
     const clienteComNotas = await prisma.clientes.findFirst({
-        where: { id: Number(id) },
+        where: { id: Number(id), empresa_id: Number(Auth.empresa_id) },
         include: { pedidos: true }
     });
 
