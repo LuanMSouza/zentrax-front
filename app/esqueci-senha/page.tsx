@@ -29,7 +29,6 @@ export default function EsqueciSenhaPage() {
                 </div>
 
                 <h1 className="text-2xl font-bold text-gray-800">Esqueci minha senha</h1>
-                <p className="text-sm text-gray-600">Informe seu e-mail de acesso e enviaremos um link para você criar uma nova senha.</p>
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700">E-mail:</label>
@@ -47,7 +46,7 @@ export default function EsqueciSenhaPage() {
                     className="w-full rounded-md bg-blue-600 py-2 text-white cursor-pointer
                      hover:bg-blue-800 duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                    {enviando ? 'Enviando...' : 'Enviar link de redefinição'}
+                    {enviando ? 'Enviando...' : 'Enviar link'}
                 </button>
 
                 <div className='h-0.5 bg-gray-50'></div>

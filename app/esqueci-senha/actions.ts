@@ -10,7 +10,7 @@ const TOKEN_VALIDADE_MINUTOS = 30
 // quais e-mails estao cadastrados so tentando redefinir a senha deles.
 const RESPOSTA_GENERICA = {
     success: true,
-    message: 'Se esse e-mail estiver cadastrado, você vai receber um link para redefinir sua senha em instantes.',
+    message: 'Se esse e-mail existir por aqui, o link chega em instantes!',
 }
 
 export async function solicitarResetSenha(formData: FormData) {
@@ -43,9 +43,9 @@ export async function solicitarResetSenha(formData: FormData) {
                 subject: 'Redefinição de senha — ZentraX',
                 html: `
                     <p>Olá, ${usuario.nome}!</p>
-                    <p>Recebemos um pedido para redefinir sua senha no ZentraX.</p>
-                    <p><a href="${link}">Clique aqui para criar uma nova senha</a></p>
-                    <p>Esse link expira em ${TOKEN_VALIDADE_MINUTOS} minutos. Se você não pediu isso, é só ignorar este e-mail.</p>
+                    <p>Pediram pra redefinir a senha da sua conta no ZentraX. Se foi você, é só clicar abaixo:</p>
+                    <p><a href="${link}">Criar nova senha</a></p>
+                    <p>O link vale por ${TOKEN_VALIDADE_MINUTOS} minutos. Não foi você? Pode ignorar este e-mail.</p>
                 `,
             })
         }

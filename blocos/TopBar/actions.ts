@@ -9,6 +9,17 @@ export async function logout() {
     (await cookies()).delete('token');
 }
 
+// Preco/duracao de cada plano, pra tela de renovacao montar os cards
+// com o valor real (fonte unica de verdade fica no .env, via lib/planos).
+export async function listarPlanos() {
+    return (Object.entries(PLANOS) as [PlanoId, (typeof PLANOS)[PlanoId]][]).map(([id, plano]) => ({
+        id,
+        nome: plano.nome,
+        dias: plano.dias,
+        valorCentavos: plano.valorCentavos,
+    }));
+}
+
 // Cria a sessao de checkout do Stripe pro plano escolhido. Enquanto
 // STRIPE_SECRET_KEY nao estiver no .env, retorna error: 'not_configured'
 // pra quem chamar cair no fallback de "fale com o suporte" (ja existente).
