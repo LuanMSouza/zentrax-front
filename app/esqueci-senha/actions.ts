@@ -3,8 +3,10 @@
 import crypto from 'crypto'
 import prisma from '@/lib/prisma'
 import { enviarEmail } from '@/lib/email'
+import { podeTentar } from '@/lib/rateLimit'
 
 const TOKEN_VALIDADE_MINUTOS = 30
+const INTERVALO_ENTRE_PEDIDOS_MS = 60 * 1000
 
 // Resposta sempre igual, exista ou nao o e-mail, pra nao dar pra descobrir
 // quais e-mails estao cadastrados so tentando redefinir a senha deles.
@@ -17,6 +19,12 @@ export async function solicitarResetSenha(formData: FormData) {
     const email = String(formData.get('email') ?? '').trim().toLowerCase()
 
     if (!email) return RESPOSTA_GENERICA
+
+    // Nao gera novo token/e-mail se ja pediu reset pra esse e-mail no ultimo
+    // minuto - evita spam de e-mail e escrita repetida no banco.
+    if (!podeTentar(`reset-senha:${email}`, INTERVALO_ENTRE_PEDIDOS_MS)) {
+        return RESPOSTA_GENERICA
+    }
 
     try {
         const usuario = await prisma.usuarios.findFirst({

@@ -9,6 +9,43 @@ export async function logout() {
     (await cookies()).delete('token');
 }
 
+async function pegarEmpresaIdDoToken(): Promise<number | null> {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('token')?.value;
+    if (!token) return null;
+
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const { payload } = await jwtVerify(token, secret);
+    return Number(payload.empresa_id);
+}
+
+// Usado depois que o usuario volta do checkout do Stripe: o webhook que
+// realmente estende a assinatura roda em paralelo (as vezes com um delay
+// de 1-2s), entao aqui so devolvemos o estado atual da empresa pra TopBar
+// atualizar o localStorage sem precisar deslogar/logar de novo.
+export async function buscarEmpresaAtualizada() {
+    try {
+        const empresaId = await pegarEmpresaIdDoToken();
+        if (!empresaId) return { success: false, error: 'Sessão inválida' };
+
+        const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+        if (!empresa) return { success: false, error: 'Empresa não encontrada' };
+
+        return {
+            success: true,
+            empresa: {
+                id: empresa.id,
+                nome: empresa.nome,
+                segmento: empresa.segmento,
+                expiracao: empresa.data_expiracao,
+            },
+        };
+    } catch (error) {
+        console.error('Erro ao buscar empresa atualizada:', error);
+        return { success: false, error: 'Erro interno no servidor' };
+    }
+}
+
 // Preco/duracao de cada plano, pra tela de renovacao montar os cards
 // com o valor real (fonte unica de verdade fica no .env, via lib/planos).
 export async function listarPlanos() {
@@ -36,13 +73,8 @@ export async function criarSessaoRenovacao(planoId: PlanoId) {
     }
 
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('token')?.value;
-        if (!token) return { success: false, error: 'Sessão inválida' };
-
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-        const { payload } = await jwtVerify(token, secret);
-        const empresaId = Number(payload.empresa_id);
+        const empresaId = await pegarEmpresaIdDoToken();
+        if (!empresaId) return { success: false, error: 'Sessão inválida' };
 
         const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
         if (!empresa) return { success: false, error: 'Empresa não encontrada' };

@@ -2,7 +2,7 @@
 
 import { Button } from "@/componentes/Buttons";
 import { useEffect, useState } from "react";
-import { logout, criarSessaoRenovacao, listarPlanos } from "./actions";
+import { logout, criarSessaoRenovacao, listarPlanos, buscarEmpresaAtualizada } from "./actions";
 import Configuracoes from "@/modais/configuracoes/page";
 import HistoricoAtividades from "@/blocos/HistoricoAtividades/pages";
 import Swal from "sweetalert2";
@@ -60,6 +60,65 @@ export default function TopBar() {
             }
         }
     }, [diasRestantes, settings]);
+
+    // Volta do checkout do Stripe (?renovacao=sucesso|cancelada). O webhook
+    // que efetivamente estende a assinatura roda em paralelo e pode levar
+    // 1-2s pra chegar, entao tenta buscar a empresa atualizada algumas vezes
+    // antes de desistir - sem isso, "dias restantes" ficava com o valor
+    // salvo no login ate a pessoa deslogar e logar de novo.
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const renovacao = params.get('renovacao');
+        if (!renovacao) return;
+
+        window.history.replaceState({}, '', location.pathname);
+
+        if (renovacao === 'cancelada') {
+            Swal.fire('Pagamento cancelado', 'Nenhuma cobrança foi feita.', 'info');
+            return;
+        }
+
+        if (renovacao !== 'sucesso') return;
+
+        (async () => {
+            Swal.fire({ title: 'Confirmando pagamento...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+
+            // Le direto do localStorage (nao do state `empresa`) porque esse
+            // efeito roda no mesmo ciclo de mount do efeito que carrega o
+            // localStorage - o state ainda nao foi re-renderizado nesse ponto.
+            let expiracaoAntiga = 0;
+            try {
+                const empresaSalva = JSON.parse(localStorage.getItem('empresa') || 'null');
+                if (empresaSalva?.expiracao) expiracaoAntiga = new Date(empresaSalva.expiracao).getTime();
+            } catch { }
+
+            for (let tentativa = 0; tentativa < 5; tentativa++) {
+                const res = await buscarEmpresaAtualizada();
+
+                if (res.success && res.empresa) {
+                    const expiracaoNova = res.empresa.expiracao ? new Date(res.empresa.expiracao).getTime() : 0;
+
+                    if (expiracaoNova > expiracaoAntiga) {
+                        localStorage.setItem('empresa', JSON.stringify(res.empresa));
+                        setEmpresa(res.empresa);
+                        setDiasRestantes(Math.ceil((expiracaoNova - Date.now()) / (1000 * 60 * 60 * 24)));
+
+                        Swal.fire('Pagamento confirmado!', 'Sua assinatura foi renovada com sucesso.', 'success');
+                        return;
+                    }
+                }
+
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+            }
+
+            Swal.fire({
+                title: 'Pagamento recebido!',
+                text: 'Estamos confirmando com o Stripe - se os dias restantes não atualizarem em alguns instantes, recarregue a página.',
+                icon: 'info',
+            });
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     async function sair() {
         localStorage.clear()

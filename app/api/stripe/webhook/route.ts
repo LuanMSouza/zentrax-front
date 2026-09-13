@@ -26,36 +26,62 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Assinatura inválida' }, { status: 400 })
     }
 
-    try {
-        await prisma.stripe_webhook_eventos.create({ data: { id: event.id } })
-    } catch {
-        // Unique constraint = evento ja processado antes (Stripe reenviou).
-        // Responde 200 pra ele parar de tentar de novo, sem reaplicar a renovacao.
-        return NextResponse.json({ received: true, duplicado: true })
+    if (event.type !== 'checkout.session.completed') {
+        return NextResponse.json({ received: true, ignorado: true })
     }
 
-    if (event.type === 'checkout.session.completed') {
-        const session = event.data.object as Stripe.Checkout.Session
-        const empresaId = Number(session.metadata?.empresa_id)
-        const dias = Number(session.metadata?.dias)
+    const session = event.data.object as Stripe.Checkout.Session
 
-        if (empresaId && dias) {
-            const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } })
+    // Pagamento com cartao sempre fecha o checkout ja pago, mas confere
+    // mesmo assim - fica sem custo e evita renovar em cima de um checkout
+    // que fechou sem confirmar o pagamento.
+    if (session.payment_status !== 'paid') {
+        return NextResponse.json({ received: true, ignorado: true })
+    }
 
-            if (empresa) {
-                const baseData = empresa.data_expiracao && empresa.data_expiracao > new Date()
-                    ? empresa.data_expiracao
-                    : new Date()
+    const empresaId = Number(session.metadata?.empresa_id)
+    const dias = Number(session.metadata?.dias)
 
-                await prisma.empresa.update({
-                    where: { id: empresaId },
-                    data: {
-                        status: 'ativo',
-                        data_expiracao: new Date(baseData.getTime() + dias * 24 * 60 * 60 * 1000),
-                    },
-                })
+    if (!empresaId || !dias) {
+        console.error('Webhook Stripe sem metadata esperada:', event.id)
+        return NextResponse.json({ received: true, ignorado: true })
+    }
+
+    try {
+        // O registro do evento processado e a renovacao da empresa andam
+        // juntos numa transacao: se a renovacao falhar por qualquer motivo,
+        // o evento NAO fica marcado como processado, e o proximo reenvio do
+        // Stripe tenta de novo. Sem isso, uma falha no meio do caminho faria
+        // a renovacao se perder pra sempre (o evento ja estaria "processado").
+        await prisma.$transaction(async (tx) => {
+            await tx.stripe_webhook_eventos.create({ data: { id: event.id } })
+
+            const empresa = await tx.empresa.findUnique({ where: { id: empresaId } })
+            if (!empresa) {
+                console.error('Webhook Stripe: empresa não encontrada', empresaId)
+                return
             }
+
+            const baseData = empresa.data_expiracao && empresa.data_expiracao > new Date()
+                ? empresa.data_expiracao
+                : new Date()
+
+            await tx.empresa.update({
+                where: { id: empresaId },
+                data: {
+                    status: 'ativo',
+                    data_expiracao: new Date(baseData.getTime() + dias * 24 * 60 * 60 * 1000),
+                },
+            })
+        })
+    } catch (error: any) {
+        if (error?.code === 'P2002') {
+            // Unique constraint no id do evento = ja processado antes (Stripe reenviou)
+            return NextResponse.json({ received: true, duplicado: true })
         }
+
+        console.error('Erro ao processar webhook Stripe:', error)
+        return NextResponse.json({ error: 'Erro ao processar evento' }, { status: 500 })
     }
 
     return NextResponse.json({ received: true })
