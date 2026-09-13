@@ -119,19 +119,28 @@ model snapshots {
 }
 
 model usuarios {
-  id               Int          @id @default(autoincrement())
-  nome             String       @db.VarChar(120)
-  usuario          String       @unique(map: "usuarios_email_key") @db.VarChar(50)
-  senha            String
-  criacao          DateTime?    @default(now()) @db.Timestamp(6)
-  empresa_id       Int?
-  role             String?      @default("user") @db.VarChar(20)
-  tipo             String       @default("cliente") @db.VarChar(10)
-  tentativas_login Int?         @default(0)
-  bloqueado_ate    DateTime?    @db.Timestamp(6)
-  alteracoes       alteracoes[]
-  contas           contas[]
-  empresa          empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                 Int          @id @default(autoincrement())
+  nome               String       @db.VarChar(120)
+  usuario            String       @unique(map: "usuarios_email_key") @db.VarChar(50)
+  senha              String
+  criacao            DateTime?    @default(now()) @db.Timestamp(6)
+  empresa_id         Int?
+  role               String?      @default("user") @db.VarChar(20)
+  tipo               String       @default("cliente") @db.VarChar(10)
+  tentativas_login   Int?         @default(0)
+  bloqueado_ate      DateTime?    @db.Timestamp(6)
+  reset_token_hash   String?      @unique
+  reset_token_expira DateTime?    @db.Timestamptz(6)
+  alteracoes         alteracoes[]
+  contas             contas[]
+  empresa            empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([empresa_id])
+}
+
+// Guarda o id de cada evento de webhook do Stripe ja processado, pra
+// nao aplicar a mesma renovacao duas vezes se o Stripe reentregar o evento.
+model stripe_webhook_eventos {
+  id            String   @id
+  processado_em DateTime @default(now())
 }

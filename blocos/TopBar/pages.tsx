@@ -2,10 +2,11 @@
 
 import { Button } from "@/componentes/Buttons";
 import { useEffect, useState } from "react";
-import { logout } from "./actions";
+import { logout, criarSessaoRenovacao } from "./actions";
 import Configuracoes from "@/modais/configuracoes/page";
 import HistoricoAtividades from "@/blocos/HistoricoAtividades/pages";
 import Swal from "sweetalert2";
+import type { PlanoId } from "@/lib/planos";
 
 export default function TopBar() {
 
@@ -80,7 +81,7 @@ export default function TopBar() {
             title: 'Ops...',
             html: `
     <p style="margin-bottom: 10px;">Essa função ainda não foi habilitada</p>
-    <a 
+    <a
         href="https://wa.me/5513998087787?text=Olá,%20gostaria%20de%20renovar%20minha%20assinatura"
         target="_blank"
         class="inline-block bg-cyan-300 px-4 py-2 rounded-2xl text-black font-semibold no-underline"
@@ -90,6 +91,46 @@ export default function TopBar() {
 `,
             icon: 'warning'
         })
+    }
+
+    const renovar = async () => {
+        const { value: planoEscolhido } = await Swal.fire<PlanoId>({
+            title: 'Renovar assinatura',
+            text: 'Escolha o plano para continuar:',
+            icon: 'question',
+            input: 'radio',
+            inputOptions: {
+                mensal: 'Mensal',
+                trimestral: 'Trimestral',
+                anual: 'Anual',
+            },
+            inputValidator: (value) => {
+                if (!value) return 'Escolha um plano para continuar';
+            },
+            confirmButtonText: 'Ir para pagamento',
+            showCancelButton: true,
+            cancelButtonText: 'Cancelar',
+        });
+
+        if (!planoEscolhido) return;
+
+        Swal.fire({ title: 'Preparando pagamento...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+
+        const result = await criarSessaoRenovacao(planoEscolhido);
+
+        if (!result.success || !result.url) {
+            Swal.close();
+
+            if (result.error === 'not_configured') {
+                naoHabilitado();
+                return;
+            }
+
+            Swal.fire('Opa...', result.error || 'Não foi possível iniciar o pagamento', 'error');
+            return;
+        }
+
+        window.location.href = result.url;
     }
 
 
@@ -114,7 +155,7 @@ export default function TopBar() {
                         <p className="text-sm italic text-gray-800">{diasRestantes ?? '--'} Dia(s) restante(s)</p>
 
                         {diasRestantes !== null && diasRestantes < 10 &&
-                            <Button onClick={naoHabilitado} texto="Renovar agora" tipo="btn02" tamanho="p" corTexto="preto" />
+                            <Button onClick={renovar} texto="Renovar agora" tipo="btn02" tamanho="p" corTexto="preto" />
                         }
                     </div>
 

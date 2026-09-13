@@ -54,6 +54,15 @@ export default function LoginPage() {
             });
         }
 
+        if (params.get('msg') === 'senha-redefinida') {
+            Swal.fire({
+                title: 'Senha redefinida!',
+                text: 'Faça login com a sua nova senha.',
+                icon: 'success',
+                confirmButtonColor: '#008CBA'
+            });
+        }
+
     }, []);
 
     return (
@@ -111,6 +120,7 @@ export default function LoginPage() {
                             className="mt-1 w-full rounded-md border border-gray-300 p-2 focus:border-blue-500 focus:ring-blue-500"
                             required
                         />
+                        <a href="/esqueci-senha" className="mt-1 inline-block text-sm text-blue-600 hover:underline">Esqueci minha senha</a>
                     </div>
 
                     <button

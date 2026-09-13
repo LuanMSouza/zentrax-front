@@ -12,6 +12,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.5.0",
+    "@sendgrid/mail": "^8.1.6",
     "bcrypt": "^6.0.0",
     "framer-motion": "^12.38.0",
     "jose": "^6.2.1",
@@ -21,6 +22,7 @@
     "pg": "^8.20.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "stripe": "^22.6.2",
     "sweetalert2": "^11.26.21",
     "zod": "^4.3.6"
   },
