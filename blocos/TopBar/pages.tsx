@@ -2,12 +2,11 @@
 
 import { Button } from "@/componentes/Buttons";
 import { useEffect, useState } from "react";
-import { logout, criarSessaoRenovacao, listarPlanos, buscarEmpresaAtualizada } from "./actions";
+import { logout, buscarEmpresaAtualizada } from "./actions";
 import Configuracoes from "@/modais/configuracoes/page";
 import HistoricoAtividades from "@/blocos/HistoricoAtividades/pages";
+import RenovarAssinatura from "@/modais/renovarAssinatura/page";
 import Swal from "sweetalert2";
-import { FormatarValor } from "@/lib/mask";
-import type { PlanoId } from "@/lib/planos";
 
 export default function TopBar() {
 
@@ -153,67 +152,7 @@ export default function TopBar() {
         })
     }
 
-    const renovar = async () => {
-        const planos = await listarPlanos();
-
-        const cardsHtml = planos.map((plano) => {
-            const destaque = plano.id === 'anual';
-
-            return `
-                <label class="relative flex items-center justify-between gap-3 border-2 ${destaque ? 'border-emerald-400' : 'border-gray-300'} rounded-xl p-3 mb-2 cursor-pointer hover:bg-gray-50 text-left">
-                    ${destaque ? '<span class="absolute -top-2.5 right-3 bg-emerald-400 text-black text-xs font-bold px-2 py-0.5 rounded-full shadow">Melhor escolha</span>' : ''}
-                    <span class="flex items-center gap-3">
-                        <input type="radio" name="plano-renovacao" value="${plano.id}" class="w-4 h-4 accent-emerald-500" />
-                        <span>
-                            <span class="block font-semibold text-gray-800">${plano.nome}</span>
-                            <span class="block text-xs text-gray-500">${plano.dias} dias</span>
-                        </span>
-                    </span>
-                    <span class="font-bold text-gray-800">${FormatarValor(plano.valorCentavos / 100)}</span>
-                </label>
-            `;
-        }).join('');
-
-        const { value: planoEscolhido } = await Swal.fire<PlanoId>({
-            title: 'Renovar assinatura',
-            html: `<div class="text-left">${cardsHtml}</div>`,
-            icon: 'question',
-            confirmButtonText: 'Ir para pagamento',
-            showCancelButton: true,
-            cancelButtonText: 'Cancelar',
-            focusConfirm: false,
-            preConfirm: () => {
-                const selecionado = document.querySelector<HTMLInputElement>('input[name="plano-renovacao"]:checked');
-                if (!selecionado) {
-                    Swal.showValidationMessage('Escolha um plano para continuar');
-                    return false;
-                }
-                return selecionado.value as PlanoId;
-            },
-        });
-
-        if (!planoEscolhido) return;
-
-        Swal.fire({ title: 'Preparando pagamento...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
-
-        const result = await criarSessaoRenovacao(planoEscolhido);
-
-        if (!result.success || !result.url) {
-            Swal.close();
-
-            if (result.error === 'not_configured') {
-                naoHabilitado();
-                return;
-            }
-
-            Swal.fire('Opa...', result.error || 'Não foi possível iniciar o pagamento', 'error');
-            return;
-        }
-
-        window.location.href = result.url;
-    }
-
-
+    const [modalRenovar, setModalRenovar] = useState(false);
 
     return (
         <>
@@ -235,7 +174,7 @@ export default function TopBar() {
                         <p className="text-sm italic text-gray-800">{diasRestantes ?? '--'} Dia(s) restante(s)</p>
 
                         {diasRestantes !== null && diasRestantes < 10 &&
-                            <Button onClick={renovar} texto="Renovar agora" tipo="btn02" tamanho="p" corTexto="preto" />
+                            <Button onClick={() => setModalRenovar(true)} texto="Renovar agora" tipo="btn02" tamanho="p" corTexto="preto" />
                         }
                     </div>
 
@@ -258,6 +197,11 @@ export default function TopBar() {
                     usuario={usuario}
                     empresa={empresa}
                     sair={() => setConfig(false)} />}
+
+            {modalRenovar &&
+                <RenovarAssinatura
+                    sair={() => setModalRenovar(false)}
+                    naoConfigurado={naoHabilitado} />}
 
             {usuario?.role === 'gestor' && <HistoricoAtividades />}
         </>

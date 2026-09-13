@@ -131,7 +131,12 @@ export default function LoginPage() {
                         Acessar
                     </button>
                     <div className='h-0.5 bg-gray-50'></div>
-                    <p>Ainda não possui uma conta? cadastre-se agora</p>
+                    <p>
+                        Ainda não possui uma conta?{' '}
+                        <a href="https://zentrax.dvls.com.br/cadastro" className="text-blue-600 font-semibold hover:underline">
+                            cadastre-se agora
+                        </a>
+                    </p>
                 </form>
 
 
