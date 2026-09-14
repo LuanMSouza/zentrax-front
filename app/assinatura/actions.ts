@@ -5,7 +5,7 @@ import stripe, { PRECOS_STRIPE, ehCicloValido, CicloAssinatura } from "@/lib/str
 import autenticar from "@/lib/auth"
 import { verify } from "jsonwebtoken"
 
-const APP_URL = process.env.APP_URL ?? 'https://zentrax.dvls.com.br'
+const APP_URL = process.env.APP_URL ?? 'https://app.zentrax.dvls.com.br'
 
 type CheckoutResult =
     | { success: true; data: { url: string | null } }
