@@ -132,6 +132,8 @@ model usuarios {
   tipo             String       @default("cliente") @db.VarChar(10)
   tentativas_login Int?         @default(0)
   bloqueado_ate    DateTime?    @db.Timestamp(6)
+  reset_token      String?      @unique @db.VarChar(64)
+  reset_token_expira DateTime?  @db.Timestamptz(6)
   alteracoes       alteracoes[]
   contas           contas[]
   empresa          empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

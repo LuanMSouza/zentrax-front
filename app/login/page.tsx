@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { enviarLogin } from './actions';
 import Swal from 'sweetalert2';
 import { useEffect, useState, useTransition } from 'react';
@@ -119,6 +120,10 @@ export default function LoginPage() {
                             required
                         />
                     </div>
+
+                    <Link href="/esqueci-senha" className="text-blue-600 hover:underline text-sm block text-right">
+                        Esqueceu a senha?
+                    </Link>
 
                     <button
                         type="submit"
