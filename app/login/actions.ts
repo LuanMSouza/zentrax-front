@@ -73,12 +73,26 @@ export async function enviarLogin(formData: FormData) {
             return { success: false, error: 'Usuário ou senha inválidos' };
         }
 
-        if (usuario.empresa.status !== 'ativo') {
-            return { success: false, error: 'Sua assinatura está inativa. Entre em contato com o suporte.' };
-        }
+        const expirou = usuario.empresa.data_expiracao && new Date(usuario.empresa.data_expiracao) < new Date();
 
-        if (usuario.empresa.data_expiracao && new Date(usuario.empresa.data_expiracao) < new Date()) {
-            return { success: false, error: 'Seu período de teste/assinatura expirou. Entre em contato para renovar.' };
+        if (usuario.empresa.status !== 'ativo' || expirou) {
+            // Só quem já provou a senha chega aqui - emite um token de escopo
+            // restrito (só serve pra iniciar um checkout do Stripe pra essa
+            // empresa) pra permitir assinar/renovar mesmo sem sessão completa.
+            const billingToken = sign(
+                { empresa_id: usuario.empresa_id, purpose: 'billing' },
+                process.env.JWT_SECRET!,
+                { expiresIn: '30m' }
+            );
+
+            return {
+                success: false,
+                error: expirou
+                    ? 'Seu período de teste/assinatura expirou.'
+                    : 'Sua assinatura está inativa.',
+                podeAssinar: true,
+                billingToken,
+            };
         }
 
         if (usuario.tentativas_login || usuario.bloqueado_ate) {

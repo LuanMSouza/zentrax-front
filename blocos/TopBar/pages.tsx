@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { logout } from "./actions";
 import Configuracoes from "@/modais/configuracoes/page";
 import HistoricoAtividades from "@/blocos/HistoricoAtividades/pages";
+import AssinaturaModal from "@/modais/assinatura/pages";
 import Swal from "sweetalert2";
 
 export default function TopBar() {
@@ -66,6 +67,7 @@ export default function TopBar() {
     }
 
     const [config, setConfig] = useState(false)
+    const [assinatura, setAssinatura] = useState(false)
 
     const atualizarDadosPerfil = (res: any) => {
         const novoUsuario = res.usuarioNovo[0];
@@ -74,25 +76,6 @@ export default function TopBar() {
         setNome(novoUsuario.nome);
         localStorage.setItem('usuario', JSON.stringify(novoUsuario));
     }
-
-    const naoHabilitado = () => {
-        Swal.fire({
-            title: 'Ops...',
-            html: `
-    <p style="margin-bottom: 10px;">Essa função ainda não foi habilitada</p>
-    <a 
-        href="https://wa.me/5513998087787?text=Olá,%20gostaria%20de%20renovar%20minha%20assinatura"
-        target="_blank"
-        class="inline-block bg-cyan-300 px-4 py-2 rounded-2xl text-black font-semibold no-underline"
-    >
-        Clique aqui para entrar em contato direto com o administrador!
-    </a>
-`,
-            icon: 'warning'
-        })
-    }
-
-
 
     return (
         <>
@@ -114,7 +97,7 @@ export default function TopBar() {
                         <p className="text-sm italic text-gray-800">{diasRestantes ?? '--'} Dia(s) restante(s)</p>
 
                         {diasRestantes !== null && diasRestantes < 10 &&
-                            <Button onClick={naoHabilitado} texto="Renovar agora" tipo="btn02" tamanho="p" corTexto="preto" />
+                            <Button onClick={() => setAssinatura(true)} texto="Renovar agora" tipo="btn02" tamanho="p" corTexto="preto" />
                         }
                     </div>
 
@@ -139,6 +122,8 @@ export default function TopBar() {
                     sair={() => setConfig(false)} />}
 
             {usuario?.role === 'gestor' && <HistoricoAtividades />}
+
+            {assinatura && <AssinaturaModal sair={() => setAssinatura(false)} />}
         </>
     );
 }

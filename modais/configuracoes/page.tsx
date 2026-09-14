@@ -6,6 +6,7 @@ import { useState } from "react";
 import PerfilConfig from "./abas/perfil";
 import ContaConfig from "./abas/conta";
 import PreferenciasConfig from "./abas/preferencias";
+import AssinaturaConfig from "./abas/assinatura";
 
 type ConfigProps = {
     sair: () => void,
@@ -46,6 +47,12 @@ export default function Configuracoes({ sair, usuario, empresa, atualizarPerfil 
                     >
                         Preferências
                     </button>
+                    <button
+                        onClick={() => setSelecionado("assinatura")}
+                        className={`${tabBase} ${selecionado === "assinatura" ? tabAtiva : tabInativa}`}
+                    >
+                        Assinatura
+                    </button>
                 </nav>
 
                 <div className="min-h-50 animate-in fade-in duration-500">
@@ -67,6 +74,12 @@ export default function Configuracoes({ sair, usuario, empresa, atualizarPerfil 
                     {selecionado === "preferencias" && (
                         <PreferenciasConfig
                             sair={sair}
+                        />
+                    )}
+
+                    {selecionado === "assinatura" && (
+                        <AssinaturaConfig
+                            usuario={usuario}
                         />
                     )}
                 </div>

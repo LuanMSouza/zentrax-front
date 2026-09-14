@@ -3,15 +3,22 @@
 import { useRouter } from 'next/navigation';
 import { enviarLogin } from './actions';
 import Swal from 'sweetalert2';
-import { useEffect, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
+import AssinaturaModal from '@/modais/assinatura/pages';
 
 export default function LoginPage() {
 
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
+    const [billingToken, setBillingToken] = useState<string | null>(null);
 
     async function handleSubmit(formData: FormData) {
         const result = await enviarLogin(formData);
+
+        if (!result.success && result.podeAssinar && result.billingToken) {
+            setBillingToken(result.billingToken);
+            return;
+        }
 
         if (!result.success || !result.data) {
             Swal.fire('Opa...', result.error || "Erro inesperado", 'error');
@@ -126,6 +133,12 @@ export default function LoginPage() {
 
 
             </div>
+
+            {billingToken &&
+                <AssinaturaModal
+                    billingToken={billingToken}
+                    sair={() => setBillingToken(null)}
+                />}
         </div >
 
     );

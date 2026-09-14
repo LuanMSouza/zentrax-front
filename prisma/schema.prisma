@@ -56,6 +56,9 @@ model empresa {
   plano                                  String?           @default("basico") @db.VarChar(50)
   segmento                               String?           @default("geral") @db.VarChar(20)
   valor_diaria                           Decimal?          @default(0) @db.Decimal(10, 2)
+  stripe_customer_id                     String?           @unique @db.VarChar(40)
+  stripe_subscription_id                 String?           @unique @db.VarChar(40)
+  stripe_ciclo                           String?           @db.VarChar(20)
   alteracoes_alteracoes_empresaToempresa alteracoes[]      @relation("alteracoes_empresaToempresa")
   clientes                               clientes[]
   contas                                 contas[]
