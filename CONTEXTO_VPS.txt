@@ -1,0 +1,190 @@
+ZENTRAX - CONTEXTO PARA CONTINUAR NA VPS
+Gerado em 2026-09-15 (Claude Code, sessão local do Luan)
+=========================================================
+
+VISÃO GERAL
+-----------
+ZentraX é um SaaS de gestão de cobrança/fiado. O pai do Luan já usa em produção
+todo dia. Dois repos relevantes:
+  - zentrax-front  (Next.js, o app de verdade)
+  - lp-zentrax     (LP/marketing)
+O zentrax-back (Fastify) era órfão e foi apagado localmente em 2026-09-14.
+Ainda existe no GitHub (zentrax-back) se precisar recuperar, mas não está em uso.
+
+INFRA REAL
+----------
+- Front roda na VPS via pm2, processo "Zentrax2.0".
+- Deploy automático via GitHub Actions com self-hosted runner
+  (.github/workflows/deploy.yml), dispara a cada push pra "main".
+- NÃO é Netlify — é processo único via pm2 (sem multiplicação de conexões).
+- Domínios:
+    app.zentrax.dvls.com.br  = o app
+    zentrax.dvls.com.br      = a LP
+    dvls.com.br              = domínio raiz do Luan, DNS na Hostinger,
+                                usado por vários projetos dele
+    mail.zentrax.dvls.com.br = subdomínio dedicado pro Resend (isolar reputação)
+- front e lp: branch "main".
+
+⚠️ CUIDADO AO RETOMAR NA VPS ⚠️
+--------------------------------
+Em 2026-09-14 uma sessão anterior do Claude Code rodando DIRETO na VPS
+implementou/planejou coisas que NUNCA foram commitadas no git — só sobrou
+rastro no .env da VPS, com nomes de variável DIFERENTES dos que o código
+atual usa (ex.: NEXT_PUBLIC_APP_URL em vez de APP_URL, SENDGRID_* em vez de
+RESEND_*, STRIPE_PLANO_*_CENTAVOS/DIAS que não existem no código atual).
+Essas variáveis inúteis já foram removidas do .env da VPS nesta sessão local.
+
+Se algo parecer "quase pronto" mas não bater com o código real: desconfie.
+SEMPRE confirme por `git log` / grep no código — nunca pelo que está escrito
+em comentário de .env ou pelo que alguém lembra de ter visto em outra sessão.
+
+PRIMEIRA COISA A FAZER NA VPS: `git log` da main nos dois repos pra ver
+exatamente o que já foi feito (comits abaixo são o estado confirmado em
+2026-09-15).
+
+CHECKLIST DE PRÉ-LANÇAMENTO — SÓ FALTA 1 ITEM
+-----------------------------------------------
+[x] Termos de Uso / Política de Privacidade
+[x] "Esqueci minha senha" (Resend) — ver seção própria abaixo
+[x] E-mail de suporte da LP corrigido
+[x] 8 pontos devolvendo erro cru pro cliente
+[x] Back Fastify órfão — apagado
+[x] Índices em empresa_id/id_cliente
+[x] Fix isolamento multi-tenant em lançarNotas
+[x] "Gargalo arquitetural" fechado (era engano de premissa — pm2, não serverless)
+[x] TLS + rota de onboarding público (api.devedores.dvls.com.br)
+[ ] PAGINAÇÃO — falta em pegarClientesBack / pegarNotasBack / pegarPagamentosBack
+    (app/dashboard/actions.ts). Confirmado aberto em 2026-09-14. Não é
+    problema hoje (pouco volume), piora com o tempo.
+    >>> ÚNICO ITEM QUE FALTA PRA FECHAR A LISTA INTEIRA. <<<
+
+INTEGRAÇÃO STRIPE (implementada e deployada em 2026-09-14)
+------------------------------------------------------------
+Conta "Área restrita de ZentraX" (acct_1UFEk2A2RR3jD2nU), MODO TESTE.
+Plano único, 3 ciclos:
+  - Mensal R$49,90        price_1UFfOIA2RR3jD2nUV1KomdT7
+  - Trimestral R$134,70/3meses   price_1UFfOMA2RR3jD2nUefGR0rAd
+  - Anual R$358,80/ano (~R$29,90/mês, ~40% off do mensal — âncora agressiva,
+    decisão consciente)   price_1UFfORA2RR3jD2nUckDdLZwb
+Produto: prod_VGBl0aSoJpZ3Qd
+Webhook: we_1UFfcwA2RR3jD2nUYGj3d1I7 -> https://app.zentrax.dvls.com.br/api/stripe/webhook
+  (eventos: checkout.session.completed, customer.subscription.updated/.deleted)
+
+Cadastro continua sem cartão (7 dias grátis, promessa da LP). Stripe só entra
+quando a empresa assina/renova. Checkout hospedado + Customer Portal (sem UI
+própria de gestão). Tabela `empresa` ganhou stripe_customer_id /
+stripe_subscription_id / stripe_ciclo. Login emite JWT de escopo restrito
+(purpose:'billing', 30min) quando a assinatura está vencida, pra permitir
+pagar mesmo sem sessão completa (autenticar() bloquearia).
+
+Código: lib/stripe.ts (init preguiçosa — SDK derruba build se instanciado sem
+STRIPE_SECRET_KEY), app/assinatura/actions.ts, app/api/stripe/webhook/route.ts,
+modais/assinatura/pages.tsx, modais/configuracoes/abas/assinatura.tsx.
+Nessa versão da API Stripe (2026-08-26.*), current_period_end fica em
+subscription.items.data[0].current_period_end.
+
+Testado de ponta a ponta com objetos descartáveis (apagados depois).
+Commits: ed12001 / e37eba1 / 3f9ad16 em zentrax-front main, deployados.
+
+PENDENTE: conta Stripe ainda NÃO ativada pra modo live (charges_enabled:false,
+details_submitted:false) — falta o Luan completar o formulário de ativação
+no Dashboard (dados da empresa/CPF-CNPJ, conta bancária, documento de
+identidade) antes de existir uma sk_live_. Quando ele voltar a falar nisso,
+é continuação direta, não feature nova.
+
+RECUPERAÇÃO DE SENHA (implementada e deployada em 2026-09-14, via Resend)
+----------------------------------------------------------------------------
+Fluxo: /esqueci-senha pede e-mail -> gera token de 32 bytes, guarda só o
+hash SHA-256 em usuarios.reset_token (+ reset_token_expira, 1h de validade)
+-> manda o token em claro por e-mail. /redefinir-senha?token= valida
+hash+validade, troca a senha via bcrypt, token é de uso único (limpo após
+o reset). Resposta de solicitarRecuperacaoSenha é sempre genérica (não
+revela se o e-mail existe).
+
+Código: app/esqueci-senha/, app/redefinir-senha/, lib/email.ts (Resend,
+init preguiçosa igual ao Stripe). Commit a11a14e, deployado.
+
+DOMÍNIO DE ENVIO (Resend) — ESTE É O PONTO MAIS QUENTE PRA CONTINUAR
+-----------------------------------------------------------------------
+mail.zentrax.dvls.com.br foi adicionado no Resend (resend.com/domains).
+Os 3 registros DNS já foram configurados na Hostinger e CONFIRMADOS
+PROPAGADOS:
+  - resend._domainkey.mail.zentrax... (TXT/DKIM)
+  - send.mail.zentrax...              (CNAME/SPF)
+  - rsend.mail.zentrax...             (CNAME/SPF)
+
+Mas no fim da sessão de 2026-09-14 (~21h) o Resend ainda mostrava "Pending"
+— avisa que pode levar horas pra ele mesmo re-checar (não tem botão manual
+de "Verify" nessa versão da UI).
+
+RESEND_FROM já foi trocado NO .env LOCAL (front/.env, no PC do Luan) pra:
+  RESEND_FROM="ZentraX <naoresponda@mail.zentrax.dvls.com.br>"
+mas AINDA NÃO TESTADO COM SUCESSO — a API do Resend recusou com
+"domain is not verified" na última tentativa.
+
+>>> PRIMEIRA COISA A CHECAR NESTA SESSÃO NA VPS: <<<
+1. Ver se o domínio mail.zentrax.dvls.com.br já verificou no Resend
+   (resend.com/domains).
+2. Se sim: testar o envio de novo (reenviar um e-mail de teste real pelo
+   fluxo /esqueci-senha).
+3. Atualizar RESEND_FROM no .env DA VPS (lá ainda está o remetente antigo
+   onboarding@resend.dev, que só entrega pro dono da conta Resend — precisa
+   trocar pro domínio próprio).
+4. Reiniciar o processo pm2 (Zentrax2.0) pra pegar a variável nova.
+
+ESTADO DO .env DA VPS (em 2026-09-14, fim da sessão anterior)
+-------------------------------------------------------------
+O .env local (front/.env, no PC do Luan) já está correto: tem
+STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_* / RESEND_API_KEY /
+RESEND_FROM (domínio próprio) / APP_URL.
+
+A VPS já foi atualizada NESSA sessão anterior com as chaves de teste do
+Stripe + a key do Resend, mas com RESEND_FROM AINDA no remetente antigo
+onboarding@resend.dev (falta trocar pro domínio próprio depois que
+verificar — ver seção acima). As variáveis inúteis de uma sessão ainda mais
+antiga (SENDGRID_*, NEXT_PUBLIC_APP_URL, STRIPE_PLANO_*_CENTAVOS/DIAS) já
+foram removidas do .env da VPS.
+
+>>> Não confie de olho no .env da VPS sem comparar linha a linha com o
+front/.env local — é exatamente o tipo de coisa que já causou confusão antes
+(ver aviso no topo deste arquivo). <<<
+
+HÁBITO DE TRABALHO (vale manter)
+---------------------------------
+Luan programa de vários lugares (PC local + VPS) — sempre commitar pequeno e
+descritivo + `git push origin main` imediato em cada repo mexido, pra não
+repetir o problema de "coisa feita na VPS que nunca virou commit". Quando uma
+decisão de preço/produto for objetivamente melhor de um jeito, dar a
+recomendação direto em vez de só listar opções neutras.
+
+ESTADO DOS REPOS CONFIRMADO EM 2026-09-15 (rodando localmente)
+------------------------------------------------------------------
+front (branch main), últimos commits:
+  a11a14e feat: implementa recuperacao de senha por e-mail (Resend)
+  3f9ad16 tava no vps e esqueci de subir
+  e37eba1 fix: corrige dominio padrao do APP_URL usado no checkout/portal do Stripe
+  ed12001 feat: integra Stripe para cobranca automatica da assinatura
+  d2e742d Add GitHub Actions workflow to auto-deploy on push to main
+  c82a0c6 feat: cria a rota de onboarding publico que faltava (api.devedores)
+  28a0b1e security: exige senha com pelo menos 6 caracteres
+  35b428c security: lancar nota nao checava se o cliente era da mesma empresa
+  (working tree local só com next-env.d.ts / tsconfig.tsbuildinfo modificados
+  — são gerados, sem importância)
+
+lp (branch main), últimos commits:
+  89a5ebb feat: adiciona robots.txt apontando pro sitemap
+  0b8f093 feat: adiciona Termos de Uso e Politica de Privacidade + corrige email
+  995035c content: remove nota/avaliacoes fake do JSON-LD
+  b0c77d8 security: atualiza Next.js (RCEs criticas) e corrige preview de link
+  ad48aa0 content: remove card de Contas Futuras e ajusta texto de perfis
+  (working tree limpo)
+
+PRÓXIMOS PASSOS SUGERIDOS (em ordem)
+--------------------------------------
+1. Resolver verificação do domínio Resend + trocar RESEND_FROM na VPS
+   (ver seção "DOMÍNIO DE ENVIO" acima) — é o que estava travado.
+2. Implementar paginação em pegarClientesBack / pegarNotasBack /
+   pegarPagamentosBack (app/dashboard/actions.ts) — único item aberto da
+   checklist de pré-lançamento.
+3. Quando o Luan quiser: ativar conta Stripe pra modo live (formulário de
+   ativação no Dashboard) e trocar as chaves de teste por sk_live_.
