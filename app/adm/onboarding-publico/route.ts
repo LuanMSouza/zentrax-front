@@ -6,6 +6,24 @@ import prisma from '@/lib/prisma'
 // criar conta nova a partir do teste gratis. Sem autenticacao por design -
 // e o cadastro de quem ainda nao tem conta.
 
+// mesmo topico ntfy que o leads-back ja usa pros avisos do painel (bot
+// bloqueado, sessao concluida etc) - cadastro novo cai no mesmo lugar que o
+// Luan ja acompanha, sem precisar abrir o painel toda hora pra saber se
+// alguem se cadastrou. Best-effort: nunca pode derrubar o cadastro em si.
+async function notificarNovoCadastro(nomeEmpresa: string, segmento: string) {
+    const topic = process.env.NTFY_TOPIC
+    if (!topic) return
+    try {
+        await fetch(`https://ntfy.sh/${topic}`, {
+            method: 'POST',
+            headers: { Title: 'Novo cadastro no ZentraX', Priority: 'default', Tags: 'tada' },
+            body: `${nomeEmpresa} (${segmento}) acabou de criar conta - teste gratis de 7 dias.`,
+        })
+    } catch (err) {
+        console.error('Falha ao notificar novo cadastro via ntfy:', err)
+    }
+}
+
 const ORIGENS_PERMITIDAS = [
     'https://zentrax.dvls.com.br',
     'http://localhost:3000',
@@ -94,6 +112,8 @@ export async function POST(request: Request) {
                 }
             })
         })
+
+        notificarNovoCadastro(nome, segmento).catch(() => {})
 
         return NextResponse.json({ success: true }, { status: 201, headers })
 
