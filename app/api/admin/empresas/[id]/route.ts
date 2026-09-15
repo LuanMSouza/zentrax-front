@@ -52,6 +52,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 }
 
+// Exclusão de empresa é bloqueada por FK se tiver cliente/pedido/pagamento/
+// usuário vinculado (todos NoAction no schema, de propósito — apagar dado de
+// cobrança real, que o pai do Luan usa todo dia, não pode ser efeito colateral
+// de excluir a empresa errada). Em vez de só devolver "não deu", conta o que
+// tá vinculado e devolve pro painel decidir: sem ?force=true, é só um aviso;
+// com ?force=true (2º clique, depois de ver a contagem — decisão explícita do
+// Luan, confirmada), apaga tudo dentro de uma transação, na ordem que respeita
+// as FKs (filho antes do pai).
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const erroAuth = erroAutenticacaoPainel(request)
     if (erroAuth) return erroAuth
@@ -59,24 +67,38 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const id = idValido((await params).id)
     if (!id) return NextResponse.json({ error: 'id inválido' }, { status: 400 })
 
+    const forcar = new URL(request.url).searchParams.get('force') === 'true'
+
     try {
-        await prisma.empresa.delete({ where: { id } })
-        return NextResponse.json({ ok: true })
-    } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2025') {
-                return NextResponse.json({ error: 'Empresa não encontrada.' }, { status: 404 })
-            }
-            // P2003: violação de FK — tem cliente/pedido/pagamento/usuário vinculado.
-            // De propósito NÃO faz cascade manual aqui: apagar dado de cobrança de
-            // verdade (o pai do Luan usa isso todo dia) tem que ser decisão explícita,
-            // não efeito colateral de excluir a empresa errada sem querer.
-            if (error.code === 'P2003') {
-                return NextResponse.json({
-                    error: 'Essa empresa tem clientes, pedidos ou usuários vinculados — não dá pra excluir sem apagar esses dados primeiro.',
-                }, { status: 409 })
-            }
+        const empresa = await prisma.empresa.findUnique({ where: { id }, select: { id: true } })
+        if (!empresa) return NextResponse.json({ error: 'Empresa não encontrada.' }, { status: 404 })
+
+        const [usuarios, clientes, pedidos, pagamentos] = await Promise.all([
+            prisma.usuarios.count({ where: { empresa_id: id } }),
+            prisma.clientes.count({ where: { empresa_id: id } }),
+            prisma.pedidos.count({ where: { empresa_id: id } }),
+            prisma.pagamentos.count({ where: { empresa_id: id } }),
+        ])
+        const vinculos = { usuarios, clientes, pedidos, pagamentos }
+        const temVinculos = usuarios > 0 || clientes > 0 || pedidos > 0 || pagamentos > 0
+
+        if (temVinculos && !forcar) {
+            return NextResponse.json({
+                error: 'Essa empresa tem dado vinculado.',
+                vinculos,
+            }, { status: 409 })
         }
+
+        await prisma.$transaction([
+            prisma.pagamentos.deleteMany({ where: { empresa_id: id } }),
+            prisma.pedidos.deleteMany({ where: { empresa_id: id } }),
+            prisma.clientes.deleteMany({ where: { empresa_id: id } }),
+            prisma.alteracoes.deleteMany({ where: { empresa: id } }),
+            prisma.usuarios.deleteMany({ where: { empresa_id: id } }),
+            prisma.empresa.delete({ where: { id } }),
+        ])
+        return NextResponse.json({ ok: true, vinculosApagados: temVinculos ? vinculos : undefined })
+    } catch (error) {
         console.error('Erro ao excluir empresa (admin):', error)
         return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
     }
