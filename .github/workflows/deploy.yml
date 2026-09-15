@@ -13,7 +13,7 @@ jobs:
     runs-on: [self-hosted, zentrax-front]
     defaults:
       run:
-        working-directory: /var/www/zentrax-fe
+        working-directory: /var/www/zentrax/zentrax-fe
     steps:
       - name: Pull latest code
         run: git pull origin main
