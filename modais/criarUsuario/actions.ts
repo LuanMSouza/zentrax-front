@@ -8,6 +8,7 @@ type NovoUsuarioProps = {
     empresa_id: number,
     nome: string,
     usuario: string,
+    email?: string,
     senha: string,
     senhaConfirm: string,
     role: string
@@ -45,19 +46,28 @@ export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
         }
     }
 
+    const email = dados.email?.trim().toLowerCase() || null
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return {
+            success: false,
+            error: 'Informe um e-mail válido.'
+        }
+    }
+
     const jaExiste = await prisma.usuarios.findFirst({
         where: {
-            usuario: {
-                equals: dados.usuario,
-                mode: 'insensitive',
-            }
+            OR: [
+                { usuario: { equals: dados.usuario, mode: 'insensitive' } },
+                ...(email ? [{ email: { equals: email, mode: 'insensitive' as const } }] : []),
+            ]
         }
     })
 
     if (jaExiste) {
         return {
             success: false,
-            error: 'Esse nome de usuario já está sendo utilizado, por favor, escolha outro!!'
+            error: 'Esse nome de usuario ou e-mail já está sendo utilizado, por favor, escolha outro!!'
         }
     }
 
@@ -69,6 +79,7 @@ export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
                 empresa_id: Number(Auth.empresa_id),
                 nome: dados.nome,
                 usuario: dados.usuario,
+                email,
                 senha: senhaHash,
                 role: dados.role
             }

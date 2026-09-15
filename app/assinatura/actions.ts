@@ -26,7 +26,7 @@ async function iniciarCheckout(empresaId: number, ciclo: CicloAssinatura): Promi
             mode: 'subscription',
             line_items: [{ price: PRECOS_STRIPE[ciclo], quantity: 1 }],
             customer: empresa.stripe_customer_id ?? undefined,
-            customer_email: empresa.stripe_customer_id ? undefined : empresa.usuarios[0]?.usuario,
+            customer_email: empresa.stripe_customer_id ? undefined : (empresa.usuarios[0]?.email ?? undefined),
             client_reference_id: String(empresaId),
             subscription_data: { metadata: { empresa_id: String(empresaId), ciclo } },
             success_url: `${APP_URL}/dashboard?assinatura=sucesso`,

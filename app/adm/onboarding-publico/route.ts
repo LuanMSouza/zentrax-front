@@ -33,11 +33,17 @@ export async function POST(request: Request) {
         const nome = String(body?.nome ?? '').trim()
         const nomeResponsavel = String(body?.nomeResponsavel ?? '').trim()
         const usuario = String(body?.usuario ?? '').trim().toLowerCase()
+        const email = String(body?.email ?? '').trim().toLowerCase()
         const senha = String(body?.senha ?? '')
         const segmento = body?.segmento === 'pet' ? 'pet' : 'geral'
 
-        if (!nome || !nomeResponsavel || !usuario || !senha) {
+        if (!nome || !nomeResponsavel || !usuario || !email || !senha) {
             return NextResponse.json({ error: 'Preencha todos os campos obrigatórios.' }, { status: 400, headers })
+        }
+
+        const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!EMAIL_REGEX.test(email)) {
+            return NextResponse.json({ error: 'Informe um e-mail válido.' }, { status: 400, headers })
         }
 
         if (senha.length < 6) {
@@ -45,11 +51,16 @@ export async function POST(request: Request) {
         }
 
         const usuarioExiste = await prisma.usuarios.findFirst({
-            where: { usuario: { equals: usuario, mode: 'insensitive' } }
+            where: {
+                OR: [
+                    { usuario: { equals: usuario, mode: 'insensitive' } },
+                    { email: { equals: email, mode: 'insensitive' } },
+                ]
+            }
         })
 
         if (usuarioExiste) {
-            return NextResponse.json({ error: 'Esse nome de usuário já está em uso.' }, { status: 409, headers })
+            return NextResponse.json({ error: 'Esse usuário ou e-mail já está em uso.' }, { status: 409, headers })
         }
 
         const senhaHash = await bcrypt.hash(senha, 10)
@@ -76,6 +87,7 @@ export async function POST(request: Request) {
                 data: {
                     nome: nomeResponsavel,
                     usuario,
+                    email,
                     senha: senhaHash,
                     empresa_id: novaEmpresa.id,
                     role: 'gestor',

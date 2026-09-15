@@ -125,6 +125,7 @@ model usuarios {
   id               Int          @id @default(autoincrement())
   nome             String       @db.VarChar(120)
   usuario          String       @unique(map: "usuarios_email_key") @db.VarChar(50)
+  email            String?      @unique(map: "usuarios_email_real_key") @db.VarChar(255)
   senha            String
   criacao          DateTime?    @default(now()) @db.Timestamp(6)
   empresa_id       Int?

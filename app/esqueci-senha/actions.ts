@@ -21,10 +21,10 @@ const RESPOSTA_GENERICA = {
 
 export async function solicitarRecuperacaoSenha(email: string) {
     const usuario = await prisma.usuarios.findFirst({
-        where: { usuario: { equals: email.trim(), mode: 'insensitive' } }
+        where: { email: { equals: email.trim(), mode: 'insensitive' } }
     })
 
-    if (!usuario) {
+    if (!usuario || !usuario.email) {
         return RESPOSTA_GENERICA
     }
 
@@ -47,7 +47,7 @@ export async function solicitarRecuperacaoSenha(email: string) {
         })
 
         const link = `${APP_URL}/redefinir-senha?token=${tokenBruto}`
-        await enviarEmailRecuperacaoSenha(usuario.usuario, link)
+        await enviarEmailRecuperacaoSenha(usuario.email, link)
     } catch (error) {
         console.error('Erro ao solicitar recuperação de senha:', error)
         // Não expõe detalhe do erro pro cliente - segue a mesma resposta genérica.
