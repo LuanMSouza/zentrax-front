@@ -29,10 +29,14 @@ jobs:
 
       - name: Health check
         run: |
-          sleep 3
-          status=$(curl -s -o /dev/null -w "%{http_code}" https://app.zentrax.dvls.com.br/)
-          if [ "$status" != "307" ]; then
-            echo "Health check failed: expected 307, got $status"
-            exit 1
-          fi
-          echo "Health check OK: $status"
+          for i in 1 2 3 4 5 6; do
+            sleep 3
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://app.zentrax.dvls.com.br/)
+            if [ "$status" == "307" ]; then
+              echo "Health check OK: $status"
+              exit 0
+            fi
+            echo "Tentativa $i: esperava 307, veio $status - tentando de novo..."
+          done
+          echo "Health check failed after retries: got $status"
+          exit 1
