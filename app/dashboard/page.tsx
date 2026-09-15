@@ -11,14 +11,14 @@ import TopBar from "@/blocos/TopBar/pages";
 import Swal from "sweetalert2";
 import CriarCliente from "@/modais/criarCliente/page";
 import Loading from "@/componentes/loading";
-import { pegarClientesBack, pegarNotasBack, pegarPagamentosBack } from "./actions";
+import { pegarClientesBack, pegarPagamentosBack } from "./actions";
 import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import EditarClientes from "@/modais/editarClientes/page";
 import { FormatarValor } from "@/lib/mask";
 
 // types
-import { Cliente, Pagamentos, Notas, ClienteEmAberto } from '@/types'
+import { Cliente, Pagamentos, ClienteEmAberto } from '@/types'
 
 export default function Home() {
     // Modais
@@ -34,27 +34,28 @@ export default function Home() {
     const [role, setRole] = useState<string | null>(null)
 
     const [clientes, setClientes] = useState<Cliente[]>([])
-    const [notas, setNotas] = useState<Notas[]>([])
+    const [emAberto, setEmAberto] = useState<ClienteEmAberto[]>([])
     const [pagamentos, setPagamentos] = useState<Pagamentos[]>([])
+    const [paginaPagamentos, setPaginaPagamentos] = useState(1)
+    const [temMaisPagamentos, setTemMaisPagamentos] = useState(false)
+    const [carregandoMaisPagamentos, setCarregandoMaisPagamentos] = useState(false)
     const [clienteSelect, setClienteSelect] = useState<ClienteEmAberto | null>(null);
 
     async function carregarDados() {
         setLoading(true);
         try {
             const resClientes = await pegarClientesBack();
-            const resNotas = await pegarNotasBack();
-            const resPagamentos = await pegarPagamentosBack(); 
+            const resPagamentos = await pegarPagamentosBack(1);
 
             if (resClientes.success && resClientes.data) {
                 setClientes(resClientes.data.clientes);
-            }
-
-            if (resNotas.success && resNotas.data) {
-                setNotas(resNotas.data);
+                setEmAberto(resClientes.data.emAberto);
             }
 
             if (resPagamentos.success && resPagamentos.pagamentos) {
                 setPagamentos(resPagamentos.pagamentos);
+                setPaginaPagamentos(1);
+                setTemMaisPagamentos(!!resPagamentos.temMais);
             }
 
         } catch (error) {
@@ -62,6 +63,37 @@ export default function Home() {
             Swal.fire('Erro', 'Erro ao buscar dados', 'error');
         } finally {
             setLoading(false);
+        }
+    }
+
+    // Reconsulta so os clientes/agregado (mais leve que carregarDados) -
+    // usada depois de criar nota, pagar ou editar/remover cliente.
+    async function recarregarClientes() {
+        try {
+            const resClientes = await pegarClientesBack();
+            if (resClientes.success && resClientes.data) {
+                setClientes(resClientes.data.clientes);
+                setEmAberto(resClientes.data.emAberto);
+            }
+        } catch (error) {
+            console.error("Erro ao recarregar clientes:", error);
+        }
+    }
+
+    async function carregarMaisPagamentos() {
+        setCarregandoMaisPagamentos(true);
+        try {
+            const proximaPagina = paginaPagamentos + 1;
+            const resPagamentos = await pegarPagamentosBack(proximaPagina);
+            if (resPagamentos.success && resPagamentos.pagamentos) {
+                setPagamentos(prev => [...prev, ...resPagamentos.pagamentos]);
+                setPaginaPagamentos(proximaPagina);
+                setTemMaisPagamentos(!!resPagamentos.temMais);
+            }
+        } catch (error) {
+            console.error("Erro ao carregar mais pagamentos:", error);
+        } finally {
+            setCarregandoMaisPagamentos(false);
         }
     }
 
@@ -80,20 +112,14 @@ export default function Home() {
 
     async function recarregarPagamentos() {
         try {
-            const resPagamentos = await pegarPagamentosBack();
+            const resPagamentos = await pegarPagamentosBack(1);
             if (resPagamentos.success && resPagamentos.pagamentos) {
                 setPagamentos(resPagamentos.pagamentos);
+                setPaginaPagamentos(1);
+                setTemMaisPagamentos(!!resPagamentos.temMais);
             }
         } catch (error) {
             console.error("Erro ao recarregar pagamentos:", error);
-        }
-    }
-
-    function atualizarNotas(novaNota: Notas) {
-        try {
-            setNotas((prev) => [novaNota, ...prev]);
-        } catch (error) {
-            console.log(error);
         }
     }
 
@@ -107,39 +133,16 @@ export default function Home() {
 
     function removerCliente(id: number) {
         setClientes((prev) => prev.filter(c => c.id !== id));
-        setNotas((prev) => prev.filter(n => Number(n.id_cliente) !== id));
+        setEmAberto((prev) => prev.filter(c => c.id !== id));
         recarregarPagamentos();
     }
 
-    const listaDinamica = clientes.map(c => {
-        if (!notas) return null;
+    // O agregado (total/quantidade/datas por cliente) ja vem calculado do
+    // banco em pegarClientesBack - so ordena e filtra aqui, sem reprocessar
+    // as notas inteiras no client.
+    const valorTotalNaRua = emAberto.reduce((acc, c) => acc + Number(c.total), 0);
 
-        const notasDoCliente = notas.filter(n =>
-            Number(n.id_cliente) === Number(c.id) &&
-            (Number(n.valor_inicial) - Number(n.valor_abatido) > 0)
-        );
-
-        if (notasDoCliente.length === 0) return null;
-
-        const total = notasDoCliente.reduce((acc, n) =>
-            acc + (Number(n.valor_inicial) - Number(n.valor_abatido)), 0
-        );
-
-        const datas = notasDoCliente.map(n => new Date(n.data).getTime());
-
-        return {
-            id: c.id,
-            nome: c.nome,
-            total: total.toString(),
-            quantidade_de_notas: notasDoCliente.length,
-            mais_antiga: new Date(Math.min(...datas)).toISOString(),
-            mais_nova: new Date(Math.max(...datas)).toISOString()
-        };
-    }).filter(Boolean) as ClienteEmAberto[];
-
-    const valorTotalNaRua = listaDinamica.reduce((acc, c) => acc + Number(c.total), 0);
-
-    const listaOrdenada = listaDinamica.sort((a, b) => {
+    const listaOrdenada = [...emAberto].sort((a, b) => {
         if (arrumacao === 'nome_asc') return a.nome.localeCompare(b.nome);
         if (arrumacao === 'nome_desc') return b.nome.localeCompare(a.nome);
         if (arrumacao === 'valor_asc') return Number(b.total) - Number(a.total);
@@ -150,21 +153,6 @@ export default function Home() {
         if (arrumacao === 'data_desc') return new Date(a.mais_antiga).getTime() - new Date(b.mais_antiga).getTime();
         return 0;
     });
-
-    function atualizarNotasAposPagamento(notasAbatidas: Notas[]) {
-        setNotas(prevNotas => prevNotas.map(notaOriginal => {
-            const notaNova = notasAbatidas.find(n => n.id === notaOriginal.id);
-            if (notaNova) {
-                return {
-                    ...notaOriginal,
-                    ...notaNova,
-                    valor_abatido: Number(notaNova.valor_abatido),
-                    valor_inicial: Number(notaNova.valor_inicial),
-                };
-            }
-            return notaOriginal;
-        }));
-    }
 
     return (
         <>
@@ -194,7 +182,6 @@ export default function Home() {
                 </Selects>
 
                 <BlocoClientes
-                    notas={notas}
                     valor={mostrarValores}
                     clientes={listaOrdenada.filter(e => e.nome.toLowerCase().includes(filtro.toLowerCase()))}
                     onClick={(c) => {
@@ -211,13 +198,19 @@ export default function Home() {
                 )}
 
                 <Titulo texto="Pagamentos" cor="preto" />
-                <BlocoPagamentos MostrarValor={mostrarValores} pagamentos={pagamentos} />
+                <BlocoPagamentos
+                    MostrarValor={mostrarValores}
+                    pagamentos={pagamentos}
+                    temMaisNoServidor={temMaisPagamentos}
+                    carregandoMais={carregandoMaisPagamentos}
+                    carregarMais={carregarMaisPagamentos}
+                />
             </Container>
 
             {/* Modais */}
             {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}
             {modalEditarClientes && <EditarClientes clientes={clientes} role={role} atualizar={atualizarClienteEditado} remover={removerCliente} sair={() => setModalEditarClientes(false)} />}
-            {modalLancarNotas && <ModalLançarNotas clientes={clientes} atualizar={atualizarNotas} sair={() => setModalLancarNotas(false)} />}
+            {modalLancarNotas && <ModalLançarNotas clientes={clientes} atualizar={() => recarregarClientes()} sair={() => setModalLancarNotas(false)} />}
             {modalClienteDetalhado && clienteSelect && (
                 <ClienteDetalhado
                     sair={() => {
@@ -225,8 +218,7 @@ export default function Home() {
                         setModalClienteDetalhado(false)
                     }}
                     cliente={clienteSelect}
-                    notas={notas.filter(n => Number(n.id_cliente) === Number(clienteSelect.id))}
-                    atualizar={atualizarNotasAposPagamento}
+                    atualizarClientes={recarregarClientes}
                     atualizarPagamentos={recarregarPagamentos}
                 />
             )}

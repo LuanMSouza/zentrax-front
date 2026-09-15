@@ -1,12 +1,11 @@
 'use client'
 
-import { Notas, ClienteEmAberto } from '@/types'
+import { ClienteEmAberto } from '@/types'
 import { formatarDataBR } from '@/lib/mask'
 
 
 type BlocoProps = {
     clientes: ClienteEmAberto[],
-    notas: Notas[],
     onClick: (e: ClienteEmAberto) => void,
     valor: boolean
 }

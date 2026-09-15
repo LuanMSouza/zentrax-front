@@ -8,11 +8,14 @@ import { formatarDataBR } from "@/lib/mask";
 
 type PagamentoProps = {
     pagamentos: Pagamentos[],
-    MostrarValor: boolean
+    MostrarValor: boolean,
+    temMaisNoServidor: boolean,
+    carregandoMais: boolean,
+    carregarMais: () => void
 }
 
-export default function BlocoPagamentos({ pagamentos, MostrarValor }: PagamentoProps) {
-    
+export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoServidor, carregandoMais, carregarMais }: PagamentoProps) {
+
 
     const [mostrando, setMostrando] = useState(4);
     const lista = pagamentos?.length;
@@ -25,8 +28,14 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor }: PagamentoP
     }
 
     function aumentar() {
+        if (carregandoMais) return;
         if (mostrando + 4 < lista) {
             setMostrando(mostrando + 4);
+        } else if (temMaisNoServidor) {
+            // Ja mostrando tudo que veio do servidor - busca a proxima
+            // pagina e revela assim que ela chegar.
+            setMostrando(mostrando + 4);
+            carregarMais();
         } else {
             setMostrando(lista);
         }
@@ -54,10 +63,10 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor }: PagamentoP
                         ))}
                     </div>
 
-                    {mostrando >= lista ? (
+                    {mostrando >= lista && !temMaisNoServidor ? (
                         <p className="text-2xl text-gray-500 italic font-bold">Não há mais pagamentos para exibir</p>
                     ) : (
-                        <Button onClick={aumentar} texto="Ver mais" tipo='btn03' tamanho="gg" corTexto="branco" />
+                        <Button onClick={aumentar} texto={carregandoMais ? 'Carregando...' : 'Ver mais'} tipo='btn03' tamanho="gg" corTexto="branco" />
                     )}
                 </div>
             ) : (

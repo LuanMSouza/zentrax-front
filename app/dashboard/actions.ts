@@ -37,7 +37,7 @@ export async function pegarClientesBack() {
             ...item,
             id: Number(item.id),
             quantidade_de_notas: Number(item.quantidade_de_notas),
-            total: Number(item.total), // Converte Decimal para Number aqui!
+            total: String(Number(item.total)), // ClienteEmAberto espera total como string
             mais_antiga: item.mais_antiga ? new Date(item.mais_antiga).toISOString() : null,
             mais_nova: item.mais_nova ? new Date(item.mais_nova).toISOString() : null,
         }));
@@ -61,14 +61,16 @@ export async function pegarClientesBack() {
     }
 }
 
-export async function pegarNotasBack() {
+// Notas de um cliente especifico - usado no modal de detalhe. Evita buscar
+// as notas de TODA a empresa so pra abrir o detalhe de um cliente.
+export async function pegarNotasDoClienteBack(clienteId: number) {
 
     const payload = (await autenticar())!
     const empresaId = Number(payload.empresa_id);
 
     try {
         const notas = await prisma.pedidos.findMany({
-            where: { empresa_id: empresaId },
+            where: { empresa_id: empresaId, id_cliente: Number(clienteId) },
             orderBy: [
                 { data: 'desc' },
                 { id: 'desc' }
@@ -81,25 +83,34 @@ export async function pegarNotasBack() {
         };
 
     } catch (error) {
-        console.error("Erro ao buscar notas:", error);
-        return { success: false, error: "Erro ao buscar notas no servidor." };
+        console.error("Erro ao buscar notas do cliente:", error);
+        return { success: false, error: "Erro ao buscar notas do cliente no servidor." };
     }
 }
 
-export async function pegarPagamentosBack() {
+const PAGAMENTOS_POR_PAGINA = 30
+
+export async function pegarPagamentosBack(pagina: number = 1) {
 
     const payload = (await autenticar())!
     const empresaId = Number(payload.empresa_id);
 
     try {
 
+        // Busca 1 a mais que a pagina pra saber se tem proxima, sem precisar
+        // de um segundo count() no banco.
         const pagamentosRaw = await prisma.pagamentos.findMany({
             where: {
                 empresa_id: Number(empresaId)
             },
             orderBy: [{ data: 'desc' }, { id: 'desc' }],
-            include: { clientes: true }
+            include: { clientes: true },
+            skip: (pagina - 1) * PAGAMENTOS_POR_PAGINA,
+            take: PAGAMENTOS_POR_PAGINA + 1,
         });
+
+        const temMais = pagamentosRaw.length > PAGAMENTOS_POR_PAGINA
+        if (temMais) pagamentosRaw.pop()
 
         // Um pagamento avulso que abate varias notas gera uma linha por nota
         // (uma pra cada `pedidos` quitado/abatido). Pro usuario isso e um
@@ -135,7 +146,9 @@ export async function pegarPagamentosBack() {
 
         return {
             success: true,
-            pagamentos
+            pagamentos,
+            temMais,
+            pagina
         }
     } catch (error) {
         console.error("Erro ao buscar pagamentos:", error);

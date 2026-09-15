@@ -1,10 +1,12 @@
 'use client'
+import { useEffect, useState } from "react";
 import { Button } from "@/componentes/Buttons";
 import Container from "@/componentes/Container";
 import Cortina from "@/componentes/cortina";
 import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
 import { CobrarBack, pagamentoAvulso, pagamentoEspecifico } from "./actions";
+import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 import { formatarDataBR } from "@/lib/mask";
 
 type ClienteEmAberto = {
@@ -18,13 +20,33 @@ type ClienteEmAberto = {
 
 type DetalhadoPops = {
     cliente: ClienteEmAberto;
-    notas: any[]
-    sair: () => void; // Dica: adicione uma função para fechar o modal
-    atualizar: (notasAbatidas: any[]) => void; // <--- Adicione aqui
+    sair: () => void;
+    atualizarClientes: () => void; // refaz o agregado (total/quantidade) na tela principal
     atualizarPagamentos: () => void;
 }
 
-export default function ClienteDetalhado({ cliente, sair, notas, atualizar, atualizarPagamentos }: DetalhadoPops) {
+export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atualizarPagamentos }: DetalhadoPops) {
+    const [notas, setNotas] = useState<any[]>([]);
+    const [carregandoNotas, setCarregandoNotas] = useState(true);
+
+    async function recarregarNotas() {
+        setCarregandoNotas(true);
+        try {
+            const res = await pegarNotasDoClienteBack(cliente.id);
+            if (res.success && res.data) {
+                setNotas(res.data);
+            }
+        } catch (error) {
+            console.error("Erro ao buscar notas do cliente:", error);
+        } finally {
+            setCarregandoNotas(false);
+        }
+    }
+
+    useEffect(() => {
+        recarregarNotas();
+    }, [cliente.id]);
+
     if (!cliente) return null;
 
     const totalAtualizado = notas.reduce((acc, n) =>
@@ -76,7 +98,8 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar, atua
                 if (res.success && res.notaAtualizada) {
                     Swal.fire('Sucesso!', 'Pagamento registrado com sucesso.', 'success');
 
-                    atualizar(res.notaAtualizada);
+                    recarregarNotas();
+                    atualizarClientes();
                     atualizarPagamentos();
 
                 } else {
@@ -124,7 +147,8 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar, atua
                     if (res?.success && res.notaAtualizada) {
                         Swal.fire('Sucesso!!', 'Nota lançada com sucesso!!', 'success')
 
-                        atualizar([res.notaAtualizada] as any);
+                        recarregarNotas();
+                        atualizarClientes();
                         atualizarPagamentos();
 
                     } else {
@@ -149,7 +173,8 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar, atua
 
                     if (res?.success && res.notaAtualizada) {
                         Swal.fire('Sucesso!!', 'Nota lançada com sucesso!!', 'success')
-                        atualizar([res.notaAtualizada] as any);
+                        recarregarNotas();
+                        atualizarClientes();
                         atualizarPagamentos();
 
                     } else {
@@ -226,6 +251,7 @@ export default function ClienteDetalhado({ cliente, sair, notas, atualizar, atua
                 </div>
 
                 <div className=" cursor-default flex flex-col w-full gap-2 max-h-80 overflow-y-auto">
+                    {carregandoNotas && <p className="text-center text-gray-500 italic">Carregando notas...</p>}
                     {notas.map((n) => {
 
                         let taPago = Number(n.valor_inicial) - Number(n.valor_abatido) === 0
