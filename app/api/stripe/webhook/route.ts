@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/prisma'
 import stripe from '@/lib/stripe'
 
@@ -31,6 +32,21 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('Assinatura de webhook do Stripe inválida:', error)
         return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 400 })
+    }
+
+    // Idempotencia: se a Stripe reentregar o mesmo evento (retry por timeout,
+    // etc), o insert falha por PK duplicada e a gente so confirma recebimento
+    // sem rodar a logica de novo.
+    try {
+        await prisma.stripe_eventos_processados.create({
+            data: { id: event.id, tipo: event.type }
+        })
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+            return NextResponse.json({ received: true, duplicado: true })
+        }
+        console.error('Erro ao registrar evento de webhook:', error)
+        return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
     }
 
     try {

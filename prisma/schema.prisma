@@ -112,6 +112,15 @@ model pedidos {
   @@index([empresa_id, id_cliente])
 }
 
+// Marca eventos de webhook da Stripe ja processados, pra nao rodar a
+// mesma logica duas vezes se a Stripe reentregar o evento (retry por
+// timeout de rede, etc).
+model stripe_eventos_processados {
+  id        String   @id
+  tipo      String
+  criado_em DateTime @default(now())
+}
+
 model snapshots {
   id         Int       @id @default(autoincrement())
   valor      Decimal?  @db.Decimal
