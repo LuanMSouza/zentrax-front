@@ -25,7 +25,7 @@ jobs:
         run: npm run build
 
       - name: Restart app
-        run: pm2 restart Zentrax2.0
+        run: pm2 restart ZentraX
 
       - name: Health check
         run: |
