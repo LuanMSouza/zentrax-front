@@ -24,6 +24,28 @@ async function notificarNovoCadastro(nomeEmpresa: string, segmento: string) {
     }
 }
 
+// o leads-back já tem a conta Brevo do ZentraX (mesma do convite frio, com
+// margem reservada na rampa de aquecimento pra transacional como esse) e toda
+// a infra de template/envio pronta — mais simples chamar de lá do que duplicar
+// isso aqui. Mesma chave compartilhada que o painel já usa pra chamar pra cá
+// (LEADS_BACK_URL/PAINEL_STATS_KEY viram ZENTRAX_API_URL/ZENTRAX_API_KEY do
+// lado de lá), só que na direção inversa. Best-effort: nunca pode derrubar o
+// cadastro em si.
+async function enviarBoasVindas(nome: string, email: string, nomeResponsavel: string) {
+    const url = process.env.LEADS_BACK_URL
+    const chave = process.env.PAINEL_STATS_KEY
+    if (!url || !chave) return
+    try {
+        await fetch(`${url}/api/zentrax-boas-vindas`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': chave },
+            body: JSON.stringify({ nome, email, nomeResponsavel }),
+        })
+    } catch (err) {
+        console.error('Falha ao disparar e-mail de boas-vindas:', err)
+    }
+}
+
 const ORIGENS_PERMITIDAS = [
     'https://zentrax.dvls.com.br',
     'http://localhost:3000',
@@ -114,6 +136,7 @@ export async function POST(request: Request) {
         })
 
         notificarNovoCadastro(nome, segmento).catch(() => {})
+        enviarBoasVindas(nome, email, nomeResponsavel).catch(() => {})
 
         return NextResponse.json({ success: true }, { status: 201, headers })
 
