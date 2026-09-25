@@ -1,10 +1,7 @@
 "use client";
-import Titulo from "@/componentes/Titulo";
-import Container from "@/componentes/Container";
-import { Button } from "@/componentes/Buttons";
 import { useEffect, useState } from "react";
-import Input from "@/componentes/Inputs"
-import Selects from "@/componentes/Select";
+import ResumoTopo from "@/blocos/ResumoTopo";
+import { IconeBusca, IconeOlho, IconeOlhoFechado, IconeMais } from "@/componentes/Icones";
 import { BlocoClientes } from "@/blocos/blocoClientes";
 import BlocoPagamentos from "@/blocos/blocoPagamentos";
 import TopBar from "@/blocos/TopBar/pages";
@@ -15,7 +12,6 @@ import { pegarClientesBack, pegarPagamentosBack } from "./actions";
 import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import EditarClientes from "@/modais/editarClientes/page";
-import { FormatarValor } from "@/lib/mask";
 
 // types
 import { Cliente, Pagamentos, ClienteEmAberto } from '@/types'
@@ -29,7 +25,9 @@ export default function Home() {
 
     const [mostrarValores, setMostrarValores] = useState(false)
     const [filtro, setFiltro] = useState('')
-    const [arrumacao, setArrumacao] = useState('nome_asc')
+    // padrão: quem está há mais tempo devendo primeiro (antes era ordem alfabética)
+    const [arrumacao, setArrumacao] = useState('data_desc')
+    const [aba, setAba] = useState<'devedores' | 'pagamentos'>('devedores')
     const [loading, setLoading] = useState(true)
     const [role, setRole] = useState<string | null>(null)
 
@@ -140,8 +138,6 @@ export default function Home() {
     // O agregado (total/quantidade/datas por cliente) ja vem calculado do
     // banco em pegarClientesBack - so ordena e filtra aqui, sem reprocessar
     // as notas inteiras no client.
-    const valorTotalNaRua = emAberto.reduce((acc, c) => acc + Number(c.total), 0);
-
     const listaOrdenada = [...emAberto].sort((a, b) => {
         if (arrumacao === 'nome_asc') return a.nome.localeCompare(b.nome);
         if (arrumacao === 'nome_desc') return b.nome.localeCompare(a.nome);
@@ -154,58 +150,125 @@ export default function Home() {
         return 0;
     });
 
+    const filtrados = listaOrdenada.filter(e => e.nome.toLowerCase().includes(filtro.toLowerCase()))
+
+    const abaCls = (ativa: boolean) =>
+        `px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+            ativa ? 'bg-marca-950 text-white' : 'text-slate-600 hover:bg-slate-200/70'
+        }`
+
     return (
         <>
             <TopBar />
-            <Container tamanho="g">
-                <Titulo texto="Contas em aberto" cor="preto" />
-
-                <div className="gap-2 flex mb-4">
-                    <Button onClick={() => setModalCriarCliente(true)} texto="Cadastrar cliente" tipo="btn01" tamanho="g" corTexto="branco" />
-                    <Button onClick={() => setModalLancarNotas(true)} texto="Cadastrar nota" tipo="btn01" tamanho="g" corTexto="branco" />
-                    <Button onClick={() => setModalEditarClientes(true)} texto="Editar clientes" tipo="btn01" tamanho="g" corTexto="branco" />
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Contas em aberto</h1>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={() => setModalLancarNotas(true)}
+                            className="inline-flex items-center gap-1.5 bg-marca-700 hover:bg-marca-800 active:scale-[0.98] text-white text-sm font-medium px-4 py-2 rounded-lg transition-all cursor-pointer"
+                        >
+                            <IconeMais /> Cadastrar nota
+                        </button>
+                        <button
+                            onClick={() => setModalCriarCliente(true)}
+                            className="bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 active:scale-[0.98] text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-all cursor-pointer"
+                        >
+                            Cadastrar cliente
+                        </button>
+                        <button
+                            onClick={() => setModalEditarClientes(true)}
+                            className="text-sm font-medium text-slate-600 hover:text-slate-900 underline underline-offset-4 decoration-slate-300 px-2 py-2 cursor-pointer"
+                        >
+                            Editar clientes
+                        </button>
+                    </div>
                 </div>
 
-                <Button onClick={() => setMostrarValores(!mostrarValores)} texto={mostrarValores ? 'Esconder valores' : 'Visualizar valores'} tipo="btn03" tamanho="gg" corTexto="branco" />
+                <ResumoTopo emAberto={emAberto} role={role} mostrarValores={mostrarValores} />
 
-                <Input name="nome" tamanho="m" type="text" value={filtro} placeholder={'Filtre o cliente pelo nome...'} onChange={(e) => setFiltro(e)} />
+                <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                    {aba === 'devedores' && (
+                        <>
+                            <div className="relative w-full sm:flex-1">
+                                <IconeBusca className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5" />
+                                <input
+                                    type="search"
+                                    value={filtro}
+                                    onChange={(e) => setFiltro(e.target.value)}
+                                    placeholder="Buscar cliente pelo nome"
+                                    aria-label="Buscar cliente pelo nome"
+                                    className="w-full pl-10 pr-3 py-2.5 bg-white rounded-lg ring-1 ring-slate-900/10 text-sm outline-none focus:ring-2 focus:ring-marca-700 transition-shadow"
+                                />
+                            </div>
+                            <select
+                                value={arrumacao}
+                                onChange={(e) => setArrumacao(e.target.value)}
+                                aria-label="Ordenar clientes"
+                                className="flex-1 sm:flex-none min-w-0 bg-white rounded-lg ring-1 ring-slate-900/10 text-sm px-3 py-2.5 outline-none focus:ring-2 focus:ring-marca-700 cursor-pointer"
+                            >
+                                <option value="data_desc">Mais atrasados</option>
+                                <option value="data_asc">Mais recentes</option>
+                                <option value="valor_asc">Maior valor</option>
+                                <option value="valor_desc">Menor valor</option>
+                                <option value="notas_asc">Mais notas</option>
+                                <option value="notas_desc">Menos notas</option>
+                                <option value="nome_asc">Nome A-Z</option>
+                                <option value="nome_desc">Nome Z-A</option>
+                            </select>
+                        </>
+                    )}
+                    <button
+                        onClick={() => setMostrarValores(!mostrarValores)}
+                        aria-pressed={mostrarValores}
+                        className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium ring-1 transition-all active:scale-[0.98] cursor-pointer whitespace-nowrap ${
+                            aba === 'devedores' ? 'flex-1 sm:flex-none' : ''
+                        } ${mostrarValores ? 'bg-marca-100 text-marca-800 ring-marca-700/30' : 'bg-white text-slate-700 ring-slate-900/10 hover:ring-marca-700/40'}`}
+                    >
+                        {mostrarValores ? <IconeOlho /> : <IconeOlhoFechado />}
+                        {mostrarValores ? 'Valores visíveis' : 'Valores ocultos'}
+                    </button>
+                </div>
 
-                <Selects tamanho="p" value={arrumacao} onChange={(e) => setArrumacao(e)}>
-                    <option value="nome_asc">Nome A-Z</option>
-                    <option value="nome_desc">Nome Z-A</option>
-                    <option value="valor_asc">Maior valor</option>
-                    <option value="valor_desc">Menor valor</option>
-                    <option value="notas_asc">Mais notas</option>
-                    <option value="notas_desc">Menos notas</option>
-                    <option value="data_desc">Mais antigas</option>
-                    <option value="data_asc">Mais novas</option>
-                </Selects>
+                <div className="flex gap-1 p-1 bg-slate-200/60 rounded-xl w-fit" role="tablist">
+                    <button role="tab" aria-selected={aba === 'devedores'} onClick={() => setAba('devedores')} className={abaCls(aba === 'devedores')}>
+                        Devedores <span className="opacity-70 tabular-nums">({emAberto.length})</span>
+                    </button>
+                    <button role="tab" aria-selected={aba === 'pagamentos'} onClick={() => setAba('pagamentos')} className={abaCls(aba === 'pagamentos')}>
+                        Pagamentos
+                    </button>
+                </div>
 
-                <BlocoClientes
-                    valor={mostrarValores}
-                    clientes={listaOrdenada.filter(e => e.nome.toLowerCase().includes(filtro.toLowerCase()))}
-                    onClick={(c) => {
-                        setClienteSelect(c)
-                        setModalClienteDetalhado(true)
-                    }}
-                />
-
-                {role === 'gestor' && mostrarValores && (
-                    <div className="w-full bg-cyan-100 border-2 border-cyan-400 rounded-2xl p-4 flex flex-col items-center shadow shadow-cyan-700">
-                        <p className="text-lg text-gray-700">Valor total na rua</p>
-                        <p className="text-3xl font-bold text-gray-900">{FormatarValor(valorTotalNaRua)}</p>
-                    </div>
+                {aba === 'devedores' ? (
+                    <>
+                        {!loading && emAberto.length === 0 && (
+                            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 p-10 text-center">
+                                <p className="font-medium text-slate-900">Nenhuma conta em aberto</p>
+                                <p className="text-sm text-slate-500 mt-1">Cadastre um cliente e lance a primeira nota para começar.</p>
+                            </div>
+                        )}
+                        {emAberto.length > 0 && filtrados.length === 0 && (
+                            <p className="text-sm text-slate-500 text-center py-8">Nenhum cliente encontrado para &ldquo;{filtro}&rdquo;.</p>
+                        )}
+                        <BlocoClientes
+                            valor={mostrarValores}
+                            clientes={filtrados}
+                            onClick={(c) => {
+                                setClienteSelect(c)
+                                setModalClienteDetalhado(true)
+                            }}
+                        />
+                    </>
+                ) : (
+                    <BlocoPagamentos
+                        MostrarValor={mostrarValores}
+                        pagamentos={pagamentos}
+                        temMaisNoServidor={temMaisPagamentos}
+                        carregandoMais={carregandoMaisPagamentos}
+                        carregarMais={carregarMaisPagamentos}
+                    />
                 )}
-
-                <Titulo texto="Pagamentos" cor="preto" />
-                <BlocoPagamentos
-                    MostrarValor={mostrarValores}
-                    pagamentos={pagamentos}
-                    temMaisNoServidor={temMaisPagamentos}
-                    carregandoMais={carregandoMaisPagamentos}
-                    carregarMais={carregarMaisPagamentos}
-                />
-            </Container>
+            </main>
 
             {/* Modais */}
             {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}

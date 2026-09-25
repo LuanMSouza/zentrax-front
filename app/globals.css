@@ -1,10 +1,23 @@
 @import "tailwindcss";
+/* Paleta da marca (mesma da LP: azul-marinho + teal + ciano). Antes o app usava
+   céu, lilás, azul e teal soltos, sem relação com a marca. */
+@theme {
+  --color-marca-950: #001529;
+  --color-marca-800: #003a54;
+  --color-marca-700: #004b6b;
+  --color-marca-100: #d6f4fb;
+}
+
 html, body {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
-  background-color: rgb(164, 226, 255);
+  font-family: var(--font-geist-sans), system-ui, Arial, sans-serif;
+  background-color: #f1f5f9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 
 @font-face {

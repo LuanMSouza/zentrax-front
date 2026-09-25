@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/componentes/Buttons";
+import { IconeEngrenagem, IconeSair } from "@/componentes/Icones";
 import { useEffect, useState } from "react";
 import { logout } from "./actions";
 import Configuracoes from "@/modais/configuracoes/page";
@@ -66,6 +66,11 @@ export default function TopBar() {
         window.location.href = '/login';
     }
 
+    // empresa.assinante vem do login (undefined em sessões antigas → cai no
+    // comportamento anterior: só oferece renovar quando faltam < 10 dias)
+    const emTeste = empresa?.assinante === false
+    const mostrarAssinar = emTeste || (diasRestantes !== null && diasRestantes < 10)
+
     const [config, setConfig] = useState(false)
     const [assinatura, setAssinatura] = useState(false)
 
@@ -79,40 +84,59 @@ export default function TopBar() {
 
     return (
         <>
-            <nav className={`bg-indigo-400 flex justify-between px-8 py-2 items-center shadow shadow-gray-600`}>
-
-                <div className="hidden gap-2 sm:flex sm:justify-center sm:items-center">
-                    <p className="flex flex-col items-center lg:flex-row md:text-lg text-white font-semibold gap-2 text-sm">
-                        Bem vindo <span className="italic font-bold">{nome} !!</span>
-                    </p>
-                </div>
-
-                <div className=" flex flex-col lg:flex-row items-center gap-1">
-                    <img className="h-7 md:h-10 " src="/Logo.png" alt="Logo do Zentrax" />
-                    <p className={`font-[TT_Milks] font-bold text-sm md:text-xl`}>ZentraX</p>
-                </div>
-
-                <div className="gap-2 flex">
-                    <div className="flex items-center justify-center flex-col">
-                        <p className="text-sm italic text-gray-800">{diasRestantes ?? '--'} Dia(s) restante(s)</p>
-
-                        {diasRestantes !== null && diasRestantes < 10 &&
-                            <Button onClick={() => setAssinatura(true)} texto="Renovar agora" tipo="btn02" tamanho="p" corTexto="preto" />
-                        }
+            <nav className="sticky top-0 z-40 bg-marca-950 border-b border-white/10">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 shrink-0">
+                        <img className="h-8" src="/Logo.png" alt="" />
+                        <span className="hidden sm:inline font-[TT_Milks] font-bold text-white text-lg tracking-wide">ZentraX</span>
                     </div>
 
-                    <div className="ml-2 flex flex-col-reverse gap-1 lg:flex-row">
-                        <Button
-                            corTexto="branco"
-                            tipo="config"
-                            tamanho="m"
-                            texto=""
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        {nome && (
+                            <span className="hidden md:block text-sm text-slate-300 truncate">
+                                Olá, <span className="text-white font-medium">{nome}</span>
+                            </span>
+                        )}
+
+                        {diasRestantes !== null && (
+                            <span
+                                className={`text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${
+                                    diasRestantes <= 4 ? 'bg-amber-400/20 text-amber-300' : 'bg-white/10 text-slate-200'
+                                }`}
+                            >
+                                {emTeste ? 'Teste' : 'Plano'}: {diasRestantes} {diasRestantes === 1 ? 'dia' : 'dias'}
+                            </span>
+                        )}
+
+                        {mostrarAssinar && (
+                            <button
+                                onClick={() => setAssinatura(true)}
+                                className="bg-cyan-400 hover:bg-cyan-300 active:scale-[0.98] text-marca-950 text-sm font-semibold px-3.5 py-1.5 rounded-lg transition-all cursor-pointer"
+                            >
+                                {emTeste ? 'Assinar' : 'Renovar'}
+                            </button>
+                        )}
+
+                        <button
                             onClick={() => setConfig(true)}
-                        />
-                        <Button texto="Sair" tipo="sair" tamanho="m" corTexto="branco" onClick={() => sair()} />
+                            aria-label="Configurações"
+                            title="Configurações"
+                            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-cyan-400"
+                        >
+                            <IconeEngrenagem />
+                        </button>
+                        <button
+                            onClick={() => sair()}
+                            aria-label="Sair"
+                            title="Sair"
+                            className="flex items-center gap-1.5 p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-cyan-400"
+                        >
+                            <IconeSair />
+                            <span className="hidden sm:inline text-sm">Sair</span>
+                        </button>
                     </div>
                 </div>
-            </nav >
+            </nav>
 
             {config &&
                 <Configuracoes

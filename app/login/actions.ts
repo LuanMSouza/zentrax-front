@@ -125,7 +125,8 @@ export async function enviarLogin(formData: FormData) {
                     id: usuario?.empresa.id,
                     nome: usuario?.empresa.nome,
                     segmento: usuario?.empresa.segmento,
-                    expiracao: usuario?.empresa.data_expiracao
+                    expiracao: usuario?.empresa.data_expiracao,
+                    assinante: !!usuario?.empresa.stripe_subscription_id
                 },
                 usuario: {
                     id: usuario?.id,
