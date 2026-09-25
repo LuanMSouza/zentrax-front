@@ -156,7 +156,7 @@ export default function LoginPage() {
                     <p className="text-sm text-slate-600 mt-7 text-center">
                         Ainda não tem conta?{' '}
                         <a href="https://zentrax.dvls.com.br/cadastro" className="text-marca-700 hover:underline font-medium whitespace-nowrap">
-                            Teste 7 dias grátis
+                            Teste 14 dias grátis
                         </a>
                     </p>
                 </form>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcrypt'
 import prisma from '@/lib/prisma'
 import { codigoValido, registrarIndicacao } from '@/lib/indicacao'
+import { DIAS_TRIAL } from '@/lib/trial'
 
 // Endpoint publico chamado pela LP (lp-zentrax/app/cadastro/actions.ts) pra
 // criar conta nova a partir do teste gratis. Sem autenticacao por design -
@@ -18,7 +19,7 @@ async function notificarNovoCadastro(nomeEmpresa: string, segmento: string) {
         await fetch(`https://ntfy.sh/${topic}`, {
             method: 'POST',
             headers: { Title: 'Novo cadastro no ZentraX', Priority: 'default', Tags: 'tada' },
-            body: `${nomeEmpresa} (${segmento}) acabou de criar conta - teste gratis de 7 dias.`,
+            body: `${nomeEmpresa} (${segmento}) acabou de criar conta - teste gratis de ${DIAS_TRIAL} dias.`,
         })
     } catch (err) {
         console.error('Falha ao notificar novo cadastro via ntfy:', err)
@@ -32,7 +33,7 @@ async function notificarNovoCadastro(nomeEmpresa: string, segmento: string) {
 // (LEADS_BACK_URL/PAINEL_STATS_KEY viram ZENTRAX_API_URL/ZENTRAX_API_KEY do
 // lado de lá), só que na direção inversa. Best-effort: nunca pode derrubar o
 // cadastro em si.
-async function enviarBoasVindas(nome: string, email: string, nomeResponsavel: string) {
+async function enviarBoasVindas(nome: string, email: string, nomeResponsavel: string, whatsapp: string) {
     const url = process.env.LEADS_BACK_URL
     const chave = process.env.PAINEL_STATS_KEY
     if (!url || !chave) return
@@ -40,7 +41,7 @@ async function enviarBoasVindas(nome: string, email: string, nomeResponsavel: st
         await fetch(`${url}/api/zentrax-boas-vindas`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': chave },
-            body: JSON.stringify({ nome, email, nomeResponsavel }),
+            body: JSON.stringify({ nome, email, nomeResponsavel, whatsapp }),
         })
     } catch (err) {
         console.error('Falha ao disparar e-mail de boas-vindas:', err)
@@ -77,6 +78,9 @@ export async function POST(request: Request) {
         const email = String(body?.email ?? '').trim().toLowerCase()
         const senha = String(body?.senha ?? '')
         const segmento = body?.segmento === 'pet' ? 'pet' : 'geral'
+        // WhatsApp é opcional (pra você chamar a pessoa e ajudar a começar): só dígitos, 10 a 13
+        const whatsappBruto = String(body?.whatsapp ?? '').replace(/\D/g, '')
+        const whatsapp = whatsappBruto.length >= 10 && whatsappBruto.length <= 13 ? whatsappBruto : ''
         const codigoIndicacao = codigoValido(body?.ref)
 
         if (!nome || !nomeResponsavel || !usuario || !email || !senha) {
@@ -114,8 +118,8 @@ export async function POST(request: Request) {
                     segmento,
                     status: 'ativo',
                     plano: 'basico',
-                    // 7 dias de teste gratis, igual anunciado na LP
-                    data_expiracao: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    // teste gratis, igual anunciado na LP (DIAS_TRIAL em lib/trial.ts)
+                    data_expiracao: new Date(Date.now() + DIAS_TRIAL * 24 * 60 * 60 * 1000),
                 }
             })
 
@@ -146,8 +150,9 @@ export async function POST(request: Request) {
                 .catch((err) => console.error('Falha ao registrar indicação:', err))
         }
 
-        notificarNovoCadastro(nome, segmento).catch(() => {})
-        enviarBoasVindas(nome, email, nomeResponsavel).catch(() => {})
+        // o leads-back já manda o push (com WhatsApp e origem do convite); este só cobre a falta dele
+        if (!process.env.LEADS_BACK_URL) notificarNovoCadastro(nome, segmento).catch(() => {})
+        enviarBoasVindas(nome, email, nomeResponsavel, whatsapp).catch(() => {})
 
         return NextResponse.json({ success: true }, { status: 201, headers })
 
