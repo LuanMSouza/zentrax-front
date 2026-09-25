@@ -7,15 +7,14 @@ type LabelProps = {
 export default function Label({ children, texto, tamanho = 'g' }: LabelProps) {
 
     const tamanhos = {
-        g: 'w-3/5',
+        g: 'w-full',
         a: 'w-fit'
     }
 
-
     return (
-        <label className={`flex flex-col gap-1 ${tamanhos[tamanho]} mx-auto`} >
+        <label className={`flex flex-col gap-1.5 ${tamanhos[tamanho]}`} >
 
-            <p className="font-semibold text-slate-700 ml-1">
+            <p className="text-sm font-medium text-slate-700">
                 {texto}
             </p>
 

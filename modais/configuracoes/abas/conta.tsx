@@ -120,7 +120,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
 
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-blue-600">Usuários</h2>
+            <h2 className="text-xl font-semibold text-marca-700">Usuários</h2>
 
             <div className="grid gap-2 relative p-2 px-4 min-h-45">
 
@@ -155,7 +155,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
                                         }}
                                         aria-label="Editar usuário"
                                         title="Editar usuário"
-                                        className="bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all cursor-pointer rounded-lg w-8 h-8 flex justify-center items-center text-white text-base shrink-0"
+                                        className="bg-marca-700 hover:bg-marca-800 active:scale-95 transition-all cursor-pointer rounded-lg w-8 h-8 flex justify-center items-center text-white text-base shrink-0"
                                     >
                                         ✎
                                     </button>
@@ -170,7 +170,7 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
 
                 <button
                     onClick={criarConta}
-                    className="bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all cursor-pointer p-2 text-xl text-white rounded ">Adicionar Conta</button>
+                    className="bg-marca-700 hover:bg-marca-800 active:scale-95 transition-all cursor-pointer px-4 py-2.5 text-base font-medium text-white rounded-lg ">Adicionar Conta</button>
             </div>
 
 

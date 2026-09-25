@@ -67,7 +67,7 @@ export default function CriarUsuario({ empresa, sair, atualizar }: CriarUsuarioP
                 <form onSubmit={enviar} className="flex flex-col w-full pb-4  px-8 items-center gap-2">
                     {form.map((i) => {
                         return (
-                            <label key={i.id} className="flex flex-col text-cyan-800 font-bold text-xl items-center"> {i.label}
+                            <label key={i.id} className="flex flex-col text-slate-700 font-medium text-sm items-center"> {i.label}
                                 <input
                                     className="border border-gray-400 rounded-2xl text-gray-900 font-normal p-1 px-3 text-base outline-0"
                                     name={i.name}
@@ -81,7 +81,7 @@ export default function CriarUsuario({ empresa, sair, atualizar }: CriarUsuarioP
                         )
                     })}
 
-                    <label className="flex flex-col text-cyan-800 font-bold text-xl items-center">Role
+                    <label className="flex flex-col text-slate-700 font-medium text-sm items-center">Role
                         <select
                             value={dados.role}
                             className="border border-gray-400 rounded-2xl text-gray-900 font-normal p-1 px-3 text-base outline-0 mb-6"

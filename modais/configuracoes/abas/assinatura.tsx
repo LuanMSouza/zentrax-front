@@ -42,11 +42,11 @@ export default function AssinaturaConfig({ usuario }: AssinaturaConfigProps) {
 
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-blue-600">Assinatura</h2>
+            <h2 className="text-xl font-semibold text-marca-700">Assinatura</h2>
 
             <button
                 onClick={() => setAbrirEscolha(true)}
-                className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all text-white font-semibold py-3 px-4 rounded cursor-pointer"
+                className="w-full bg-marca-700 hover:bg-marca-800 active:scale-95 transition-all text-white font-semibold py-3 px-4 rounded cursor-pointer"
             >
                 Assinar / renovar agora
             </button>

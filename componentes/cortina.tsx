@@ -4,10 +4,13 @@ type CortinaProps = {
     classname?: string
 };
 
+// Fundo escurecido dos modais. Agora rola quando o conteúdo é maior que a tela
+// (antes o Container era `fixed` e cortava o modal em celulares baixos) e o
+// modal fica centralizado dentro de um wrapper com padding.
 export default function Cortina({ children, onClick, classname }: CortinaProps) {
     return (
-        <div onClick={onClick} className={`${classname} fixed top-0 left-0 w-full h-full bg-black/70`}>
-            <div onClick={(e) => e.stopPropagation()} className="w-full flex justify-center">
+        <div onClick={onClick} role="dialog" aria-modal="true" className={`${classname ?? ''} fixed inset-0 z-50 overflow-y-auto bg-marca-950/60 backdrop-blur-[2px]`}>
+            <div onClick={(e) => e.stopPropagation()} className="min-h-full w-full flex items-center justify-center p-4">
                 {children}
             </div>
         </div>

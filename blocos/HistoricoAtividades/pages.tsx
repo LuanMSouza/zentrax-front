@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react"
+import { IconeRelogio } from "@/componentes/Icones"
 import { pegarAtividades } from "./actions"
 
 type Atividade = {
@@ -41,9 +42,10 @@ export default function HistoricoAtividades() {
             <button
                 onClick={abrir}
                 aria-label="Histórico de atividades"
-                className="fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-indigo-400 hover:bg-indigo-500 active:scale-95 transition-all text-white text-2xl font-bold shadow-lg shadow-black/30 flex items-center justify-center cursor-pointer"
+                className="fixed bottom-5 right-5 z-40 flex items-center gap-2 p-3 sm:pl-3.5 sm:pr-4 sm:py-2.5 rounded-full bg-marca-950 hover:bg-marca-800 active:scale-95 transition-all text-white text-sm font-medium shadow-lg shadow-black/25 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
             >
-                ?
+                <IconeRelogio />
+                <span className="hidden sm:inline">Histórico</span>
             </button>
 
             {aberto && (

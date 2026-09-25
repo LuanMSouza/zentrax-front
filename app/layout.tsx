@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-br">
-      <body className="...">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Titlebar /> {/* O Next.js entende que só este pedaço é Client Side */}
         {children}
       </body>

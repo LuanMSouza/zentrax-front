@@ -76,7 +76,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-blue-600">Editar Perfil</h2>
+            <h2 className="text-xl font-semibold text-marca-700">Editar Perfil</h2>
 
             <div className="grid grid-cols-1 gap-4">
                 {/* nome */}
@@ -87,7 +87,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
                         type='text'
                         value={form.nome}
                         onChange={(e) => setForm(prev => ({ ...prev, nome: e.target.value }))}
-                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-blue-500 transition-colors"
+                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-marca-700 transition-colors"
                         placeholder='Seu nome...'
                     />
                 </label>
@@ -100,7 +100,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
                         type='text'
                         value={form.usuario}
                         onChange={(e) => setForm(prev => ({ ...prev, usuario: e.target.value }))}
-                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-blue-500 transition-colors"
+                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-marca-700 transition-colors"
                         placeholder='Seu usuario...'
                     />
                 </label>
@@ -113,7 +113,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
                         type='password'
                         value={form.senha}
                         onChange={(e) => setForm(prev => ({ ...prev, senha: e.target.value }))}
-                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-blue-500 transition-colors"
+                        className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-marca-700 transition-colors"
                         placeholder='Nova senha...'
                         autoComplete="new-password"
                     />
@@ -134,7 +134,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
                                     type="password"
                                     value={form.confirmarSenha} // Use o estado da senha de confirmação aqui
                                     onChange={(e) => setForm(prev => ({ ...prev, confirmarSenha: e.target.value }))}
-                                    className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-blue-500 transition-all"
+                                    className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-marca-700 transition-all"
                                     placeholder="Confirme a nova senha..."
                                     autoComplete="new-password"
                                 />
@@ -145,7 +145,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
 
                 <button
                     onClick={handleSubmit}
-                    className="bg-blue-600 cursor-pointer hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-all active:scale-95 mt-2"
+                    className="bg-marca-700 cursor-pointer hover:bg-marca-800 text-white font-bold py-2 px-4 rounded transition-all active:scale-95 mt-2"
                 >
                     Salvar Alterações
                 </button>

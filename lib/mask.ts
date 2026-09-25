@@ -21,3 +21,13 @@ export function formatarDataBR(dataInput: string | Date | null | undefined): str
         timeZone: 'UTC'
     });
 }
+
+// dias corridos desde uma data (só-data, UTC, igual formatarDataBR). null se a
+// data for inválida ou absurda (o banco tem uma nota de 0001-01-01 por erro antigo)
+export function diasDesde(dataInput: string | Date | null | undefined): number | null {
+    if (!dataInput) return null;
+    const t = new Date(dataInput).getTime();
+    if (isNaN(t)) return null;
+    const dias = Math.floor((Date.now() - t) / 86_400_000);
+    return dias < 0 || dias > 36_500 ? null : dias;
+}

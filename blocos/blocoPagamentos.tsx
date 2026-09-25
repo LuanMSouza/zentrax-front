@@ -1,6 +1,5 @@
 'use client'
 
-import { Button } from "@/componentes/Buttons";
 import { useState } from "react";
 
 import { Pagamentos } from "@/types";
@@ -44,33 +43,36 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
     return (
         <>
             {MostrarValor ? (
-                <div className="flex flex-col items-center w-full"> {/* Container para alinhar tudo */}
-                    <div className="w-full  flex items-center justify-center gap-4 flex-wrap py-4 rounded-2xl">
+                <div className="flex flex-col items-center w-full gap-4">
+                    <ul className="w-full grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                         {pagamentos.slice(0, mostrando).map(p => (
-                            <div
-                                className="bg-white min-w-full sm:min-w-35 p-2 px-4 border border-gray-300 shadow-md shadow-gray-700 rounded-2xl w-2/9 duration-200 flex flex-col items-center"
-                                key={p.id}
-                            >
-                                <p className="lg:text-xl text-base font-semibold truncate">{p.clientes?.nome}</p>
-                                <p className="text-sm italic text-gray-600">
-                                    {formatarDataBR(p.data)}
-                                </p>
-                                <p className="text-xl font-semibold">{formatarValor(p.valor)}</p>
-                                {(p.quantidade ?? 1) > 1 && (
-                                    <p className="text-xs text-gray-500">{p.quantidade} notas abatidas</p>
-                                )}
-                            </div>
+                            <li key={p.id} className="bg-white rounded-xl ring-1 ring-slate-900/5 px-4 py-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="font-semibold text-slate-900 truncate">{p.clientes?.nome}</p>
+                                    <p className="mt-0.5 text-xs text-slate-500">
+                                        {formatarDataBR(p.data)}
+                                        {(p.quantidade ?? 1) > 1 && ` · ${p.quantidade} notas abatidas`}
+                                    </p>
+                                </div>
+                                <p className="font-semibold text-emerald-700 tabular-nums shrink-0">{formatarValor(p.valor)}</p>
+                            </li>
                         ))}
-                    </div>
+                    </ul>
 
                     {mostrando >= lista && !temMaisNoServidor ? (
-                        <p className="text-2xl text-gray-500 italic font-bold">Não há mais pagamentos para exibir</p>
+                        <p className="text-sm text-slate-500">Não há mais pagamentos para exibir.</p>
                     ) : (
-                        <Button onClick={aumentar} texto={carregandoMais ? 'Carregando...' : 'Ver mais'} tipo='btn03' tamanho="gg" corTexto="branco" />
+                        <button
+                            onClick={aumentar}
+                            disabled={carregandoMais}
+                            className="px-5 py-2 rounded-lg bg-white ring-1 ring-slate-900/10 text-sm font-medium text-slate-700 hover:ring-marca-700/40 active:scale-[0.98] disabled:opacity-60 transition-all cursor-pointer"
+                        >
+                            {carregandoMais ? 'Carregando...' : 'Ver mais'}
+                        </button>
                     )}
                 </div>
             ) : (
-                <p className="text-2xl text-gray-500 italic font-bold">Valores ocultos</p>
+                <p className="text-sm text-slate-500 text-center py-8">Valores ocultos. Use o ícone de olho para mostrar.</p>
             )}
         </>
     );

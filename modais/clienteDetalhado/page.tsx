@@ -230,85 +230,79 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                 <Titulo cor="preto" texto={cliente.nome} />
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="g" corTexto="branco" />
 
-                <div className="grid  md:grid-cols-4 sm:grid-cols-2 w-8/9 p-4 items-center justify-center gap-1 md:gap-4">
-
-                    <div className="bg-cyan-100  p-2 w-full border-3 rounded-2xl flex flex-col justify-center items-center border-cyan-400 shadow shadow-cyan-700">
-                        <p className=" md:text-xl">Total em aberto:</p>
-                        <p className="md:text-2xl text-xl font-bold">{formatarValor(String(totalAtualizado))}</p>
+                <dl className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-marca-950 text-white px-4 py-3">
+                        <dt className="text-xs text-slate-300">Total em aberto</dt>
+                        <dd className="mt-0.5 text-xl sm:text-2xl font-semibold tabular-nums">{formatarValor(String(totalAtualizado))}</dd>
                     </div>
-
-                    <Button maxw="full" onClick={() => lancarPagamento(cliente.id)} texto="Pagamento" tipo="btn03" tamanho="g" corTexto="branco" />
-                    <Button maxw="full" onClick={() => cobrar(cliente.id)} texto="Cobrar Cliente" tipo="btn03" tamanho="g" corTexto="branco" />
-
-                    <div className="bg-cyan-100  p-2 w-full border-3 rounded-2xl flex flex-col justify-center items-center border-cyan-400 shadow shadow-cyan-700">
-                        <p className=" md:text-xl">Notas em aberto:</p>
-                        <p className="text-2xl font-bold">{quantidadeNotasAtivas}</p>
+                    <div className="rounded-xl bg-slate-100 px-4 py-3">
+                        <dt className="text-xs text-slate-500">Notas em aberto</dt>
+                        <dd className="mt-0.5 text-xl sm:text-2xl font-semibold tabular-nums text-slate-900">{quantidadeNotasAtivas}</dd>
                     </div>
+                </dl>
 
+                <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => lancarPagamento(cliente.id)} texto="Registrar pagamento" tipo="btn01" tamanho="g" corTexto="branco" />
+                    <button
+                        onClick={() => cobrar(cliente.id)}
+                        className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
+                    >
+                        Cobrar pelo WhatsApp
+                    </button>
                 </div>
 
-                <div className=" cursor-default flex flex-col w-full gap-2 max-h-80 overflow-y-auto">
-                    {carregandoNotas && <p className="text-center text-gray-500 italic">Carregando notas...</p>}
+                <div className="cursor-default flex flex-col w-full gap-2 max-h-80 overflow-y-auto">
+                    {carregandoNotas && <p className="text-center text-sm text-slate-500">Carregando notas...</p>}
                     {notas.map((n) => {
 
-                        let taPago = Number(n.valor_inicial) - Number(n.valor_abatido) === 0
-
-                        const opacidades = {
-                            pago: 'opacity-50',
-                            aberto: 'opacity-100'
-                        }
-
+                        const taPago = Number(n.valor_inicial) - Number(n.valor_abatido) === 0
 
                         return (
                             <div
                                 key={n.id}
-                                className={` ${taPago ? opacidades.pago : opacidades.aberto} border border-gray-400 p-2 px-7 rounded-2xl shadow shadow-cyan-500 
-                            justify-between flex`}>
+                                className={`${taPago ? 'opacity-50' : ''} rounded-xl border border-slate-200 bg-white px-4 py-3 flex flex-wrap items-center justify-between gap-3`}>
 
                                 {/* esquerda */}
                                 {segmento === 'geral' &&
-                                    <div className=" flex flex-col justify-center">
-                                        <p className="text-xl font-bold">{formatarValor(String(n.valor_inicial - n.valor_abatido))}</p>
-                                        <p className=" italic text-gray-800">{n.descricao}</p>
-                                        <p className="text-gray-600">{formatarDataBR(n.data)}</p>
+                                    <div className="flex flex-col justify-center min-w-0">
+                                        <p className="text-lg font-semibold tabular-nums text-slate-900">{formatarValor(String(n.valor_inicial - n.valor_abatido))}</p>
+                                        {n.descricao && <p className="text-sm text-slate-700 truncate">{n.descricao}</p>}
+                                        <p className="text-xs text-slate-500">{formatarDataBR(n.data)}</p>
                                         {(Number(n.valor_abatido) > 0) && (
-                                            <div className="italic text-sm text-gray-500">
-                                                <hr className="border-gray-300 my-1" />
-                                                <p>Valor inicial: {formatarValor(n.valor_inicial)}</p>
-                                                <p>Já abatido: {formatarValor(n.valor_abatido)}</p>
-                                            </div>
+                                            <p className="mt-1 text-xs text-slate-500">
+                                                Valor inicial {formatarValor(n.valor_inicial)} · já abatido {formatarValor(n.valor_abatido)}
+                                            </p>
                                         )}
-
                                     </div>
                                 }
 
                                 {segmento === 'pet' &&
-                                    <div className=" flex flex-col justify-center">
-                                        <p className="text-xl font-bold">{formatarValor(String(n.valor_inicial - n.valor_abatido))}</p>
-                                        <p className="  text-gray-800">🐶 Pet : {n.descricao ?? 'Não informado'}</p>
-                                        <p className="  text-gray-800">📃 {n.quantidade} (diarias) : x {formatarValor(n.valor_unitario)}</p>
-                                        <p className=" italic text-gray-800">⭐ Extras : {formatarValor(n.valor_extra) ?? formatarValor('0')}</p>
-                                        <p className="text-gray-600">{formatarDataBR(n.data)}</p>
-
+                                    <div className="flex flex-col justify-center min-w-0 text-sm text-slate-700">
+                                        <p className="text-lg font-semibold tabular-nums text-slate-900">{formatarValor(String(n.valor_inicial - n.valor_abatido))}</p>
+                                        <p>🐶 Pet: {n.descricao ?? 'Não informado'}</p>
+                                        <p>📃 {n.quantidade} (diárias) x {formatarValor(n.valor_unitario)}</p>
+                                        <p>⭐ Extras: {formatarValor(n.valor_extra) ?? formatarValor('0')}</p>
+                                        <p className="text-xs text-slate-500">{formatarDataBR(n.data)}</p>
 
                                         {(Number(n.valor_abatido) > 0 && Number(n.valor_abatido) < Number(n.valor_inicial)) && (
-                                            <div className="italic text-sm text-gray-500">
-                                                <hr className="border-gray-300 my-1" />
-                                                <p>Valor inicial: {formatarValor(n.valor_inicial)}</p>
-                                                <p>Já abatido: {formatarValor(n.valor_abatido)}</p>
-                                            </div>
+                                            <p className="mt-1 text-xs text-slate-500">
+                                                Valor inicial {formatarValor(n.valor_inicial)} · já abatido {formatarValor(n.valor_abatido)}
+                                            </p>
                                         )}
-
                                     </div>
                                 }
 
-                                {/* direita */}
+                                {/* direita: parcial não é ação de perigo, então deixou de ser vermelho */}
                                 {n.valor_inicial != n.valor_abatido && (
-                                    <div className=" flex  justify-center flex-col w-fit gap-1">
-                                        <Button maxw="full" onClick={() => lancarPagEspecifico('total', n.id, Number(n.valor_inicial - n.valor_abatido))} texto="Registrar pagamento total" tipo="btn04" tamanho="m" corTexto="branco" />
-                                        <Button maxw="full" onClick={() => lancarPagEspecifico('parcial', n.id, Number(n.valor))} texto="Registrar pagamento parcial" tipo="btn05" tamanho="m" corTexto="branco" />
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <Button onClick={() => lancarPagEspecifico('total', n.id, Number(n.valor_inicial - n.valor_abatido))} texto="Pagou tudo" tipo="btn04" tamanho="m" corTexto="branco" />
+                                        <button
+                                            onClick={() => lancarPagEspecifico('parcial', n.id, Number(n.valor))}
+                                            className="px-3 py-1.5 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
+                                        >
+                                            Pagou parte
+                                        </button>
                                     </div>
-
                                 )}
 
                             </div>
