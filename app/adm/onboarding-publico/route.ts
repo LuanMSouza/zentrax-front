@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcrypt'
 import prisma from '@/lib/prisma'
+import { codigoValido, registrarIndicacao } from '@/lib/indicacao'
 
 // Endpoint publico chamado pela LP (lp-zentrax/app/cadastro/actions.ts) pra
 // criar conta nova a partir do teste gratis. Sem autenticacao por design -
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
         const email = String(body?.email ?? '').trim().toLowerCase()
         const senha = String(body?.senha ?? '')
         const segmento = body?.segmento === 'pet' ? 'pet' : 'geral'
+        const codigoIndicacao = codigoValido(body?.ref)
 
         if (!nome || !nomeResponsavel || !usuario || !email || !senha) {
             return NextResponse.json({ error: 'Preencha todos os campos obrigatórios.' }, { status: 400, headers })
@@ -105,7 +107,7 @@ export async function POST(request: Request) {
 
         const senhaHash = await bcrypt.hash(senha, 10)
 
-        await prisma.$transaction(async (tx) => {
+        const novaEmpresaId = await prisma.$transaction(async (tx) => {
             const novaEmpresa = await tx.empresa.create({
                 data: {
                     nome,
@@ -133,7 +135,16 @@ export async function POST(request: Request) {
                     role: 'gestor',
                 }
             })
+
+            return novaEmpresa.id
         })
+
+        // indicação é best-effort: código errado/teto/qualquer falha aqui nunca
+        // pode impedir o cadastro de quem acabou de criar a conta
+        if (codigoIndicacao) {
+            registrarIndicacao(codigoIndicacao, novaEmpresaId, email)
+                .catch((err) => console.error('Falha ao registrar indicação:', err))
+        }
 
         notificarNovoCadastro(nome, segmento).catch(() => {})
         enviarBoasVindas(nome, email, nomeResponsavel).catch(() => {})
