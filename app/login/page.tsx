@@ -73,7 +73,7 @@ export default function LoginPage() {
         <div className="min-h-dvh grid lg:grid-cols-[1.1fr_1fr] bg-slate-50">
 
             {/* Lado da marca: sem foto externa (antes vinha do Pexels), com o próprio produto */}
-            <aside className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-marca-950 to-marca-700 text-white p-12 relative overflow-hidden">
+            <aside className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-marca-950 to-marca-700 text-white p-12 relative overflow-hidden z-10 shadow-[6px_0_24px_-8px_rgba(0,21,41,0.45)]">
                 <div className="flex items-center gap-2.5">
                     <img src="/Logo.png" alt="" className="h-9" />
                     <span className="font-[TT_Milks] font-bold text-xl tracking-wide">ZentraX</span>
@@ -99,7 +99,7 @@ export default function LoginPage() {
                 </div>
             </aside>
 
-            <main className="flex items-center justify-center px-5 py-10">
+            <main className="flex items-center justify-center px-5 py-10 bg-white lg:border-l lg:border-slate-200">
                 <form action={handleSubmit} className="w-full max-w-sm">
                     <div className="lg:hidden flex items-center justify-center gap-2.5 mb-8">
                         <img src="/Logo.png" alt="" className="h-9" />
