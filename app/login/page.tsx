@@ -54,7 +54,7 @@ export default function LoginPage() {
                 title: '🚀 Conta Criada!',
                 text: 'Sua jornada na ZentraX começou. Faça login agora!',
                 icon: 'success',
-                confirmButtonColor: '#008CBA'
+                confirmButtonColor: '#004b6b'
             });
         }
 
@@ -63,7 +63,7 @@ export default function LoginPage() {
                 title: 'Sessão encerrada',
                 text: 'Sua sessão não é mais válida. Faça login novamente.',
                 icon: 'warning',
-                confirmButtonColor: '#008CBA'
+                confirmButtonColor: '#004b6b'
             });
         }
 

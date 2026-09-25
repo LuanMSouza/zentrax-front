@@ -53,3 +53,38 @@ html, body {
   display: flex;
   gap: 8px;
 }
+/* SweetAlert2: popups de aviso/confirmação com a cara do app (antes: roxo e
+   cinza padrão da biblioteca). Cores explícitas passadas nas chamadas (ex.: o
+   verde do WhatsApp) continuam valendo, pois vêm inline. */
+.swal2-popup {
+  font-family: inherit;
+  border-radius: 1rem;
+  padding: 1.75rem 1.5rem 1.5rem;
+}
+.swal2-title {
+  font-weight: 600;
+  font-size: 1.35rem;
+  color: #0f172a;
+}
+.swal2-html-container {
+  color: #475569;
+  font-size: 0.95rem;
+}
+.swal2-popup .swal2-styled {
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0.6rem 1.25rem;
+}
+.swal2-popup .swal2-styled.swal2-confirm { background-color: #004b6b; }
+.swal2-popup .swal2-styled.swal2-confirm:hover { background-color: #003a54; }
+.swal2-popup .swal2-styled.swal2-cancel { background-color: #e2e8f0; color: #334155; }
+.swal2-popup .swal2-styled.swal2-cancel:hover { background-color: #cbd5e1; }
+.swal2-popup .swal2-styled:focus { box-shadow: 0 0 0 3px rgba(0, 75, 107, 0.3); }
+.swal2-popup .swal2-input {
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  box-shadow: none;
+  border: 1px solid #cbd5e1;
+}
+.swal2-popup .swal2-input:focus { border-color: #004b6b; box-shadow: 0 0 0 3px rgba(0, 75, 107, 0.2); }

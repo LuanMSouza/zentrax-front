@@ -20,7 +20,7 @@ export default function Configuracoes({ sair, usuario, empresa, atualizarPerfil 
     const [selecionado, setSelecionado] = useState("perfil")
 
     const tabBase = "cursor-pointer pb-2 px-4 text-lg transition-all duration-300 border-b-2"
-    const tabAtiva = "border-blue-600 text-blue-600 font-bold"
+    const tabAtiva = "border-marca-700 text-marca-700 font-bold"
     const tabInativa = "border-transparent text-gray-400 hover:text-gray-600"
 
     return (

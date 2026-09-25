@@ -154,7 +154,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                                         <input
                                             value={form.nome}
                                             onChange={(e) => setForm(prev => ({ ...prev, nome: e.target.value }))}
-                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-blue-500"
+                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-marca-700"
                                         />
                                     </label>
                                     <label className="flex flex-col gap-1">
@@ -163,7 +163,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                                             value={form.whatsapp}
                                             onChange={(e) => setForm(prev => ({ ...prev, whatsapp: e.target.value }))}
                                             placeholder="ex: 11 99887-7665"
-                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-blue-500"
+                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-marca-700"
                                         />
                                     </label>
                                     <label className="flex flex-col gap-1">
@@ -172,7 +172,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                                             value={form.documento}
                                             onChange={(e) => setForm(prev => ({ ...prev, documento: e.target.value }))}
                                             placeholder="Opcional"
-                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-blue-500"
+                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-marca-700"
                                         />
                                     </label>
 

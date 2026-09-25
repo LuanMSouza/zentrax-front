@@ -47,7 +47,7 @@ export default function AssinaturaModal({ sair, billingToken }: AssinaturaModalP
 
     return (
         <Cortina onClick={sair}>
-            <Container tamanho="m">
+            <Container tamanho="mg">
                 <Button texto="X" tipo="fechar" tamanho="p" corTexto="branco" onClick={sair} />
 
                 <p className="text-black text-3xl font-bold">Assine o ZentraX</p>
@@ -75,10 +75,10 @@ export default function AssinaturaModal({ sair, billingToken }: AssinaturaModalP
                                     </span>
                                 )}
 
-                                <p className="text-blue-700 font-bold text-lg">{p.titulo}</p>
+                                <p className="text-marca-700 font-bold text-lg">{p.titulo}</p>
 
                                 <div className="flex items-baseline gap-1 mt-1">
-                                    <p className="text-3xl font-extrabold text-gray-900">{p.preco}</p>
+                                    <p className="text-2xl font-semibold tracking-tight text-slate-900 whitespace-nowrap">{p.preco}</p>
                                 </div>
 
                                 {p.porMes && (
@@ -88,8 +88,8 @@ export default function AssinaturaModal({ sair, billingToken }: AssinaturaModalP
                                 <p className="text-gray-500 text-sm mt-2">{p.detalhe}</p>
 
                                 {estaCarregando && (
-                                    <div className="flex items-center gap-2 text-blue-600 text-sm mt-3 font-medium">
-                                        <span className="h-3.5 w-3.5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+                                    <div className="flex items-center gap-2 text-marca-700 text-sm mt-3 font-medium">
+                                        <span className="h-3.5 w-3.5 rounded-full border-2 border-marca-700 border-t-transparent animate-spin" />
                                         Abrindo pagamento...
                                     </div>
                                 )}
