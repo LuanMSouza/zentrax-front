@@ -25,8 +25,9 @@ export default function Home() {
 
     const [mostrarValores, setMostrarValores] = useState(false)
     const [filtro, setFiltro] = useState('')
-    // padrão: quem está há mais tempo devendo primeiro (antes era ordem alfabética)
-    const [arrumacao, setArrumacao] = useState('data_desc')
+    // padrão: ordem alfabética (é como o uso real funciona: procura o cliente pelo nome). "Mais atrasados" continua
+    // no seletor pra quem quiser cobrar por antiguidade.
+    const [arrumacao, setArrumacao] = useState('nome_asc')
     const [aba, setAba] = useState<'devedores' | 'pagamentos'>('devedores')
     const [loading, setLoading] = useState(true)
     const [role, setRole] = useState<string | null>(null)
@@ -207,14 +208,14 @@ export default function Home() {
                                 aria-label="Ordenar clientes"
                                 className="flex-1 sm:flex-none min-w-0 bg-white rounded-lg ring-1 ring-slate-900/10 text-sm px-3 py-2.5 outline-none focus:ring-2 focus:ring-marca-700 cursor-pointer"
                             >
+                                <option value="nome_asc">Nome A-Z</option>
+                                <option value="nome_desc">Nome Z-A</option>
                                 <option value="data_desc">Mais atrasados</option>
                                 <option value="data_asc">Mais recentes</option>
                                 <option value="valor_asc">Maior valor</option>
                                 <option value="valor_desc">Menor valor</option>
                                 <option value="notas_asc">Mais notas</option>
                                 <option value="notas_desc">Menos notas</option>
-                                <option value="nome_asc">Nome A-Z</option>
-                                <option value="nome_desc">Nome Z-A</option>
                             </select>
                         </>
                     )}
