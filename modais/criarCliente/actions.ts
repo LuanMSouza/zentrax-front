@@ -72,7 +72,10 @@ export default async function cadastrarClienteBack(formData: FormData) {
 
         return ({
             success: true,
-            novoCliente
+            novoCliente: {
+                ...novoCliente,
+                whatsapp: novoCliente.whatsapp ? String(novoCliente.whatsapp) : ""
+            }
         })
 
     } catch (error: unknown) {

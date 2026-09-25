@@ -143,8 +143,8 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
                                 <Input type="text" tamanho="g" name="descricao" placeholder="ex.: Nala" />
                             </Label>
 
-                            <Label texto="extras">
-                                <Input type="number" tamanho="g" name="extra" placeholder="ex.: Banho, taxi-dog" />
+                            <Label texto="Valor extra (banho, táxi-dog, etc)">
+                                <Input type="text" tamanho="g" name="extra" placeholder="ex.: 20,00" />
                             </Label>
 
                         </>

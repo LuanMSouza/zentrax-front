@@ -193,7 +193,10 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                 notaAtualizada: {
                     ...notaAlterada,
                     valor_abatido: Number(notaAlterada.valor_abatido),
-                    valor_inicial: Number(notaAlterada.valor_inicial)
+                    valor_inicial: Number(notaAlterada.valor_inicial),
+                    valor_restante: Number(notaAlterada.valor_restante),
+                    valor_extra: Number(notaAlterada.valor_extra),
+                    valor_unitario: Number(notaAlterada.valor_unitario)
                 }
             };
 
@@ -241,7 +244,14 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
 
                 return {
                     success: true,
-                    notaAtualizada: updateNota
+                    notaAtualizada: {
+                        ...updateNota,
+                        valor_abatido: Number(updateNota?.valor_abatido),
+                        valor_inicial: Number(updateNota?.valor_inicial),
+                        valor_restante: Number(updateNota?.valor_restante),
+                        valor_extra: Number(updateNota?.valor_extra),
+                        valor_unitario: Number(updateNota?.valor_unitario)
+                    }
                 };
             } catch (error: any) {
                 console.error("Erro no pagamento total:", error)
@@ -332,11 +342,9 @@ export async function CobrarBack(id: number) {
             mensagem = `Olá ${dadosDoCliente.nome}! O total em aberto é ${FormatarValor(dadosDoCliente.totalDevedor)}.`;
     }
 
-    console.log(dadosDoCliente.whatsapp)
-
     return {
         mensagem,
-        whatsapp: dadosDoCliente.whatsapp ?? null
+        whatsapp: dadosDoCliente.whatsapp ? String(dadosDoCliente.whatsapp) : null
     }
 }
 

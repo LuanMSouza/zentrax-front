@@ -85,9 +85,11 @@ export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
             }
         })
 
+        const { senha: _senha, reset_token: _resetToken, ...usuarioSeguro } = novoUsuario
+
         return {
             success: true,
-            novoUsuario
+            novoUsuario: usuarioSeguro
         }
 
     } catch (error) {

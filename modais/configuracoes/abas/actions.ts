@@ -90,9 +90,11 @@ export async function Alterarperfil(form: AlterarPerfilProps) {
             data: dataUpdate
         })
 
+        const { senha: _senha, reset_token: _resetToken, ...usuarioSeguro } = update
+
         return {
             success: true,
-            usuarioNovo: [update]
+            usuarioNovo: [usuarioSeguro]
         }
 
     } catch (error) {

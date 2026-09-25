@@ -93,9 +93,11 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
             data: DATA
         })
 
+        const { senha: _senha, reset_token: _resetToken, ...usuarioSeguro } = usuarioAlterado
+
         return {
             success: true,
-            usuarioAlterado
+            usuarioAlterado: usuarioSeguro
         }
 
     } catch (error: any) {

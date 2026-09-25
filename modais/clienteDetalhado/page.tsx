@@ -190,9 +190,6 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
     async function cobrar(id: number) {
         const res = await CobrarBack(id);
 
-        console.log(res);
-
-
         if (res?.whatsapp && res?.mensagem) {
             Swal.fire({
                 title: 'Cobrança Gerada!',
