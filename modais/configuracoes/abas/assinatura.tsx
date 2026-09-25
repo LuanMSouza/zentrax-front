@@ -4,6 +4,7 @@ import { useState } from "react"
 import Swal from "sweetalert2"
 import { criarPortalBack } from "@/app/assinatura/actions"
 import AssinaturaModal from "@/modais/assinatura/pages"
+import Indicacao from "./indicacao"
 
 type AssinaturaConfigProps = {
     usuario: any
@@ -57,6 +58,8 @@ export default function AssinaturaConfig({ usuario }: AssinaturaConfigProps) {
             >
                 {carregandoPortal ? 'Abrindo...' : 'Gerenciar assinatura (cartão, faturas, cancelar)'}
             </button>
+
+            <Indicacao />
 
             {abrirEscolha && <AssinaturaModal sair={() => setAbrirEscolha(false)} />}
         </div>
