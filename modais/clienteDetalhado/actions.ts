@@ -148,34 +148,47 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
 
         try {
             const valorNumerico = Number(valor)
-
-            // Update atomico e guardado: so aplica se a nota for dessa empresa
-            // e ainda tiver saldo suficiente no momento exato da escrita —
-            // evita corrida entre dois pagamentos simultaneos na mesma nota.
-            const resultado = await prisma.pedidos.updateMany({
-                where: {
-                    id: Number(id),
-                    empresa_id: empresaId,
-                    valor_restante: { gte: valorNumerico }
-                },
-                data: {
-                    valor_abatido: { increment: valorNumerico },
-                    valor_restante: { decrement: valorNumerico }
-                }
-            })
-
-            if (resultado.count === 0) {
-                return {
-                    success: false,
-                    error: 'Não foi possível registrar o pagamento — valor maior que o saldo da nota, ou nota inválida.'
-                }
+            if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
+                return { success: false, error: 'Informe um valor maior que zero.' }
             }
 
-            const notaAlterada = await prisma.pedidos.findUnique({ where: { id: Number(id) } })
+            // Tudo numa transação: o abatimento da nota e a linha em `pagamentos` (que alimenta a aba
+            // Pagamentos) entram juntos ou nenhum entra. Antes só a nota era abatida e o pagamento
+            // "sumia" do histórico (pagamentoAvulso, o botão de cima, sempre gravou a linha).
+            const notaAlterada = await prisma.$transaction(async (tx) => {
+                // Update atomico e guardado: so aplica se a nota for dessa empresa
+                // e ainda tiver saldo suficiente no momento exato da escrita —
+                // evita corrida entre dois pagamentos simultaneos na mesma nota.
+                const resultado = await tx.pedidos.updateMany({
+                    where: {
+                        id: Number(id),
+                        empresa_id: empresaId,
+                        valor_restante: { gte: valorNumerico }
+                    },
+                    data: {
+                        valor_abatido: { increment: valorNumerico },
+                        valor_restante: { decrement: valorNumerico }
+                    }
+                })
 
-            if (!notaAlterada) {
-                return { success: false, error: 'Nota não encontrada.' }
-            }
+                if (resultado.count === 0) throw new Error('SEM_SALDO_NOTA')
+
+                const nota = await tx.pedidos.findUnique({ where: { id: Number(id) } })
+                if (!nota) throw new Error('NOTA_NAO_ENCONTRADA')
+
+                if (nota.id_cliente) {
+                    await tx.pagamentos.create({
+                        data: {
+                            id_cliente: nota.id_cliente,
+                            valor: valorNumerico,
+                            nota_abatida: nota.id,
+                            empresa_id: empresaId,
+                            data: new Date()
+                        }
+                    })
+                }
+                return nota
+            }, { timeout: 10000 })
 
             const cliente = notaAlterada.id_cliente
                 ? await prisma.clientes.findUnique({ where: { id: notaAlterada.id_cliente }, select: { nome: true } })
@@ -202,6 +215,13 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
 
 
         } catch (error: any) {
+            if (error?.message === 'SEM_SALDO_NOTA') {
+                return {
+                    success: false,
+                    error: 'Não foi possível registrar o pagamento — valor maior que o saldo da nota, ou nota inválida.'
+                }
+            }
+            if (error?.message === 'NOTA_NAO_ENCONTRADA') return { success: false, error: 'Nota não encontrada.' }
             console.error("Erro no pagamento parcial:", error)
             return {
                 success: false,
@@ -213,16 +233,42 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
         if (tipo === 'total') {
 
             try {
-                // SET direto contra valor_inicial (imutavel) em SQL: idempotente e
-                // sempre correto mesmo se outro pagamento tiver alterado a nota
-                // entre o clique do usuario e a execucao aqui.
-                const linhasAfetadas = await prisma.$executeRaw`
-                    UPDATE pedidos
-                    SET valor_abatido = valor_inicial, valor_restante = 0
-                    WHERE id = ${Number(id)} AND empresa_id = ${empresaId}
-                `;
+                // Lê o saldo da nota com trava (FOR UPDATE), quita com SET direto contra valor_inicial (imutavel,
+                // idempotente) e grava em `pagamentos` o valor que faltava — tudo na mesma transação, pra o
+                // pagamento aparecer na aba Pagamentos (antes só a nota era quitada).
+                const achou = await prisma.$transaction(async (tx) => {
+                    const linhas = await tx.$queryRaw<{ id_cliente: number | null, valor_inicial: any, valor_abatido: any }[]>`
+                        SELECT id_cliente, valor_inicial, valor_abatido FROM pedidos
+                        WHERE id = ${Number(id)} AND empresa_id = ${empresaId}
+                        FOR UPDATE
+                    `
+                    if (linhas.length === 0) return false
 
-                if (linhasAfetadas === 0) {
+                    const nota = linhas[0]
+                    const saldo = Number((Number(nota.valor_inicial) - Number(nota.valor_abatido)).toFixed(2))
+
+                    await tx.$executeRaw`
+                        UPDATE pedidos
+                        SET valor_abatido = valor_inicial, valor_restante = 0
+                        WHERE id = ${Number(id)} AND empresa_id = ${empresaId}
+                    `
+
+                    // nota que já estava quitada não gera pagamento novo
+                    if (saldo > 0 && nota.id_cliente) {
+                        await tx.pagamentos.create({
+                            data: {
+                                id_cliente: nota.id_cliente,
+                                valor: saldo,
+                                nota_abatida: Number(id),
+                                empresa_id: empresaId,
+                                data: new Date()
+                            }
+                        })
+                    }
+                    return true
+                }, { timeout: 10000 })
+
+                if (!achou) {
                     return {
                         success: false,
                         error: 'Nota não encontrada.'
