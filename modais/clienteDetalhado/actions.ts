@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers"
 import { jwtVerify } from 'jose';
 import RegistrarAcao from "@/lib/logger";
-import { FormatarValor } from "@/lib/mask";
+import { FormatarValor, hojeBR } from "@/lib/mask";
 import autenticar from "@/lib/auth";
 
 type PagAvulsoProps = {
@@ -83,7 +83,7 @@ export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
                             valor: valorAbatidoAgora,
                             nota_abatida: nota.id,
                             empresa_id: Number(empresaId),
-                            data: new Date()
+                            data: hojeBR()
                         }
                     });
 
@@ -185,7 +185,7 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                             valor: valorNumerico,
                             nota_abatida: nota.id,
                             empresa_id: empresaId,
-                            data: new Date()
+                            data: hojeBR()
                         }
                     })
                 }
@@ -263,7 +263,7 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                                 valor: saldo,
                                 nota_abatida: Number(id),
                                 empresa_id: empresaId,
-                                data: new Date()
+                                data: hojeBR()
                             }
                         })
                     }

@@ -31,3 +31,11 @@ export function diasDesde(dataInput: string | Date | null | undefined): number |
     const dias = Math.floor((Date.now() - t) / 86_400_000);
     return dias < 0 || dias > 36_500 ? null : dias;
 }
+
+
+// "hoje" no Brasil como data (00:00 UTC do dia de Brasília), pra gravar em colunas @db.Date. `new Date()` cru gravava o
+// dia em UTC: um pagamento feito depois das 21h de Brasília ficava com a data de amanhã.
+export function hojeBR(): Date {
+    const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()); // YYYY-MM-DD
+    return new Date(`${dia}T00:00:00.000Z`);
+}

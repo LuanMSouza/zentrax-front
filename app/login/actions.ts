@@ -5,6 +5,9 @@ import bcrypt from 'bcrypt';
 import { sign } from 'jsonwebtoken'; // Substitui o fastify.jwt
 import { cookies } from 'next/headers'
 
+// hash de mentira só pra gastar o mesmo tempo quando o login não existe
+const HASH_FALSO = '$2b$10$1.YQOza0n.8QH.1cvduEAOCIlU3GIULSbPuBZYpTUrvlIvmT9e.mC'
+
 const MAX_TENTATIVAS = 5;
 const BLOQUEIO_MINUTOS = 15;
 
@@ -28,29 +31,18 @@ export async function enviarLogin(formData: FormData) {
         });
 
         if (!usuario || !usuario.empresa) {
-            return { success: false, error: "Usuário sem empresa vinculada." };
+            // Mesma mensagem e mesmo tempo de "senha errada": antes, login inexistente respondia "Usuário sem empresa
+            // vinculada" e senha errada respondia "Usuário ou senha inválidos", o que revelava quais logins existem.
+            await bcrypt.compare(senha, HASH_FALSO);
+            return { success: false, error: "Usuário ou senha inválidos" };
         }
 
         if (usuario.bloqueado_ate && new Date(usuario.bloqueado_ate) > new Date()) {
             return { success: false, error: `Muitas tentativas incorretas. Tente novamente em alguns minutos.` };
         }
 
-        let senhaValida = false;
-        const hashRegex = /^\$2[aby]\$.{56}$/;
-
-        if (hashRegex.test(usuario.senha)) {
-            senhaValida = await bcrypt.compare(senha, usuario.senha);
-        } else {
-            senhaValida = senha === usuario.senha;
-
-            if (senhaValida) {
-                const novoHash = await bcrypt.hash(senha, 10);
-                await prisma.usuarios.update({
-                    where: { id: usuario.id },
-                    data: { senha: novoHash }
-                });
-            }
-        }
+        // só aceita hash bcrypt (não existe mais senha em texto puro no banco; esse caminho antigo só ampliava o risco)
+        const senhaValida = /^\$2[aby]\$.{56}$/.test(usuario.senha) && await bcrypt.compare(senha, usuario.senha);
 
         if (!senhaValida) {
             const tentativas = (usuario.tentativas_login ?? 0) + 1;
