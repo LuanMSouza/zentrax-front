@@ -103,6 +103,10 @@ export async function POST(request: Request) {
         }
     } catch (error) {
         console.error(`Erro processando webhook ${event.type}:`, error)
+        // O evento foi marcado como processado ANTES de rodar a lógica. Se ela falhou, a Stripe vai reentregar (500)
+        // e, com a marca, a reentrega viraria "duplicado" e o pagamento nunca seria aplicado (cliente pagou e
+        // continuaria bloqueado). Desmarca pra a próxima tentativa rodar de verdade.
+        await prisma.stripe_eventos_processados.delete({ where: { id: event.id } }).catch(() => {})
         return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
     }
 

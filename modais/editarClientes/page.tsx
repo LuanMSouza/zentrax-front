@@ -79,7 +79,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
             const temHistorico = (impacto.quantidadeNotas ?? 0) > 0 || (impacto.quantidadePagamentos ?? 0) > 0
 
             const confirm1 = await Swal.fire({
-                title: `Excluir ${c.nome}?`,
+                titleText: `Excluir ${c.nome}?`, // titleText: o `title` do SweetAlert é HTML e o nome do cliente vem do usuário
                 html: temHistorico
                     ? `Esse cliente tem <b>${impacto.quantidadeNotas} nota(s)</b> e <b>${impacto.quantidadePagamentos} pagamento(s)</b> registrados.<br/><br/><span style="color:#b91c1c">Tudo isso será apagado PERMANENTEMENTE junto com o cliente. Não dá pra desfazer.</span>`
                     : 'Esse cliente não tem notas nem pagamentos registrados. A exclusão não pode ser desfeita.',

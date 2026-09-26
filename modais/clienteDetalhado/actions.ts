@@ -19,18 +19,20 @@ type PagEspecificoProps = {
 }
 
 export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
+    // autenticar() (fora do try, pra o redirect de sessão inválida funcionar) também barra empresa vencida ou
+    // inativa. Antes esta ação lia o JWT direto e continuava aceitando pagamento por até 24h depois do bloqueio.
+    const dados = await autenticar()
+    if (!dados) return { success: false, error: "Sessão expirada ou inválida" };
+
     try {
-        const cookieStore = await cookies()
-        const token = cookieStore.get('token')?.value
-
-        if (!token) return { success: false, error: "Não autenticado" };
-
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-        const { payload } = await jwtVerify(token, secret);
-
-        const empresaId = Number(payload.empresa_id);
-        const userId = Number(payload.usuario_id);
+        const empresaId = Number(dados.empresa_id);
+        const userId = Number(dados.usuario_id);
         const valorNumerico = Number(valor)
+
+        // valor vazio, zero, negativo ou não numérico "passava" e devolvia "Pagamento processado" sem fazer nada
+        if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
+            return { success: false, error: 'Informe um valor maior que zero.' }
+        }
 
         const resultado = await prisma.$transaction(async (tx) => {
             // Trava as linhas (FOR UPDATE) para impedir que outro pagamento concorrente

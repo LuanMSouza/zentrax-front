@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt'
 import prisma from '@/lib/prisma'
 import { codigoValido, registrarIndicacao } from '@/lib/indicacao'
 import { DIAS_TRIAL } from '@/lib/trial'
+import { permitir } from '@/lib/rateLimit'
 
 // Endpoint publico chamado pela LP (lp-zentrax/app/cadastro/actions.ts) pra
 // criar conta nova a partir do teste gratis. Sem autenticacao por design -
@@ -68,6 +69,14 @@ export async function OPTIONS(request: Request) {
 
 export async function POST(request: Request) {
     const headers = corsHeaders(request.headers.get('origin'))
+
+    // Endpoint público. O formulário da LP envia do SERVIDOR da Vercel, então o IP que chega aqui é o da Vercel (não o
+    // do visitante) e um limite por IP bloquearia todo mundo — o limite por visitante fica na LP. Aqui vai só um teto
+    // GLOBAL, pra um ataque direto não criar contas em série nem usar o e-mail de boas-vindas pra mandar mensagem
+    // a terceiros. Volume real é baixo; ajuste se o lançamento passar de 40 cadastros por hora.
+    if (!permitir('onboarding:global:h', 40, 60 * 60 * 1000) || !permitir('onboarding:global:m', 8, 60 * 1000)) {
+        return NextResponse.json({ error: 'Muitos cadastros no momento. Tente de novo em alguns minutos.' }, { status: 429, headers })
+    }
 
     try {
         const body = await request.json().catch(() => null)

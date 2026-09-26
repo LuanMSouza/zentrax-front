@@ -1,16 +1,15 @@
 'use server'
 
-import { jwtVerify } from "jose"
-import { cookies } from "next/headers"
+import autenticar from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import RegistrarAcao from "@/lib/logger"
 
 export default async function cadastrarClienteBack(formData: FormData) {
-    const nome = String(formData.get('nome'))
+    const nome = String(formData.get('nome') ?? '').trim()
     // Aceita o whatsapp com espacos/tracos (ex: "11 99887-7665", como o
     // placeholder sugere) filtrando so os digitos antes de converter.
     const whatsappDigitos = String(formData.get('whatsapp') ?? '').replace(/\D/g, '')
-    const documento = String(formData.get('documento'))
+    const documento = String(formData.get('documento') ?? '').trim()
  
     if (!nome) {
         return {
@@ -18,17 +17,13 @@ export default async function cadastrarClienteBack(formData: FormData) {
             error: "Preencha todos os campos obrigatórios."
         }
     }
+    // checagem central (também barra empresa vencida/inativa); fora do try pro redirect de sessão inválida funcionar
+    const auth = await autenticar()
+    if (!auth) return { success: false, error: "Não autenticado" };
+
     try {
-        const cookieStore = await cookies()
-        const token = cookieStore.get('token')?.value
-
-        if (!token) return { success: false, error: "Não autenticado" };
-
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-        const { payload } = await jwtVerify(token, secret);
-
-        const empresaId = payload.empresa_id
-        const userId = payload.usuario_id
+        const empresaId = auth.empresa_id
+        const userId = auth.usuario_id
 
         const condicoes: any[] = [{ nome: String(nome) }];
 

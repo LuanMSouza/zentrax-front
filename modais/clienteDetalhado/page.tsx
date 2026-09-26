@@ -68,7 +68,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
     function lancarPagamento(id: Number) {
 
         Swal.fire({
-            title: `Valor recebido de ${cliente.nome}`,
+            titleText: `Valor recebido de ${cliente.nome}`, // titleText: o `title` do SweetAlert é HTML e o nome do cliente vem do usuário
             input: 'number',
             confirmButtonText: 'Continuar',
             confirmButtonColor: '#3C32E6',
