@@ -49,6 +49,26 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
             }
         }
 
+        // Não deixa a empresa sem gestor: se o usuário alterado é gestor e vai deixar de ser (rebaixamento, inclusive o
+        // próprio gestor se rebaixando), tem que existir OUTRO gestor. Sem isso ninguém mais consegue criar usuários,
+        // excluir clientes ou mexer na assinatura.
+        if (alvo.role === 'gestor' && dados.role !== 'gestor') {
+            const outrosGestores = await prisma.usuarios.count({
+                where: {
+                    empresa_id: Number(Auth.empresa_id),
+                    role: 'gestor',
+                    id: { not: Number(dados.id) }
+                }
+            })
+
+            if (outrosGestores === 0) {
+                return {
+                    success: false,
+                    error: 'Esse é o único gestor da empresa. Promova outro usuário a gestor antes de rebaixar este.'
+                }
+            }
+        }
+
         let DATA: UsuarioUpdate = { nome: dados.nome, usuario: dados.usuario, role: dados.role };
 
         if (dados.senha.trim()) {
