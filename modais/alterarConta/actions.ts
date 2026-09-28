@@ -69,6 +69,10 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
             }
         }
 
+        if (dados.role !== 'usuario' && dados.role !== 'gestor') {
+            return { success: false, error: 'Papel inválido.' }
+        }
+
         let DATA: UsuarioUpdate = { nome: dados.nome, usuario: dados.usuario, role: dados.role };
 
         if (dados.senha.trim()) {

@@ -46,6 +46,12 @@ export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
         }
     }
 
+    // o <select> do front só oferece 'usuario'/'gestor', mas a Server Action é chamável direto — sem checar
+    // aqui, um valor fora dessa lista (como o 'user' que ficou de um bug antigo do form) entrava sem aviso
+    if (dados.role !== 'usuario' && dados.role !== 'gestor') {
+        return { success: false, error: 'Papel inválido.' }
+    }
+
     const email = dados.email?.trim().toLowerCase() || null
 
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

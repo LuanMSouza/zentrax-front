@@ -24,7 +24,7 @@ export default function CriarUsuario({ empresa, sair, atualizar }: CriarUsuarioP
         { id: 4, label: 'Confimar senha', name: 'senhaConfirm', placeholder: 'Confirmar senha temporária', tipoInput: 'password' },
     ]
 
-    const [dados, setDados] = useState({ empresa_id: empresa.id, nome: '', usuario: '', email: '', senha: '', senhaConfirm: '', role: 'user' });
+    const [dados, setDados] = useState({ empresa_id: empresa.id, nome: '', usuario: '', email: '', senha: '', senhaConfirm: '', role: 'usuario' });
 
     async function enviar(e: FormEvent) {
         e.preventDefault()
