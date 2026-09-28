@@ -49,13 +49,21 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
 
     if (!cliente) return null;
 
-    const totalAtualizado = notas.reduce((acc, n) =>
-        acc + (Number(n.valor_inicial) - Number(n.valor_abatido)), 0
-    );
+    // Soma e contagem usam a MESMA regra (saldo > 0): uma nota com saldo negativo (pago a mais que o valor — sempre
+    // um erro de lançamento, nunca deveria acontecer) antes entrava na soma do total mas ficava de fora da
+    // contagem, deixando os dois números do próprio card inconsistentes entre si.
+    const totalAtualizado = notas.reduce((acc, n) => {
+        const saldo = Number(n.valor_inicial) - Number(n.valor_abatido);
+        return saldo > 0 ? acc + saldo : acc;
+    }, 0);
 
     const quantidadeNotasAtivas = notas.filter(n =>
         (Number(n.valor_inicial) - Number(n.valor_abatido)) > 0
     ).length;
+
+    // Nunca deveria existir — sinaliza em vez de esconder, pra não passar pro Luan um total menor
+    // (ou maior) do que o cliente realmente deve sem ele saber que tem uma nota com problema.
+    const notasComProblema = notas.filter(n => Number(n.valor_abatido) > Number(n.valor_inicial) + 0.009);
 
     function formatarValor(valor: string | number) {
         const valorNumerico = Number(valor);
@@ -240,6 +248,18 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                         <dd className="mt-0.5 text-xl sm:text-2xl font-semibold tabular-nums text-slate-900">{quantidadeNotasAtivas}</dd>
                     </div>
                 </dl>
+
+                {notasComProblema.length > 0 && (
+                    <div className="rounded-xl bg-amber-50 border border-amber-300 px-4 py-3 text-sm text-amber-900">
+                        <p className="font-semibold">⚠ {notasComProblema.length === 1 ? 'Uma nota está' : `${notasComProblema.length} notas estão`} com pagamento maior que o valor da nota.</p>
+                        <p className="mt-1">Não entra no total nem na contagem acima. Provavelmente um lançamento duplicado ou um crédito a favor do cliente. Confira com calma antes de falar o total com ele:</p>
+                        <ul className="mt-1.5 list-disc list-inside">
+                            {notasComProblema.map(n => (
+                                <li key={n.id}>{formatarDataBR(n.data)} · nota de {formatarValor(n.valor_inicial)}, pago {formatarValor(n.valor_abatido)} (excesso de {formatarValor(Number(n.valor_abatido) - Number(n.valor_inicial))})</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 <div className="flex flex-wrap gap-2">
                     <Button onClick={() => lancarPagamento(cliente.id)} texto="Registrar pagamento" tipo="btn01" tamanho="g" corTexto="branco" />

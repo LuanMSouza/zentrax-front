@@ -14,15 +14,18 @@ export async function pegarClientesBack() {
         const emAberto = await prisma.$queryRaw<any[]>`
             SELECT 
                 c.id, c.nome, c.whatsapp, c.papel_grande,
-                COUNT(p.id) FILTER (WHERE p.valor_inicial - p.valor_abatido <> 0) AS quantidade_de_notas,
-                COALESCE(SUM(p.valor_restante) FILTER (WHERE p.valor_restante <> 0), 0) AS total,
-                MIN(p.data) FILTER (WHERE p.valor_restante <> 0) AS mais_antiga,
-                MAX(p.data) FILTER (WHERE p.valor_restante <> 0) AS mais_nova
+                -- ">0", não "<>0": uma nota com saldo NEGATIVO (pago a mais que o valor — sempre um bug/erro de
+                -- lançamento, nunca deveria existir) contava aqui mas era excluída do "Notas em aberto" do modal
+                -- de detalhe (esse sim já usava >0), fazendo os dois números baterem diferente pro mesmo cliente.
+                COUNT(p.id) FILTER (WHERE p.valor_restante > 0) AS quantidade_de_notas,
+                COALESCE(SUM(p.valor_restante) FILTER (WHERE p.valor_restante > 0), 0) AS total,
+                MIN(p.data) FILTER (WHERE p.valor_restante > 0) AS mais_antiga,
+                MAX(p.data) FILTER (WHERE p.valor_restante > 0) AS mais_nova
             FROM clientes c
             LEFT JOIN pedidos p ON c.id = p.id_cliente
             WHERE c.empresa_id = ${empresaId}
             GROUP BY c.id, c.nome, c.whatsapp, c.papel_grande
-            HAVING COUNT(p.id) FILTER (WHERE p.valor_restante <> 0) > 0;
+            HAVING COUNT(p.id) FILTER (WHERE p.valor_restante > 0) > 0;
         `;
 
         // 2. Busca a lista completa de clientes (já com whatsapp e documento)
