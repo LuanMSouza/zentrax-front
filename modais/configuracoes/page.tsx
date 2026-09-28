@@ -24,7 +24,7 @@ export default function Configuracoes({ sair, usuario, empresa, atualizarPerfil 
     const tabInativa = "border-transparent text-gray-400 hover:text-gray-600"
 
     return (
-        <Cortina onClick={sair} classname="flex z-50 items-center justify-center p-4">
+        <Cortina onClick={sair}>
 
             <div className="bg-white relative z-50 text-gray-900 shadow-2xl rounded-2xl p-6 px-10 lg:px-20 w-fit max-w-full lg:max-w-2xl mx-auto border border-gray-200">
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="m" corTexto="branco" />
