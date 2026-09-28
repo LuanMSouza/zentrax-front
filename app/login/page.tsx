@@ -7,7 +7,9 @@ import { enviarLogin } from './actions';
 import Swal from 'sweetalert2';
 import { useEffect, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
-import { IconeOlho, IconeOlhoFechado, IconeCheck } from '@/componentes/Icones';
+import { IconeOlho, IconeOlhoFechado } from '@/componentes/Icones';
+import PainelMarca from '@/componentes/PainelMarca';
+import LogoMobile from '@/componentes/LogoMobile';
 import AssinaturaModal from '@/modais/assinatura/pages';
 
 export default function LoginPage() {
@@ -72,39 +74,11 @@ export default function LoginPage() {
     return (
         <div className="min-h-dvh grid lg:grid-cols-[1.1fr_1fr] bg-slate-50">
 
-            {/* Lado da marca: sem foto externa (antes vinha do Pexels), com o próprio produto */}
-            <aside className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-marca-950 to-marca-700 text-white p-12 relative overflow-hidden z-10 shadow-[6px_0_24px_-8px_rgba(0,21,41,0.45)]">
-                <div className="flex items-center gap-2.5">
-                    <img src="/Logo.png" alt="" className="h-9" />
-                    <span className="font-[TT_Milks] font-bold text-xl tracking-wide">ZentraX</span>
-                </div>
-
-                <div className="max-w-md">
-                    <h2 className="text-4xl font-semibold tracking-tight leading-[1.1] mb-5">
-                        Chega de caderninho.<br />
-                        <span className="text-cyan-300">Saiba quem te deve e quanto.</span>
-                    </h2>
-                    <ul className="space-y-2.5 text-slate-200">
-                        {['Clientes e notas num lugar só', 'Cobrança pelo WhatsApp com a mensagem pronta', 'Baixa total ou parcial dos pagamentos'].map(t => (
-                            <li key={t} className="flex items-start gap-2.5">
-                                <IconeCheck className="w-5 h-5 mt-0.5 text-cyan-300 shrink-0" />
-                                <span>{t}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                <div className="relative -mb-24 -mr-24 rounded-2xl overflow-hidden ring-1 ring-white/15 shadow-2xl shadow-black/40">
-                    <Image src="/preview-app-v2.png" alt="Tela do ZentraX com a lista de clientes e valores em aberto" width={1280} height={720} className="w-full h-auto" priority />
-                </div>
-            </aside>
+            <PainelMarca />
 
             <main className="flex items-center justify-center px-5 py-10 bg-white lg:border-l lg:border-slate-200">
                 <form action={handleSubmit} className="w-full max-w-sm">
-                    <div className="lg:hidden flex items-center justify-center gap-2.5 mb-8">
-                        <img src="/Logo.png" alt="" className="h-9" />
-                        <span className="font-[TT_Milks] font-bold text-xl tracking-wide text-marca-950">ZentraX</span>
-                    </div>
+                    <LogoMobile />
 
                     <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Entrar</h1>
                     <p className="text-sm text-slate-500 mt-1 mb-7">Acesse a sua conta para ver quem está devendo.</p>
