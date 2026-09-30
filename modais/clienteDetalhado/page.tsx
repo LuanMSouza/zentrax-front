@@ -8,7 +8,9 @@ import Swal from "sweetalert2";
 import { CobrarBack, pagamentoAvulso, pagamentoEspecifico } from "./actions";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 import { formatarDataBR } from "@/lib/mask";
-import { imprimirComprovante, imprimirExtrato, perguntarVias } from "@/lib/comprovante";
+import { imprimirExtrato, oferecerComprovante } from "@/lib/comprovante";
+import { FORMAS } from "@/lib/formas";
+import { Recibo } from "@/types";
 
 type ClienteEmAberto = {
     id: number;
@@ -36,14 +38,12 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
             const res = await pegarNotasDoClienteBack(cliente.id);
             if (res.success && res.data) {
                 setNotas(res.data);
-                return res.data as any[];
             }
         } catch (error) {
             console.error("Erro ao buscar notas do cliente:", error);
         } finally {
             setCarregandoNotas(false);
         }
-        return null;
     }
 
     useEffect(() => {
@@ -76,39 +76,37 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
         }).format(valorNumerico);
     }
 
-    // Depois de qualquer pagamento gravado: atualiza a tela e oferece o comprovante pra impressora térmica.
-    async function pagamentoRegistrado(valorPago: number) {
+    // Depois de qualquer pagamento gravado: atualiza a tela e oferece o comprovante (imprimir e/ou WhatsApp).
+    async function pagamentoRegistrado(recibo: Recibo | null | undefined, whatsapp: string | null | undefined) {
+        recarregarNotas();
         atualizarClientes();
         atualizarPagamentos();
-        const notasNovas = await recarregarNotas();
 
-        // saldo do comprovante sai das notas recém-buscadas (mesma regra do card: só saldo > 0); se a busca
-        // falhar, cai no total que estava na tela menos o que acabou de ser pago
-        const saldoRestante = notasNovas
-            ? notasNovas.reduce((acc, n) => {
-                const saldo = Number(n.valor_inicial) - Number(n.valor_abatido);
-                return saldo > 0 ? acc + saldo : acc;
-            }, 0)
-            : Math.max(totalAtualizado - valorPago, 0);
-
-        const vias = await perguntarVias({ titulo: 'Sucesso!', texto: 'Pagamento registrado com sucesso.', sucesso: true });
-
-        if (vias) {
-            const usuario = JSON.parse(localStorage.getItem('usuario') ?? '{}');
-            imprimirComprovante({
-                empresa: empresa?.nome ?? '',
-                cliente: cliente.nome,
-                valor: valorPago,
-                vias,
-                saldoRestante,
-                atendente: usuario?.nome
-            });
+        // sem recibo = nada foi pago de fato (a nota já estava quitada), então não tem o que comprovar
+        if (!recibo) {
+            Swal.fire('Sucesso!', 'Pagamento registrado com sucesso.', 'success');
+            return;
         }
+
+        await oferecerComprovante({
+            titulo: 'Sucesso!',
+            texto: 'Pagamento registrado com sucesso.',
+            sucesso: true,
+            whatsapp,
+            dados: {
+                cliente: cliente.nome,
+                valor: recibo.valor,
+                numero: recibo.numero,
+                forma: recibo.forma,
+                atendente: recibo.atendente,
+                dataHora: recibo.criadoEm,
+                saldo: recibo.saldoApos
+            }
+        });
     }
 
     function extrato() {
         imprimirExtrato({
-            empresa: empresa?.nome ?? '',
             cliente: cliente.nome,
             notas: notas.map(n => ({
                 data: n.data,
@@ -119,111 +117,86 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
         });
     }
 
-    function lancarPagamento(id: Number) {
+    // Pergunta a forma de pagamento e, se `pedirValor`, quanto foi pago. Devolve null se a pessoa cancelou.
+    // A forma já vem na última usada neste navegador, que costuma ser a mais comum da loja.
+    async function perguntarPagamento({ titulo, texto, pedirValor }: { titulo: string, texto?: string, pedirValor: boolean }) {
+        const ultimaForma = localStorage.getItem('ultimaForma');
+        const campo = 'width:100%;margin:6px 0 0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px;';
+        const rotulo = 'display:block;text-align:left;font-size:14px;margin-top:14px;';
 
-        Swal.fire({
-            titleText: `Valor recebido de ${cliente.nome}`, // titleText: o `title` do SweetAlert é HTML e o nome do cliente vem do usuário
-            input: 'number',
-            confirmButtonText: 'Continuar',
+        const result = await Swal.fire({
+            titleText: titulo, // titleText: o `title` do SweetAlert é HTML e o nome do cliente vem do usuário
+            html: `
+                ${texto ? `<p id="pag-texto"></p>` : ''}
+                ${pedirValor ? `<label style="${rotulo}">Valor recebido
+                    <input id="pag-valor" type="number" step="0.01" min="0" inputmode="decimal" placeholder="ex.: 50.00" style="${campo}">
+                </label>` : ''}
+                <label style="${rotulo}">Forma de pagamento
+                    <select id="pag-forma" style="${campo}background:#fff;">
+                        ${Object.entries(FORMAS).map(([chave, nome]) =>
+                            `<option value="${chave}" ${chave === ultimaForma ? 'selected' : ''}>${nome}</option>`).join('')}
+                    </select>
+                </label>`,
+            didOpen: () => {
+                const p = document.getElementById('pag-texto');
+                if (p && texto) p.textContent = texto;
+                document.getElementById('pag-valor')?.focus();
+            },
+            confirmButtonText: pedirValor ? 'Continuar' : 'Sim, pagar!',
             confirmButtonColor: '#3C32E6',
             showCancelButton: true,
             cancelButtonText: 'Cancelar',
             cancelButtonColor: '#E62618',
-            inputPlaceholder: 'ex.: 50.00',
-            inputAttributes: {
-                step: '0.01'
+            preConfirm: () => {
+                const forma = (document.getElementById('pag-forma') as HTMLSelectElement).value;
+                if (!pedirValor) return { forma, valor: 0 };
+
+                const valor = Number((document.getElementById('pag-valor') as HTMLInputElement).value);
+                if (!Number.isFinite(valor) || valor <= 0) {
+                    Swal.showValidationMessage('Informe um valor maior que R$ 0,00 para abater');
+                    return false;
+                }
+                return { forma, valor };
             }
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                const valor = result.value
+        });
 
-                if (valor == 0) {
-                    Swal.fire('Opa...', 'Selecione um valor maior que R$ 0,00 para abater', 'error')
-                    return
-                }
+        if (!result.isConfirmed || !result.value) return null;
 
-                if (valor <= 0) {
-                    Swal.fire('Opa...', 'Selecione um valor positivo para abater', 'error')
-                    return
-                }
-
-                const res = await pagamentoAvulso({ id: cliente.id, valor })
-
-                if (res.success && res.notaAtualizada) {
-                    pagamentoRegistrado(Number(valor));
-                } else {
-                    Swal.fire('Erro no servidor', res.error, 'error');
-                }
-
-            }
-        })
-
+        const resposta = result.value as { forma: string, valor: number };
+        localStorage.setItem('ultimaForma', resposta.forma);
+        return resposta;
     }
 
-    async function lancarPagEspecifico(tipo: string, id: number, valor: string | number) {
+    async function lancarPagamento() {
+        const resposta = await perguntarPagamento({ titulo: `Valor recebido de ${cliente.nome}`, pedirValor: true });
+        if (!resposta) return;
 
-        let abater: number
-        if (tipo === 'parcial') {
-            Swal.fire({
-                title: `Valor Parcial`,
-                text: `Quanto o cliente ${cliente.nome} pagou?`,
-                input: 'number',
-                confirmButtonText: 'Continuar',
-                confirmButtonColor: '#3C32E6',
-                showCancelButton: true,
-                cancelButtonText: 'Cancelar',
-                cancelButtonColor: '#E62618',
-                inputPlaceholder: 'ex.: 50.00',
-                inputAttributes: {
-                    step: '0.01'
-                }
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    const abater = Number(result.value)
+        const res = await pagamentoAvulso({ id: cliente.id, valor: resposta.valor, forma: resposta.forma });
 
-                    if (abater == 0) {
-                        Swal.fire('Opa...', 'Selecione um valor maior que R$ 0,00 para abater', 'error')
-                        return
-                    }
-
-                    if (abater <= 0) {
-                        Swal.fire('Opa...', 'Selecione um valor positivo para abater', 'error')
-                        return
-                    }
-
-                    const res = await pagamentoEspecifico({ tipo: 'parcial', id, valor: abater })
-
-                    if (res?.success && res.notaAtualizada) {
-                        pagamentoRegistrado(abater);
-                    } else {
-                        Swal.fire('Opa!!', res?.error, 'error')
-                    }
-                }
-            })
-
+        if (res.success && res.notaAtualizada) {
+            pagamentoRegistrado(res.recibo, res.whatsapp);
         } else {
-            Swal.fire({
-                title: 'Deseja registrar o pagamento total?',
-                text: `O valor restante dessa nota é de ${formatarValor(valor)}`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sim, pagar!',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#3C32E6'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    abater = Number(valor)
-                    const res = await pagamentoEspecifico({ tipo: 'total', id, valor: abater })
+            Swal.fire('Erro no servidor', res.error, 'error');
+        }
+    }
 
-                    if (res?.success && res.notaAtualizada) {
-                        pagamentoRegistrado(abater);
-                    } else {
-                        Swal.fire('Opa!!', res?.error, 'error')
-                    }
-                } else if (result.isDismissed) {
-                    Swal.fire('Cancelado', '', 'warning')
-                }
-            })
+    async function lancarPagEspecifico(tipo: 'parcial' | 'total', id: number, saldoDaNota: number) {
+        const resposta = tipo === 'parcial'
+            ? await perguntarPagamento({ titulo: 'Valor parcial', texto: `Quanto o cliente ${cliente.nome} pagou?`, pedirValor: true })
+            : await perguntarPagamento({ titulo: 'Deseja registrar o pagamento total?', texto: `O valor restante dessa nota é de ${formatarValor(saldoDaNota)}`, pedirValor: false });
+        if (!resposta) return;
+
+        const res = await pagamentoEspecifico({
+            tipo,
+            id,
+            valor: tipo === 'parcial' ? resposta.valor : saldoDaNota,
+            forma: resposta.forma
+        });
+
+        if (res?.success && res.notaAtualizada) {
+            pagamentoRegistrado(res.recibo, res.whatsapp);
+        } else {
+            Swal.fire('Opa!!', res?.error, 'error');
         }
     }
 
@@ -294,7 +267,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => lancarPagamento(cliente.id)} texto="Registrar pagamento" tipo="btn01" tamanho="g" corTexto="branco" />
+                    <Button onClick={lancarPagamento} texto="Registrar pagamento" tipo="btn01" tamanho="g" corTexto="branco" />
                     <button
                         onClick={() => cobrar(cliente.id)}
                         className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
@@ -356,7 +329,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                                     <div className="flex gap-2 w-full sm:w-auto">
                                         <Button onClick={() => lancarPagEspecifico('total', n.id, Number(n.valor_inicial - n.valor_abatido))} texto="Pagou tudo" tipo="btn04" tamanho="m" corTexto="branco" />
                                         <button
-                                            onClick={() => lancarPagEspecifico('parcial', n.id, Number(n.valor))}
+                                            onClick={() => lancarPagEspecifico('parcial', n.id, Number(n.valor_inicial - n.valor_abatido))}
                                             className="px-3 py-1.5 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
                                         >
                                             Pagou parte

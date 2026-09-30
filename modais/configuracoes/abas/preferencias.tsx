@@ -2,13 +2,23 @@ import TextoCobrancaConfig from "@/modais/textoCobranca/pages"
 import { useEffect, useState } from "react"
 import { AtualizarPreferencias, PegarPreferenciasBack } from "./actions"
 import Swal from "sweetalert2"
+import { esquecerCabecalho } from "@/lib/comprovante"
 
 type Preferencias = {
     empresa_id: number,
     usar_papel_grande?: boolean,
     cobranca_text?: number,
-    avisar: boolean
+    avisar: boolean,
+    telefone?: string | null,
+    endereco?: string | null,
+    rodape_comprovante?: string | null
 }
+
+const camposComprovante = [
+    { campo: 'telefone', rotulo: 'Telefone', placeholder: 'ex: (11) 99887-7665', max: 20 },
+    { campo: 'endereco', rotulo: 'Endereço', placeholder: 'ex: Rua das Flores, 123 - Centro', max: 120 },
+    { campo: 'rodape_comprovante', rotulo: 'Frase do rodapé', placeholder: 'Obrigado pela preferência!', max: 80 },
+] as const
 
 export default function PreferenciasConfig({ sair }: { sair: () => void }) {
 
@@ -41,6 +51,7 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
         const response = await AtualizarPreferencias(novasPreferencias)
 
         if (response.success) {
+            esquecerCabecalho()
             Swal.fire(`Sucesso!!`, ``, `success`)
             sair()
         } else if (!response.success && response.error) {
@@ -105,6 +116,29 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                     selecionada={preferenciasSalvas?.cobranca_text || 0}
                     sair={() => setAbrirTextoCobranca(false)}
                 />}
+
+            <div className="space-y-3 bg-gray-50 border border-gray-200 rounded p-3">
+                <div>
+                    <p className="text-gray-700 text-sm md:text-base font-medium">Comprovante impresso</p>
+                    <p className="text-gray-500 text-xs md:text-sm">Sai no topo do comprovante, junto do nome da loja. O que ficar em branco não aparece.</p>
+                </div>
+                {camposComprovante.map(({ campo, rotulo, placeholder, max }) => (
+                    <label key={campo} className="block">
+                        <span className="text-gray-700 text-sm">{rotulo}</span>
+                        <input
+                            type="text"
+                            maxLength={max}
+                            placeholder={placeholder}
+                            value={novasPreferencias?.[campo] ?? ''}
+                            onChange={(e) => {
+                                const valor = e.target.value;
+                                setNovasPreferencias((prev) => ({ ...prev, [campo]: valor }));
+                            }}
+                            className="mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2 text-sm md:text-base text-gray-900 focus:outline-none focus:border-marca-700"
+                        />
+                    </label>
+                ))}
+            </div>
 
             <button
                 onClick={hardRefresh}

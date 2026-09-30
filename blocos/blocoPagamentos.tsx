@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import { Pagamentos } from "@/types";
 import { formatarDataBR } from "@/lib/mask";
-import { imprimirComprovante, perguntarVias } from "@/lib/comprovante";
+import { DadosComprovante, oferecerComprovante } from "@/lib/comprovante";
+import { nomeForma } from "@/lib/formas";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 
 type PagamentoProps = {
@@ -28,34 +29,44 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
         }).format(valor);
     }
 
-    // Sem atendente: o pagamento não guarda quem registrou, e quem está reimprimindo pode ser outra pessoa.
     async function reimprimir(p: Pagamentos) {
-        const vias = await perguntarVias({ titulo: 'Reimprimir comprovante', texto: p.clientes?.nome });
-        if (!vias) return;
+        const base = { cliente: p.clientes?.nome ?? '', reimpressao: true };
+        let dados: DadosComprovante;
 
-        // saldo de hoje do cliente (mesma regra do card: só nota com saldo > 0); se a busca falhar, o
-        // comprovante sai sem a linha de saldo em vez de sair com um número errado
-        let saldoRestante: number | undefined;
-        try {
-            const res = await pegarNotasDoClienteBack(p.id_cliente);
-            if (res.success && res.data) {
-                saldoRestante = (res.data as { valor_inicial: number, valor_abatido: number }[]).reduce((acc, n) => {
-                    const saldo = Number(n.valor_inicial) - Number(n.valor_abatido);
-                    return saldo > 0 ? acc + saldo : acc;
-                }, 0);
+        if (p.recibo) {
+            dados = {
+                ...base,
+                valor: p.recibo.valor,
+                numero: p.recibo.numero,
+                forma: p.recibo.forma,
+                atendente: p.recibo.atendente,
+                dataHora: p.recibo.criadoEm,
+                saldo: p.recibo.saldoApos
+            };
+        } else {
+            // Pagamento de antes do recibo numerado: só existe o dia e o valor. O saldo que dá pra mostrar é o de
+            // hoje (mesma regra do card: só nota com saldo > 0); se a busca falhar, sai sem a linha de saldo em
+            // vez de sair com um número errado.
+            let saldo: number | undefined;
+            try {
+                const res = await pegarNotasDoClienteBack(p.id_cliente);
+                if (res.success && res.data) {
+                    saldo = (res.data as { valor_inicial: number, valor_abatido: number }[]).reduce((acc, n) => {
+                        const aberto = Number(n.valor_inicial) - Number(n.valor_abatido);
+                        return aberto > 0 ? acc + aberto : acc;
+                    }, 0);
+                }
+            } catch (error) {
+                console.error("Erro ao buscar saldo pra reimpressão:", error);
             }
-        } catch (error) {
-            console.error("Erro ao buscar saldo pra reimpressão:", error);
+            dados = { ...base, valor: p.valor, dia: p.data, saldo, saldoDeHoje: true };
         }
 
-        const empresa = JSON.parse(localStorage.getItem('empresa') ?? '{}');
-        imprimirComprovante({
-            empresa: empresa?.nome ?? '',
-            cliente: p.clientes?.nome ?? '',
-            valor: p.valor,
-            vias,
-            saldoRestante,
-            reimpressaoDe: p.data
+        await oferecerComprovante({
+            titulo: 'Reimprimir comprovante',
+            texto: p.clientes?.nome,
+            whatsapp: p.clientes?.whatsapp ? String(p.clientes.whatsapp) : null,
+            dados
         });
     }
 
@@ -84,6 +95,7 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
                                     <p className="font-semibold text-slate-900 truncate">{p.clientes?.nome}</p>
                                     <p className="mt-0.5 text-xs text-slate-500">
                                         {formatarDataBR(p.data)}
+                                        {p.recibo && ` · ${nomeForma(p.recibo.forma)}`}
                                         {(p.quantidade ?? 1) > 1 && ` · ${p.quantidade} notas abatidas`}
                                     </p>
                                 </div>

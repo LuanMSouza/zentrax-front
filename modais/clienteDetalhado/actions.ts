@@ -6,19 +6,79 @@ import { jwtVerify } from 'jose';
 import RegistrarAcao from "@/lib/logger";
 import { FormatarValor, hojeBR } from "@/lib/mask";
 import autenticar from "@/lib/auth";
+import { Prisma } from "@prisma/client";
+import { formaValida } from "@/lib/formas";
+import { Recibo } from "@/types";
 
 type PagAvulsoProps = {
     id: number,
-    valor: string | number
+    valor: string | number,
+    forma: string
 }
 
 type PagEspecificoProps = {
     tipo: 'parcial' | 'total',
     id: Number,
-    valor: Number | string
+    valor: Number | string,
+    forma: string
 }
 
-export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
+type AbrirReciboProps = {
+    empresaId: number,
+    clienteId: number,
+    usuarioId: number,
+    valor: number,
+    forma: string
+}
+
+// Abre o recibo do pagamento dentro da transação, já com o número dele. A trava na linha da empresa enfileira os
+// recibos da mesma empresa, pra dois pagamentos simultâneos não pegarem o mesmo número. NO KEY UPDATE (e não
+// UPDATE) porque os inserts de pagamentos/pedidos seguram KEY SHARE na empresa: com FOR UPDATE, dois pagamentos
+// ao mesmo tempo se travariam um no outro.
+async function abrirRecibo(tx: Prisma.TransactionClient, { empresaId, clienteId, usuarioId, valor, forma }: AbrirReciboProps) {
+    await tx.$queryRaw`SELECT id FROM empresa WHERE id = ${empresaId} FOR NO KEY UPDATE`;
+
+    const ultimo = await tx.recibos.aggregate({ where: { empresa_id: empresaId }, _max: { numero: true } });
+    const usuario = await tx.usuarios.findUnique({ where: { id: usuarioId }, select: { nome: true } });
+
+    return tx.recibos.create({
+        data: {
+            empresa_id: empresaId,
+            numero: (ultimo._max.numero ?? 0) + 1,
+            id_cliente: clienteId,
+            usuario_id: usuario ? usuarioId : null,
+            atendente: usuario?.nome ?? null,
+            valor,
+            forma
+        }
+    });
+}
+
+// Fecha o recibo gravando quanto o cliente ficou devendo depois do pagamento (mesma regra do card: só nota com
+// saldo > 0). Chamar depois de abater as notas.
+async function fecharRecibo(tx: Prisma.TransactionClient, reciboId: number, empresaId: number, clienteId: number): Promise<Recibo> {
+    const linhas = await tx.$queryRaw<{ saldo: any }[]>`
+        SELECT COALESCE(SUM(valor_inicial - valor_abatido), 0) AS saldo FROM pedidos
+        WHERE id_cliente = ${clienteId} AND empresa_id = ${empresaId} AND valor_inicial > valor_abatido
+    `;
+    const recibo = await tx.recibos.update({
+        where: { id: reciboId },
+        data: { saldo_apos: Number(Number(linhas[0]?.saldo ?? 0).toFixed(2)) }
+    });
+
+    return {
+        numero: recibo.numero,
+        criadoEm: recibo.criado_em.toISOString(),
+        forma: recibo.forma,
+        valor: Number(recibo.valor),
+        saldoApos: Number(recibo.saldo_apos),
+        atendente: recibo.atendente
+    };
+}
+
+const FORMA_INVALIDA = { success: false as const, error: 'Escolha a forma de pagamento.' }
+
+export async function pagamentoAvulso({ id, valor, forma }: PagAvulsoProps) {
     // autenticar() (fora do try, pra o redirect de sessão inválida funcionar) também barra empresa vencida ou
     // inativa. Antes esta ação lia o JWT direto e continuava aceitando pagamento por até 24h depois do bloqueio.
     const dados = await autenticar()
@@ -33,6 +93,7 @@ export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
         if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
             return { success: false, error: 'Informe um valor maior que zero.' }
         }
+        if (!formaValida(forma)) return FORMA_INVALIDA
 
         const resultado = await prisma.$transaction(async (tx) => {
             // Trava as linhas (FOR UPDATE) para impedir que outro pagamento concorrente
@@ -59,6 +120,8 @@ export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
                 throw new Error('VALOR_EXCESSIVO|' + valorTotalDevedor);
             }
 
+            const recibo = await abrirRecibo(tx, { empresaId, clienteId: Number(id), usuarioId: userId, valor: valorNumerico, forma });
+
             let valorPagamentoRestante = valorNumerico;
             const notasAtualizadasFull = [];
 
@@ -83,6 +146,7 @@ export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
                             valor: valorAbatidoAgora,
                             nota_abatida: nota.id,
                             empresa_id: Number(empresaId),
+                            recibo_id: recibo.id,
                             data: hojeBR()
                         }
                     });
@@ -100,10 +164,10 @@ export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
                 }
             }
 
-            return { notasAtualizadasFull };
+            return { notasAtualizadasFull, recibo: await fecharRecibo(tx, recibo.id, empresaId, Number(id)) };
         }, { timeout: 10000 });
 
-        const cliente = await prisma.clientes.findUnique({ where: { id: Number(id) }, select: { nome: true } });
+        const cliente = await prisma.clientes.findUnique({ where: { id: Number(id) }, select: { nome: true, whatsapp: true } });
         const txt = `Registrado pagamento de ${FormatarValor(valorNumerico)} para o cliente ${cliente?.nome || 'Desconhecido'}`;
 
         await RegistrarAcao({
@@ -116,7 +180,9 @@ export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
         return {
             success: true,
             mensagem: 'Pagamento processado com sucesso!',
-            notaAtualizada: resultado.notasAtualizadasFull
+            notaAtualizada: resultado.notasAtualizadasFull,
+            recibo: resultado.recibo,
+            whatsapp: cliente?.whatsapp ? String(cliente.whatsapp) : null
         };
 
     } catch (error: any) {
@@ -133,7 +199,7 @@ export async function pagamentoAvulso({ id, valor }: PagAvulsoProps) {
     }
 }
 
-export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProps) {
+export async function pagamentoEspecifico({ tipo, id, valor, forma }: PagEspecificoProps) {
 
     const dados = await autenticar()
 
@@ -145,6 +211,9 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
     }
 
     const empresaId = Number(dados.empresa_id)
+    const userId = Number(dados.usuario_id)
+
+    if (!formaValida(forma)) return FORMA_INVALIDA
 
     if (tipo === 'parcial') {
 
@@ -157,7 +226,7 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
             // Tudo numa transação: o abatimento da nota e a linha em `pagamentos` (que alimenta a aba
             // Pagamentos) entram juntos ou nenhum entra. Antes só a nota era abatida e o pagamento
             // "sumia" do histórico (pagamentoAvulso, o botão de cima, sempre gravou a linha).
-            const notaAlterada = await prisma.$transaction(async (tx) => {
+            const { nota: notaAlterada, recibo } = await prisma.$transaction(async (tx) => {
                 // Update atomico e guardado: so aplica se a nota for dessa empresa
                 // e ainda tiver saldo suficiente no momento exato da escrita —
                 // evita corrida entre dois pagamentos simultaneos na mesma nota.
@@ -178,22 +247,24 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                 const nota = await tx.pedidos.findUnique({ where: { id: Number(id) } })
                 if (!nota) throw new Error('NOTA_NAO_ENCONTRADA')
 
-                if (nota.id_cliente) {
-                    await tx.pagamentos.create({
-                        data: {
-                            id_cliente: nota.id_cliente,
-                            valor: valorNumerico,
-                            nota_abatida: nota.id,
-                            empresa_id: empresaId,
-                            data: hojeBR()
-                        }
-                    })
-                }
-                return nota
+                if (!nota.id_cliente) return { nota, recibo: null }
+
+                const recibo = await abrirRecibo(tx, { empresaId, clienteId: nota.id_cliente, usuarioId: userId, valor: valorNumerico, forma })
+                await tx.pagamentos.create({
+                    data: {
+                        id_cliente: nota.id_cliente,
+                        valor: valorNumerico,
+                        nota_abatida: nota.id,
+                        empresa_id: empresaId,
+                        recibo_id: recibo.id,
+                        data: hojeBR()
+                    }
+                })
+                return { nota, recibo: await fecharRecibo(tx, recibo.id, empresaId, nota.id_cliente) }
             }, { timeout: 10000 })
 
             const cliente = notaAlterada.id_cliente
-                ? await prisma.clientes.findUnique({ where: { id: notaAlterada.id_cliente }, select: { nome: true } })
+                ? await prisma.clientes.findUnique({ where: { id: notaAlterada.id_cliente }, select: { nome: true, whatsapp: true } })
                 : null;
 
             await RegistrarAcao({
@@ -205,6 +276,8 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
 
             return {
                 success: true,
+                recibo,
+                whatsapp: cliente?.whatsapp ? String(cliente.whatsapp) : null,
                 notaAtualizada: {
                     ...notaAlterada,
                     valor_abatido: Number(notaAlterada.valor_abatido),
@@ -238,13 +311,13 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                 // Lê o saldo da nota com trava (FOR UPDATE), quita com SET direto contra valor_inicial (imutavel,
                 // idempotente) e grava em `pagamentos` o valor que faltava — tudo na mesma transação, pra o
                 // pagamento aparecer na aba Pagamentos (antes só a nota era quitada).
-                const achou = await prisma.$transaction(async (tx) => {
+                const resultado = await prisma.$transaction(async (tx) => {
                     const linhas = await tx.$queryRaw<{ id_cliente: number | null, valor_inicial: any, valor_abatido: any }[]>`
                         SELECT id_cliente, valor_inicial, valor_abatido FROM pedidos
                         WHERE id = ${Number(id)} AND empresa_id = ${empresaId}
                         FOR UPDATE
                     `
-                    if (linhas.length === 0) return false
+                    if (linhas.length === 0) return null
 
                     const nota = linhas[0]
                     const saldo = Number((Number(nota.valor_inicial) - Number(nota.valor_abatido)).toFixed(2))
@@ -257,20 +330,23 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
 
                     // nota que já estava quitada não gera pagamento novo
                     if (saldo > 0 && nota.id_cliente) {
+                        const recibo = await abrirRecibo(tx, { empresaId, clienteId: nota.id_cliente, usuarioId: userId, valor: saldo, forma })
                         await tx.pagamentos.create({
                             data: {
                                 id_cliente: nota.id_cliente,
                                 valor: saldo,
                                 nota_abatida: Number(id),
                                 empresa_id: empresaId,
+                                recibo_id: recibo.id,
                                 data: hojeBR()
                             }
                         })
+                        return { recibo: await fecharRecibo(tx, recibo.id, empresaId, nota.id_cliente) }
                     }
-                    return true
+                    return { recibo: null }
                 }, { timeout: 10000 })
 
-                if (!achou) {
+                if (!resultado) {
                     return {
                         success: false,
                         error: 'Nota não encontrada.'
@@ -280,7 +356,7 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
                 const updateNota = await prisma.pedidos.findUnique({ where: { id: Number(id) } })
 
                 const cliente = updateNota?.id_cliente
-                    ? await prisma.clientes.findUnique({ where: { id: updateNota.id_cliente }, select: { nome: true } })
+                    ? await prisma.clientes.findUnique({ where: { id: updateNota.id_cliente }, select: { nome: true, whatsapp: true } })
                     : null;
 
                 await RegistrarAcao({
@@ -292,6 +368,8 @@ export async function pagamentoEspecifico({ tipo, id, valor }: PagEspecificoProp
 
                 return {
                     success: true,
+                    recibo: resultado.recibo,
+                    whatsapp: cliente?.whatsapp ? String(cliente.whatsapp) : null,
                     notaAtualizada: {
                         ...updateNota,
                         valor_abatido: Number(updateNota?.valor_abatido),

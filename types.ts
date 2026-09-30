@@ -13,8 +13,18 @@ export type Pagamentos = {
     empresa_id: number | null;
     nota_abatida: number;
     quantidade?: number;
+    recibo?: Recibo | null; // null nos pagamentos de antes do comprovante numerado
     clientes: Cliente
 };
+
+export type Recibo = {
+    numero: number;
+    criadoEm: string; // ISO
+    forma: string;
+    valor: number;
+    saldoApos: number;
+    atendente: string | null;
+}
 
 export type Notas = {
     id: number,

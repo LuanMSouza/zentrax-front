@@ -202,7 +202,16 @@ type Preferencias = {
     empresa_id: number,
     usar_papel_grande?: boolean,
     cobranca_text?: number | null
-    avisar: boolean
+    avisar: boolean,
+    telefone?: string | null,
+    endereco?: string | null,
+    rodape_comprovante?: string | null
+}
+
+// texto livre vindo do formulário: apara, corta no tamanho da coluna e grava vazio como null
+function textoOuNull(valor: unknown, max: number) {
+    const texto = String(valor ?? '').trim().slice(0, max);
+    return texto || null;
 }
 
 export async function PegarPreferenciasBack() {
@@ -222,7 +231,10 @@ export async function PegarPreferenciasBack() {
         select: {
             empresa_id: true,
             cobranca_text: true,
-            avisar: true
+            avisar: true,
+            telefone: true,
+            endereco: true,
+            rodape_comprovante: true
         }
     })
 
@@ -262,7 +274,10 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
             },
             data: {
                 avisar: Boolean(preferencias.avisar),
-                cobranca_text: Number(preferencias.cobranca_text)
+                cobranca_text: Number(preferencias.cobranca_text),
+                telefone: textoOuNull(preferencias.telefone, 20),
+                endereco: textoOuNull(preferencias.endereco, 120),
+                rodape_comprovante: textoOuNull(preferencias.rodape_comprovante, 80)
             }
         })
 

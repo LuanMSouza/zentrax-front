@@ -1,22 +1,25 @@
 import Swal from "sweetalert2";
 import { FormatarValor, formatarDataBR } from "@/lib/mask";
+import { nomeForma } from "@/lib/formas";
+import { pegarCabecalhoComprovanteBack } from "@/app/dashboard/actions";
 
 export type Via = 'cliente' | 'loja'
 
-type ComprovanteProps = {
-    empresa: string,
+// O que um comprovante diz, seja no papel ou no WhatsApp.
+export type DadosComprovante = {
     cliente: string,
     valor: number,
-    vias: Via[], // uma cópia por via, cada uma identificada no topo
-    saldoRestante?: number, // sem ele o comprovante não fala de saldo nem de quitação
-    atendente?: string,
-    // reimpressão (aba Pagamentos): sai com a tarja REIMPRESSÃO e a data do pagamento original. O saldo, se vier, é o
-    // de hoje (não o do dia do pagamento) e sai rotulado assim.
-    reimpressaoDe?: Date | string
+    numero?: number,
+    forma?: string,
+    atendente?: string | null,
+    dataHora?: string, // momento do pagamento (ISO). Sem ela e sem `dia`, vale agora.
+    dia?: Date | string, // pagamento antigo, de antes do recibo numerado: só se sabe o dia
+    saldo?: number, // sem ele o comprovante não fala de saldo nem de quitação
+    saldoDeHoje?: boolean, // o saldo é o de hoje, não o de logo depois do pagamento (pagamento antigo)
+    reimpressao?: boolean // sai com a tarja REIMPRESSÃO e a data em que foi reimpresso
 }
 
 type ExtratoProps = {
-    empresa: string,
     cliente: string,
     notas: {
         data: Date | string,
@@ -26,8 +29,43 @@ type ExtratoProps = {
     }[]
 }
 
+type Cabecalho = {
+    nome: string,
+    cnpj: string | null,
+    telefone: string | null,
+    endereco: string | null,
+    rodape: string | null
+}
+
 const NOME_VIA: Record<Via, string> = { cliente: 'VIA DO CLIENTE', loja: 'VIA DA LOJA' }
 const CHAVE_VIAS = 'comprovanteVias'
+const RODAPE_PADRAO = 'Obrigado pela preferência!'
+
+// Dados da loja pro topo do comprovante. Busca uma vez e guarda enquanto a página estiver aberta;
+// esquecerCabecalho() é chamado quando as preferências são salvas.
+let cabecalhoGuardado: Promise<Cabecalho> | null = null
+
+function cabecalho(): Promise<Cabecalho> {
+    if (!cabecalhoGuardado) {
+        cabecalhoGuardado = pegarCabecalhoComprovanteBack()
+            .then(res => {
+                if (res.success && res.data) return res.data;
+                throw new Error(res.error);
+            })
+            .catch(() => {
+                // sem os dados do servidor, imprime só com o nome que o login guardou, e tenta de novo na próxima
+                cabecalhoGuardado = null;
+                let nome = '';
+                try { nome = JSON.parse(localStorage.getItem('empresa') ?? '{}')?.nome ?? ''; } catch { /* fica sem nome */ }
+                return { nome, cnpj: null, telefone: null, endereco: null, rodape: null };
+            });
+    }
+    return cabecalhoGuardado;
+}
+
+export function esquecerCabecalho() {
+    cabecalhoGuardado = null;
+}
 
 // nomes de empresa/cliente vêm do usuário e vão pra dentro de um HTML montado na mão
 function escapar(texto: string) {
@@ -38,12 +76,36 @@ function escapar(texto: string) {
         .replace(/"/g, '&quot;');
 }
 
-function agoraBR() {
-    return new Date().toLocaleString('pt-BR', {
+function dataHoraBR(data: Date | string = new Date()) {
+    return new Date(data).toLocaleString('pt-BR', {
         timeZone: 'America/Sao_Paulo',
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
     });
+}
+
+function numeroRecibo(numero: number) {
+    return String(numero).padStart(6, '0');
+}
+
+function quandoFoiPago(dados: DadosComprovante) {
+    if (dados.dataHora) return dataHoraBR(dados.dataHora);
+    if (dados.dia) return formatarDataBR(dados.dia);
+    return dataHoraBR();
+}
+
+// O selo só vale quando o saldo é o de logo depois do pagamento: num pagamento antigo, o saldo zerado de hoje não
+// quer dizer que foi aquele pagamento que quitou.
+function quitou(dados: DadosComprovante) {
+    return dados.saldo !== undefined && !dados.saldoDeHoje && dados.saldo < 0.01;
+}
+
+function htmlCabecalho(cab: Cabecalho) {
+    return `
+    <p class="centro empresa">${escapar(cab.nome)}</p>
+    ${cab.cnpj ? `<p class="centro loja">CNPJ ${cab.cnpj}</p>` : ''}
+    ${cab.endereco ? `<p class="centro loja">${escapar(cab.endereco)}</p>` : ''}
+    ${cab.telefone ? `<p class="centro loja">${escapar(cab.telefone)}</p>` : ''}`;
 }
 
 // Imprime pelo diálogo de impressão do próprio navegador, num iframe escondido (pra não imprimir a tela do sistema
@@ -64,7 +126,8 @@ function imprimir(titulo: string, corpo: string): Promise<void> {
     section { max-width: 80mm; padding: 4mm 4mm 8mm; }
     .centro { text-align: center; }
     .empresa { font-size: 16px; font-weight: 700; text-transform: uppercase; overflow-wrap: anywhere; }
-    .titulo { margin-top: 1mm; font-size: 11px; letter-spacing: 1px; }
+    .loja { font-size: 11px; overflow-wrap: anywhere; }
+    .titulo { margin-top: 2mm; font-size: 11px; letter-spacing: 1px; }
     .via { margin-top: 1mm; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
     hr { border: 0; border-top: 1px dashed #000; margin: 3mm 0; }
     .linha { display: flex; justify-content: space-between; gap: 3mm; }
@@ -76,7 +139,7 @@ function imprimir(titulo: string, corpo: string): Promise<void> {
     .nota { margin-bottom: 2mm; break-inside: avoid; }
     .detalhe { font-size: 11px; overflow-wrap: anywhere; }
     .total { font-size: 15px; font-weight: 700; }
-    .rodape { margin-top: 1mm; font-size: 11px; }
+    .rodape { margin-top: 1mm; font-size: 11px; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -105,35 +168,34 @@ function imprimir(titulo: string, corpo: string): Promise<void> {
     });
 }
 
-export async function imprimirComprovante({ empresa, cliente, valor, vias, saldoRestante, atendente, reimpressaoDe }: ComprovanteProps) {
-    const agora = agoraBR();
-    const temSaldo = saldoRestante !== undefined;
-    // o selo só vale na hora do pagamento: numa reimpressão o saldo zerado de hoje não quer dizer que foi
-    // aquele pagamento que quitou
-    const quitado = temSaldo && !reimpressaoDe && saldoRestante < 0.01;
+export async function imprimirComprovante(dados: DadosComprovante, vias: Via[]) {
+    const cab = await cabecalho();
+    const quitado = quitou(dados);
+    const mostraSaldo = dados.saldo !== undefined && !quitado;
+    const rotuloSaldo = dados.saldoDeHoje ? 'Saldo em aberto hoje' : 'Saldo em aberto';
 
     const corpo = (via: Via) => `
-    ${reimpressaoDe ? '<p class="centro reimpressao">REIMPRESSÃO</p>' : ''}
-    <p class="centro empresa">${escapar(empresa)}</p>
+    ${dados.reimpressao ? '<p class="centro reimpressao">REIMPRESSÃO</p>' : ''}
+    ${htmlCabecalho(cab)}
     <p class="centro titulo">COMPROVANTE DE PAGAMENTO</p>
     <p class="centro via">${NOME_VIA[via]}</p>
     <hr>
-    <p class="linha"><span>Cliente</span><span><b>${escapar(cliente)}</b></span></p>
-    ${reimpressaoDe
-            ? `<p class="linha"><span>Pago em</span><span>${formatarDataBR(reimpressaoDe)}</span></p>
-    <p class="linha"><span>Reimpresso em</span><span>${agora}</span></p>`
-            : `<p class="linha"><span>Data</span><span>${agora}</span></p>`}
+    ${dados.numero ? `<p class="linha"><span>Nº</span><span><b>${numeroRecibo(dados.numero)}</b></span></p>` : ''}
+    <p class="linha"><span>Cliente</span><span><b>${escapar(dados.cliente)}</b></span></p>
+    <p class="linha"><span>${dados.reimpressao ? 'Pago em' : 'Data'}</span><span>${quandoFoiPago(dados)}</span></p>
+    ${dados.reimpressao ? `<p class="linha"><span>Reimpresso em</span><span>${dataHoraBR()}</span></p>` : ''}
     <hr>
     <div class="centro">
         <p class="rotulo">VALOR PAGO</p>
-        <p class="valor">${FormatarValor(valor)}</p>
+        <p class="valor">${FormatarValor(dados.valor)}</p>
+        ${dados.forma ? `<p>${escapar(nomeForma(dados.forma))}</p>` : ''}
         ${quitado ? '<p class="quitado">QUITADO</p>' : ''}
     </div>
     <hr>
-    ${temSaldo && !quitado ? `<p class="linha"><span>${reimpressaoDe ? 'Saldo em aberto hoje' : 'Saldo em aberto'}</span><span><b>${FormatarValor(saldoRestante)}</b></span></p>` : ''}
-    ${atendente ? `<p class="linha"><span>Atendente</span><span>${escapar(atendente)}</span></p>` : ''}
-    ${(temSaldo && !quitado) || atendente ? '<hr>' : ''}
-    <p class="centro rodape">Obrigado pela preferência!</p>`;
+    ${mostraSaldo ? `<p class="linha"><span>${rotuloSaldo}</span><span><b>${FormatarValor(dados.saldo!)}</b></span></p>` : ''}
+    ${dados.atendente ? `<p class="linha"><span>Atendente</span><span>${escapar(dados.atendente)}</span></p>` : ''}
+    ${mostraSaldo || dados.atendente ? '<hr>' : ''}
+    <p class="centro rodape">${escapar(cab.rodape ?? RODAPE_PADRAO)}</p>`;
 
     // Uma impressão por via, uma depois da outra: a térmica só corta no fim de cada impressão, então as duas vias
     // na mesma impressão saíam emendadas num cupom só. A pausa dá tempo da primeira ir pra impressora.
@@ -143,8 +205,42 @@ export async function imprimirComprovante({ empresa, cliente, valor, vias, saldo
     }
 }
 
+// Mesmo comprovante em texto, pro cliente que pagou sem estar na loja. Com WhatsApp cadastrado abre a conversa já
+// com a mensagem; sem, copia a mensagem (igual ao "Cobrar pelo WhatsApp").
+export async function enviarComprovanteWhatsApp(dados: DadosComprovante, whatsapp: string | null | undefined) {
+    const cab = await cabecalho();
+    const quitado = quitou(dados);
+
+    const linhas = [
+        `*${cab.nome}*`,
+        `Comprovante de pagamento${dados.numero ? ` nº ${numeroRecibo(dados.numero)}` : ''}`,
+        '',
+        `Cliente: ${dados.cliente}`,
+        `Data: ${quandoFoiPago(dados)}`,
+        `Valor pago: *${FormatarValor(dados.valor)}*${dados.forma ? ` (${nomeForma(dados.forma)})` : ''}`,
+    ];
+    if (quitado) linhas.push('Situação: *quitado* ✅');
+    else if (dados.saldo !== undefined) linhas.push(`${dados.saldoDeHoje ? 'Saldo em aberto hoje' : 'Saldo em aberto'}: ${FormatarValor(dados.saldo)}`);
+    linhas.push('', cab.rodape ?? RODAPE_PADRAO);
+
+    const mensagem = linhas.join('\n');
+    const digitos = String(whatsapp ?? '').replace(/\D/g, '');
+
+    if (digitos) {
+        // o cadastro guarda só DDD + número; o link do WhatsApp precisa do código do país
+        const numero = digitos.length <= 11 ? `55${digitos}` : digitos;
+        window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`, '_blank');
+        return;
+    }
+
+    await navigator.clipboard.writeText(mensagem);
+    Swal.showValidationMessage('Cliente sem WhatsApp cadastrado. Comprovante copiado, é só colar na conversa.');
+}
+
 // Extrato do que o cliente deve: uma linha por nota em aberto (da mais antiga pra mais nova) e o total.
-export function imprimirExtrato({ empresa, cliente, notas }: ExtratoProps) {
+export async function imprimirExtrato({ cliente, notas }: ExtratoProps) {
+    const cab = await cabecalho();
+
     const emAberto = notas
         .map(n => ({ ...n, saldo: n.valorInicial - n.valorAbatido }))
         .filter(n => n.saldo > 0)
@@ -159,24 +255,35 @@ export function imprimirExtrato({ empresa, cliente, notas }: ExtratoProps) {
         ${n.valorAbatido > 0 ? `<p class="detalhe">Nota de ${FormatarValor(n.valorInicial)}, já pago ${FormatarValor(n.valorAbatido)}</p>` : ''}
     </div>`).join('');
 
-    imprimir('Extrato do cliente', `
-    <p class="centro empresa">${escapar(empresa)}</p>
+    await imprimir('Extrato do cliente', `
+    ${htmlCabecalho(cab)}
     <p class="centro titulo">NOTAS EM ABERTO</p>
     <hr>
     <p class="linha"><span>Cliente</span><span><b>${escapar(cliente)}</b></span></p>
-    <p class="linha"><span>Emitido em</span><span>${agoraBR()}</span></p>
+    <p class="linha"><span>Emitido em</span><span>${dataHoraBR()}</span></p>
     <hr>
     ${emAberto.length === 0 ? '<p class="centro">Nenhuma nota em aberto.</p>' : linhas}
     <hr>
     <p class="linha"><span>Notas em aberto</span><span>${emAberto.length}</span></p>
     <p class="linha total"><span>TOTAL</span><span>${FormatarValor(total)}</span></p>
     <hr>
-    <p class="centro rodape">Obrigado pela preferência!</p>`);
+    <p class="centro rodape">${escapar(cab.rodape ?? RODAPE_PADRAO)}</p>`);
 }
 
-// Pergunta se imprime e quais vias. Devolve as vias marcadas, ou null se a pessoa fechou sem imprimir. A última
-// escolha fica guardada no navegador, pra quem sempre imprime só uma via não ter que desmarcar toda vez.
-export async function perguntarVias({ titulo, texto, sucesso = false }: { titulo: string, texto?: string, sucesso?: boolean }): Promise<Via[] | null> {
+type OferecerProps = {
+    titulo: string,
+    texto?: string,
+    sucesso?: boolean,
+    dados: DadosComprovante,
+    whatsapp: string | null | undefined
+}
+
+// Oferece o comprovante: imprimir (escolhendo as vias) e/ou mandar pelo WhatsApp. O WhatsApp não fecha a janela,
+// pra dar pra mandar pro cliente e ainda imprimir a via da loja. A última escolha de vias fica guardada no
+// navegador, pra quem sempre imprime só uma não ter que desmarcar toda vez.
+export async function oferecerComprovante({ titulo, texto, sucesso = false, dados, whatsapp }: OferecerProps) {
+    cabecalho(); // já vai buscando, pra impressão e WhatsApp saírem na hora do clique
+
     let salvas: Via[] = ['cliente', 'loja'];
     try {
         const lidas = JSON.parse(localStorage.getItem(CHAVE_VIAS) ?? 'null');
@@ -190,7 +297,7 @@ export async function perguntarVias({ titulo, texto, sucesso = false }: { titulo
         </label>`;
 
     const result = await Swal.fire({
-        title: titulo,
+        titleText: titulo,
         icon: sucesso ? 'success' : undefined,
         html: `
             ${texto ? `<p>${escapar(texto)}</p>` : ''}
@@ -199,8 +306,11 @@ export async function perguntarVias({ titulo, texto, sucesso = false }: { titulo
                 ${caixa('loja', 'Via da loja')}
             </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Imprimir comprovante',
+        showDenyButton: true,
+        confirmButtonText: 'Imprimir',
         confirmButtonColor: '#3C32E6',
+        denyButtonText: 'Enviar por WhatsApp',
+        denyButtonColor: '#25D366',
         cancelButtonText: 'Fechar',
         preConfirm: () => {
             const vias = (['cliente', 'loja'] as Via[]).filter(via =>
@@ -211,12 +321,16 @@ export async function perguntarVias({ titulo, texto, sucesso = false }: { titulo
                 return false;
             }
             return vias;
+        },
+        preDeny: async () => {
+            await enviarComprovanteWhatsApp(dados, whatsapp);
+            return false;
         }
     });
 
-    if (!result.isConfirmed || !result.value) return null;
+    if (!result.isConfirmed || !result.value) return;
 
     const vias = result.value as Via[];
     try { localStorage.setItem(CHAVE_VIAS, JSON.stringify(vias)); } catch { /* sem storage: só não lembra */ }
-    return vias;
+    await imprimirComprovante(dados, vias);
 }

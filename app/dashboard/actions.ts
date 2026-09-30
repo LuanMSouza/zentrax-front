@@ -107,7 +107,7 @@ export async function pegarPagamentosBack(pagina: number = 1) {
                 empresa_id: Number(empresaId)
             },
             orderBy: [{ data: 'desc' }, { id: 'desc' }],
-            include: { clientes: true },
+            include: { clientes: true, recibos: true },
             skip: (pagina - 1) * PAGAMENTOS_POR_PAGINA,
             take: PAGAMENTOS_POR_PAGINA + 1,
         });
@@ -117,12 +117,14 @@ export async function pegarPagamentosBack(pagina: number = 1) {
 
         // Um pagamento avulso que abate varias notas gera uma linha por nota
         // (uma pra cada `pedidos` quitado/abatido). Pro usuario isso e um
-        // pagamento so, entao agrupamos por cliente + dia antes de exibir.
+        // pagamento so, entao agrupamos pelo recibo que gerou as linhas. Pagamento
+        // de antes dos recibos existirem nao tem recibo: esses seguem agrupados por
+        // cliente + dia, como sempre foi.
         const agrupados = new Map<string, any>();
 
         for (const p of pagamentosRaw) {
             const diaChave = new Date(p.data).toISOString().slice(0, 10);
-            const chave = `${p.id_cliente}-${diaChave}`;
+            const chave = p.recibo_id ? `r-${p.recibo_id}` : `${p.id_cliente}-${diaChave}`;
             const existente = agrupados.get(chave);
 
             if (existente) {
@@ -137,6 +139,14 @@ export async function pegarPagamentosBack(pagina: number = 1) {
                     data: p.data,
                     valor: Number(p.valor),
                     quantidade: 1,
+                    recibo: p.recibos ? {
+                        numero: p.recibos.numero,
+                        criadoEm: p.recibos.criado_em.toISOString(),
+                        forma: p.recibos.forma,
+                        valor: Number(p.recibos.valor),
+                        saldoApos: Number(p.recibos.saldo_apos),
+                        atendente: p.recibos.atendente
+                    } : null,
                     clientes: {
                         ...p.clientes,
                         whatsapp: p.clientes.whatsapp ? String(p.clientes.whatsapp) : null
@@ -162,4 +172,41 @@ export async function pegarPagamentosBack(pagina: number = 1) {
 
     }
 
+}
+// Dados da loja que vão no topo (e no rodapé) de tudo que é impresso: comprovante e notas em aberto.
+export async function pegarCabecalhoComprovanteBack() {
+
+    const payload = (await autenticar())!
+    const empresaId = Number(payload.empresa_id);
+
+    try {
+        const empresa = await prisma.empresa.findUnique({
+            where: { id: empresaId },
+            select: {
+                nome: true,
+                documento: true,
+                empresa_settings: { select: { telefone: true, endereco: true, rodape_comprovante: true } }
+            }
+        });
+
+        // só CNPJ vai pro papel: conta aberta com CPF não deve sair imprimindo o CPF do dono em todo comprovante
+        const digitos = (empresa?.documento ?? '').replace(/\D/g, '');
+        const cnpj = digitos.length === 14
+            ? digitos.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+            : null;
+
+        return {
+            success: true,
+            data: {
+                nome: empresa?.nome ?? '',
+                cnpj,
+                telefone: empresa?.empresa_settings?.telefone ?? null,
+                endereco: empresa?.empresa_settings?.endereco ?? null,
+                rodape: empresa?.empresa_settings?.rodape_comprovante ?? null
+            }
+        };
+    } catch (error) {
+        console.error("Erro ao buscar cabeçalho do comprovante:", error);
+        return { success: false, error: "Erro ao buscar os dados da loja." };
+    }
 }

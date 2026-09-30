@@ -29,6 +29,7 @@ model clientes {
   empresa      empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pagamentos   pagamentos[]
   pedidos      pedidos[]
+  recibos      recibos[]
 
   @@index([empresa_id])
 }
@@ -68,6 +69,7 @@ model empresa {
   empresa_settings                       empresa_settings?
   pagamentos                             pagamentos[]
   pedidos                                pedidos[]
+  recibos                                recibos[]
   usuarios                               usuarios[]
 }
 
@@ -78,6 +80,9 @@ model empresa_settings {
   avisar            Boolean   @default(true)
   created_at        DateTime? @default(now()) @db.Timestamp(6)
   cobranca_text     Int?
+  telefone          String?   @db.VarChar(20)
+  endereco          String?   @db.VarChar(120)
+  rodape_comprovante String?  @db.VarChar(80)
   empresa           empresa   @relation(fields: [empresa_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -88,11 +93,36 @@ model pagamentos {
   nota_abatida Int
   data         DateTime @db.Date
   empresa_id   Int?
+  recibo_id    Int?
   clientes     clientes @relation(fields: [id_cliente], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pagamentos_cliente")
   empresa      empresa? @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pedidos      pedidos  @relation(fields: [nota_abatida], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  recibos      recibos? @relation(fields: [recibo_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([empresa_id])
+  @@index([recibo_id])
+}
+
+// Um por pagamento registrado (as linhas de `pagamentos` são uma por NOTA abatida, então um pagamento avulso que
+// abate três notas gera três `pagamentos` e um `recibos`). É o que dá número, hora, forma e atendente ao comprovante.
+// `numero` é sequencial por empresa; `saldo_apos` é o que o cliente ficou devendo logo depois deste pagamento.
+model recibos {
+  id         Int          @id @default(autoincrement())
+  empresa_id Int
+  numero     Int
+  id_cliente Int
+  usuario_id Int?
+  atendente  String?      @db.VarChar(120)
+  valor      Decimal      @db.Decimal(10, 2)
+  forma      String       @db.VarChar(15)
+  saldo_apos Decimal      @default(0) @db.Decimal(10, 2)
+  criado_em  DateTime     @default(now()) @db.Timestamptz(6)
+  pagamentos pagamentos[]
+  empresa    empresa      @relation(fields: [empresa_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  clientes   clientes     @relation(fields: [id_cliente], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuarios   usuarios?    @relation(fields: [usuario_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([empresa_id, numero], map: "recibos_empresa_numero_key")
 }
 
 model pedidos {
@@ -149,6 +179,7 @@ model usuarios {
   reset_token_expira DateTime?  @db.Timestamptz(6)
   alteracoes       alteracoes[]
   contas           contas[]
+  recibos          recibos[]
   empresa          empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([empresa_id])
