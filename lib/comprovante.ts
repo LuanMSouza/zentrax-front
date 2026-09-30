@@ -205,9 +205,8 @@ export async function imprimirComprovante(dados: DadosComprovante, vias: Via[]) 
     }
 }
 
-// Mesmo comprovante em texto, pro cliente que pagou sem estar na loja. Com WhatsApp cadastrado abre a conversa já
-// com a mensagem; sem, copia a mensagem (igual ao "Cobrar pelo WhatsApp").
-export async function enviarComprovanteWhatsApp(dados: DadosComprovante, whatsapp: string | null | undefined) {
+// Mesmo comprovante em texto, pro cliente que pagou sem estar na loja.
+async function textoComprovante(dados: DadosComprovante) {
     const cab = await cabecalho();
     const quitado = quitou(dados);
 
@@ -223,7 +222,12 @@ export async function enviarComprovanteWhatsApp(dados: DadosComprovante, whatsap
     else if (dados.saldo !== undefined) linhas.push(`${dados.saldoDeHoje ? 'Saldo em aberto hoje' : 'Saldo em aberto'}: ${FormatarValor(dados.saldo)}`);
     linhas.push('', cab.rodape ?? RODAPE_PADRAO);
 
-    const mensagem = linhas.join('\n');
+    return linhas.join('\n');
+}
+
+// Com WhatsApp cadastrado abre a conversa já com a mensagem; sem, copia a mensagem (igual ao "Cobrar pelo WhatsApp").
+export async function enviarComprovanteWhatsApp(dados: DadosComprovante, whatsapp: string | null | undefined) {
+    const mensagem = await textoComprovante(dados);
     const digitos = String(whatsapp ?? '').replace(/\D/g, '');
 
     if (digitos) {
@@ -302,7 +306,22 @@ export async function oferecerComprovante({ titulo, texto, sucesso = false, dado
             <div style="display:flex;flex-direction:column;gap:8px;width:fit-content;margin:16px auto 0;text-align:left;">
                 ${caixa('cliente', 'Via do cliente')}
                 ${caixa('loja', 'Via da loja')}
-            </div>`,
+            </div>
+            <button type="button" id="copiar-comprovante" style="margin-top:16px;font-size:14px;text-decoration:underline;cursor:pointer;background:none;border:0;color:#475569;">
+                Só copiar o texto do comprovante
+            </button>`,
+        didOpen: () => {
+            // pra colar em outro lugar (outro número, e-mail...) sem abrir o WhatsApp
+            const botao = document.getElementById('copiar-comprovante');
+            botao?.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(await textoComprovante(dados));
+                    botao.textContent = 'Copiado!';
+                } catch {
+                    botao.textContent = 'Não deu pra copiar neste navegador';
+                }
+            });
+        },
         showCancelButton: true,
         showDenyButton: true,
         confirmButtonText: 'Imprimir',
