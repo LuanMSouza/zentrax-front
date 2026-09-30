@@ -215,7 +215,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                 cancelButtonText: 'Apenas Copiar',
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    window.open(linkWhatsApp(res.whatsapp, res.mensagem), '_blank');
+                    window.open(linkWhatsApp(res.whatsapp ?? '', res.mensagem), '_blank');
                 } else if (result.dismiss === Swal.DismissReason.cancel) {
                     await navigator.clipboard.writeText(res.mensagem);
                     Swal.fire('Copiado!', 'Mensagem copiada para a área de transferência.', 'success');
