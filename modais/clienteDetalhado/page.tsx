@@ -8,6 +8,7 @@ import Swal from "sweetalert2";
 import { CobrarBack, pagamentoAvulso, pagamentoEspecifico } from "./actions";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 import { formatarDataBR } from "@/lib/mask";
+import { imprimirComprovante } from "@/lib/comprovante";
 
 type ClienteEmAberto = {
     id: number;
@@ -35,12 +36,14 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
             const res = await pegarNotasDoClienteBack(cliente.id);
             if (res.success && res.data) {
                 setNotas(res.data);
+                return res.data as any[];
             }
         } catch (error) {
             console.error("Erro ao buscar notas do cliente:", error);
         } finally {
             setCarregandoNotas(false);
         }
+        return null;
     }
 
     useEffect(() => {
@@ -71,6 +74,43 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
             style: 'currency',
             currency: 'BRL'
         }).format(valorNumerico);
+    }
+
+    // Depois de qualquer pagamento gravado: atualiza a tela e oferece o comprovante pra impressora térmica.
+    async function pagamentoRegistrado(valorPago: number) {
+        atualizarClientes();
+        atualizarPagamentos();
+        const notasNovas = await recarregarNotas();
+
+        // saldo do comprovante sai das notas recém-buscadas (mesma regra do card: só saldo > 0); se a busca
+        // falhar, cai no total que estava na tela menos o que acabou de ser pago
+        const saldoRestante = notasNovas
+            ? notasNovas.reduce((acc, n) => {
+                const saldo = Number(n.valor_inicial) - Number(n.valor_abatido);
+                return saldo > 0 ? acc + saldo : acc;
+            }, 0)
+            : Math.max(totalAtualizado - valorPago, 0);
+
+        const result = await Swal.fire({
+            title: 'Sucesso!',
+            text: 'Pagamento registrado com sucesso.',
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonText: 'Imprimir comprovante',
+            confirmButtonColor: '#3C32E6',
+            cancelButtonText: 'Fechar'
+        });
+
+        if (result.isConfirmed) {
+            const usuario = JSON.parse(localStorage.getItem('usuario') ?? '{}');
+            imprimirComprovante({
+                empresa: empresa?.nome ?? '',
+                cliente: cliente.nome,
+                valor: valorPago,
+                saldoRestante,
+                atendente: usuario?.nome
+            });
+        }
     }
 
     function lancarPagamento(id: Number) {
@@ -104,12 +144,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                 const res = await pagamentoAvulso({ id: cliente.id, valor })
 
                 if (res.success && res.notaAtualizada) {
-                    Swal.fire('Sucesso!', 'Pagamento registrado com sucesso.', 'success');
-
-                    recarregarNotas();
-                    atualizarClientes();
-                    atualizarPagamentos();
-
+                    pagamentoRegistrado(Number(valor));
                 } else {
                     Swal.fire('Erro no servidor', res.error, 'error');
                 }
@@ -153,12 +188,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                     const res = await pagamentoEspecifico({ tipo: 'parcial', id, valor: abater })
 
                     if (res?.success && res.notaAtualizada) {
-                        Swal.fire('Sucesso!!', 'Nota lançada com sucesso!!', 'success')
-
-                        recarregarNotas();
-                        atualizarClientes();
-                        atualizarPagamentos();
-
+                        pagamentoRegistrado(abater);
                     } else {
                         Swal.fire('Opa!!', res?.error, 'error')
                     }
@@ -180,11 +210,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                     const res = await pagamentoEspecifico({ tipo: 'total', id, valor: abater })
 
                     if (res?.success && res.notaAtualizada) {
-                        Swal.fire('Sucesso!!', 'Nota lançada com sucesso!!', 'success')
-                        recarregarNotas();
-                        atualizarClientes();
-                        atualizarPagamentos();
-
+                        pagamentoRegistrado(abater);
                     } else {
                         Swal.fire('Opa!!', res?.error, 'error')
                     }

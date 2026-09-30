@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Pagamentos } from "@/types";
 import { formatarDataBR } from "@/lib/mask";
+import { imprimirComprovante } from "@/lib/comprovante";
 
 type PagamentoProps = {
     pagamentos: Pagamentos[],
@@ -24,6 +25,17 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
             style: 'currency',
             currency: 'BRL'
         }).format(valor);
+    }
+
+    // Sem atendente: o pagamento não guarda quem registrou, e quem está reimprimindo pode ser outra pessoa.
+    function reimprimir(p: Pagamentos) {
+        const empresa = JSON.parse(localStorage.getItem('empresa') ?? '{}');
+        imprimirComprovante({
+            empresa: empresa?.nome ?? '',
+            cliente: p.clientes?.nome ?? '',
+            valor: p.valor,
+            reimpressaoDe: p.data
+        });
     }
 
     function aumentar() {
@@ -54,7 +66,17 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
                                         {(p.quantidade ?? 1) > 1 && ` · ${p.quantidade} notas abatidas`}
                                     </p>
                                 </div>
-                                <p className="font-semibold text-emerald-700 tabular-nums shrink-0">{formatarValor(p.valor)}</p>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <p className="font-semibold text-emerald-700 tabular-nums">{formatarValor(p.valor)}</p>
+                                    <button
+                                        onClick={() => reimprimir(p)}
+                                        aria-label={`Reimprimir comprovante de ${p.clientes?.nome ?? 'cliente'}`}
+                                        title="Reimprimir comprovante"
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-marca-700 hover:bg-slate-100 active:scale-[0.98] transition-all cursor-pointer"
+                                    >
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" /></svg>
+                                    </button>
+                                </div>
                             </li>
                         ))}
                     </ul>
