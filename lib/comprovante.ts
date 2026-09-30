@@ -108,6 +108,13 @@ function htmlCabecalho(cab: Cabecalho) {
     ${cab.telefone ? `<p class="centro loja">${escapar(cab.telefone)}</p>` : ''}`;
 }
 
+// frase da loja e, embaixo, a assinatura do sistema
+function htmlRodape(cab: Cabecalho) {
+    return `
+    <p class="centro rodape">${escapar(cab.rodape ?? RODAPE_PADRAO)}</p>
+    <p class="centro assinatura">Registrado por ZentraX, um projeto DVLS</p>`;
+}
+
 // Imprime pelo diálogo de impressão do próprio navegador, num iframe escondido (pra não imprimir a tela do sistema
 // junto). Funciona com qualquer térmica instalada como impressora no computador, sem driver nem biblioteca: a largura
 // não é fixa, o texto se ajusta à bobina (58mm ou 80mm) que a impressora informar. A promise resolve quando o diálogo
@@ -140,6 +147,7 @@ function imprimir(titulo: string, corpo: string): Promise<void> {
     .detalhe { font-size: 11px; overflow-wrap: anywhere; }
     .total { font-size: 15px; font-weight: 700; }
     .rodape { margin-top: 1mm; font-size: 11px; overflow-wrap: anywhere; }
+    .assinatura { margin-top: 2mm; font-size: 9px; }
 </style>
 </head>
 <body>
@@ -195,7 +203,7 @@ export async function imprimirComprovante(dados: DadosComprovante, vias: Via[]) 
     ${mostraSaldo ? `<p class="linha"><span>${rotuloSaldo}</span><span><b>${FormatarValor(dados.saldo!)}</b></span></p>` : ''}
     ${dados.atendente ? `<p class="linha"><span>Atendente</span><span>${escapar(dados.atendente)}</span></p>` : ''}
     ${mostraSaldo || dados.atendente ? '<hr>' : ''}
-    <p class="centro rodape">${escapar(cab.rodape ?? RODAPE_PADRAO)}</p>`;
+    ${htmlRodape(cab)}`;
 
     // Uma impressão por via, uma depois da outra: a térmica só corta no fim de cada impressão, então as duas vias
     // na mesma impressão saíam emendadas num cupom só. A pausa dá tempo da primeira ir pra impressora.
@@ -269,7 +277,7 @@ export async function imprimirExtrato({ cliente, notas }: ExtratoProps) {
     <p class="linha"><span>Notas em aberto</span><span>${emAberto.length}</span></p>
     <p class="linha total"><span>TOTAL</span><span>${FormatarValor(total)}</span></p>
     <hr>
-    <p class="centro rodape">${escapar(cab.rodape ?? RODAPE_PADRAO)}</p>`);
+    ${htmlRodape(cab)}`);
 }
 
 type OferecerProps = {
@@ -292,9 +300,23 @@ export async function oferecerComprovante({ titulo, texto, sucesso = false, dado
         if (Array.isArray(lidas) && lidas.length > 0) salvas = lidas;
     } catch { /* valor salvo inválido: fica no padrão */ }
 
+    // cada via é uma pílula que acende (roxo claro + brilho) quando marcada; o checkbox de verdade fica
+    // escondido dentro dela, então teclado e leitor de tela continuam funcionando
+    const estilo = `<style>
+        .zx-vias { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; }
+        .zx-via { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 18px 10px 12px; border-radius: 999px; border: 1.5px solid #e2e8f0; background: #fff; color: #64748b; font-size: 15px; font-weight: 500; cursor: pointer; user-select: none; transition: all .15s ease; }
+        .zx-via:hover { border-color: #c7c4f7; }
+        .zx-via input { position: absolute; opacity: 0; pointer-events: none; }
+        .zx-marca { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #cbd5e1; color: transparent; transition: all .15s ease; }
+        .zx-via:has(input:checked) { border-color: #3C32E6; background: #EEEDFD; color: #3C32E6; box-shadow: 0 0 0 4px rgba(60, 50, 230, .12); }
+        .zx-via:has(input:checked) .zx-marca { border-color: #3C32E6; background: #3C32E6; color: #fff; }
+        .zx-via:has(input:focus-visible) { outline: 2px solid #3C32E6; outline-offset: 2px; }
+    </style>`;
+
     const caixa = (via: Via, rotulo: string) => `
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-            <input type="checkbox" id="via-${via}" ${salvas.includes(via) ? 'checked' : ''} style="width:18px;height:18px;">
+        <label class="zx-via">
+            <input type="checkbox" id="via-${via}" ${salvas.includes(via) ? 'checked' : ''}>
+            <span class="zx-marca" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
             ${rotulo}
         </label>`;
 
@@ -303,7 +325,8 @@ export async function oferecerComprovante({ titulo, texto, sucesso = false, dado
         icon: sucesso ? 'success' : undefined,
         html: `
             ${texto ? `<p>${escapar(texto)}</p>` : ''}
-            <div style="display:flex;flex-direction:column;gap:8px;width:fit-content;margin:16px auto 0;text-align:left;">
+            ${estilo}
+            <div class="zx-vias">
                 ${caixa('cliente', 'Via do cliente')}
                 ${caixa('loja', 'Via da loja')}
             </div>
