@@ -48,9 +48,9 @@ function agoraBR() {
 
 // Imprime pelo diálogo de impressão do próprio navegador, num iframe escondido (pra não imprimir a tela do sistema
 // junto). Funciona com qualquer térmica instalada como impressora no computador, sem driver nem biblioteca: a largura
-// não é fixa, o texto se ajusta à bobina (58mm ou 80mm) que a impressora informar. Cada item de `paginas` sai numa
-// página própria, que na térmica vira um cupom separado (com corte, se a impressora cortar).
-function imprimir(titulo: string, paginas: string[]) {
+// não é fixa, o texto se ajusta à bobina (58mm ou 80mm) que a impressora informar. A promise resolve quando o diálogo
+// de impressão fecha (imprimindo ou cancelando).
+function imprimir(titulo: string, corpo: string): Promise<void> {
     const html = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -61,8 +61,7 @@ function imprimir(titulo: string, paginas: string[]) {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     /* térmica só tem preto: nada de cinza, que sai falhado */
     body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.4; color: #000; }
-    section { max-width: 80mm; padding: 4mm 4mm 8mm; break-after: page; }
-    section:last-child { break-after: auto; }
+    section { max-width: 80mm; padding: 4mm 4mm 8mm; }
     .centro { text-align: center; }
     .empresa { font-size: 16px; font-weight: 700; text-transform: uppercase; overflow-wrap: anywhere; }
     .titulo { margin-top: 1mm; font-size: 11px; letter-spacing: 1px; }
@@ -81,7 +80,7 @@ function imprimir(titulo: string, paginas: string[]) {
 </style>
 </head>
 <body>
-${paginas.map(p => `<section>${p}</section>`).join('\n')}
+<section>${corpo}</section>
 </body>
 </html>`;
 
@@ -90,25 +89,30 @@ ${paginas.map(p => `<section>${p}</section>`).join('\n')}
     iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
     iframe.srcdoc = html;
 
-    iframe.onload = () => {
-        const janela = iframe.contentWindow;
-        if (!janela) return;
-        janela.onafterprint = () => iframe.remove();
-        janela.focus();
-        janela.print();
-    };
+    return new Promise(resolve => {
+        iframe.onload = () => {
+            const janela = iframe.contentWindow;
+            if (!janela) return resolve();
+            janela.onafterprint = () => {
+                iframe.remove();
+                resolve();
+            };
+            janela.focus();
+            janela.print();
+        };
 
-    document.body.appendChild(iframe);
+        document.body.appendChild(iframe);
+    });
 }
 
-export function imprimirComprovante({ empresa, cliente, valor, vias, saldoRestante, atendente, reimpressaoDe }: ComprovanteProps) {
+export async function imprimirComprovante({ empresa, cliente, valor, vias, saldoRestante, atendente, reimpressaoDe }: ComprovanteProps) {
     const agora = agoraBR();
     const temSaldo = saldoRestante !== undefined;
     // o selo só vale na hora do pagamento: numa reimpressão o saldo zerado de hoje não quer dizer que foi
     // aquele pagamento que quitou
     const quitado = temSaldo && !reimpressaoDe && saldoRestante < 0.01;
 
-    const paginas = vias.map(via => `
+    const corpo = (via: Via) => `
     ${reimpressaoDe ? '<p class="centro reimpressao">REIMPRESSÃO</p>' : ''}
     <p class="centro empresa">${escapar(empresa)}</p>
     <p class="centro titulo">COMPROVANTE DE PAGAMENTO</p>
@@ -129,9 +133,14 @@ export function imprimirComprovante({ empresa, cliente, valor, vias, saldoRestan
     ${temSaldo && !quitado ? `<p class="linha"><span>${reimpressaoDe ? 'Saldo em aberto hoje' : 'Saldo em aberto'}</span><span><b>${FormatarValor(saldoRestante)}</b></span></p>` : ''}
     ${atendente ? `<p class="linha"><span>Atendente</span><span>${escapar(atendente)}</span></p>` : ''}
     ${(temSaldo && !quitado) || atendente ? '<hr>' : ''}
-    <p class="centro rodape">Obrigado pela preferência!</p>`);
+    <p class="centro rodape">Obrigado pela preferência!</p>`;
 
-    imprimir('Comprovante de pagamento', paginas);
+    // Uma impressão por via, uma depois da outra: a térmica só corta no fim de cada impressão, então as duas vias
+    // na mesma impressão saíam emendadas num cupom só. A pausa dá tempo da primeira ir pra impressora.
+    for (const [i, via] of vias.entries()) {
+        if (i > 0) await new Promise(r => setTimeout(r, 800));
+        await imprimir(`Comprovante de pagamento - ${NOME_VIA[via].toLowerCase()}`, corpo(via));
+    }
 }
 
 // Extrato do que o cliente deve: uma linha por nota em aberto (da mais antiga pra mais nova) e o total.
@@ -150,7 +159,7 @@ export function imprimirExtrato({ empresa, cliente, notas }: ExtratoProps) {
         ${n.valorAbatido > 0 ? `<p class="detalhe">Nota de ${FormatarValor(n.valorInicial)}, já pago ${FormatarValor(n.valorAbatido)}</p>` : ''}
     </div>`).join('');
 
-    imprimir('Extrato do cliente', [`
+    imprimir('Extrato do cliente', `
     <p class="centro empresa">${escapar(empresa)}</p>
     <p class="centro titulo">NOTAS EM ABERTO</p>
     <hr>
@@ -162,7 +171,7 @@ export function imprimirExtrato({ empresa, cliente, notas }: ExtratoProps) {
     <p class="linha"><span>Notas em aberto</span><span>${emAberto.length}</span></p>
     <p class="linha total"><span>TOTAL</span><span>${FormatarValor(total)}</span></p>
     <hr>
-    <p class="centro rodape">Obrigado pela preferência!</p>`]);
+    <p class="centro rodape">Obrigado pela preferência!</p>`);
 }
 
 // Pergunta se imprime e quais vias. Devolve as vias marcadas, ou null se a pessoa fechou sem imprimir. A última
