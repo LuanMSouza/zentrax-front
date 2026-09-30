@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import { Pagamentos } from "@/types";
 import { formatarDataBR } from "@/lib/mask";
-import { imprimirComprovante } from "@/lib/comprovante";
+import { imprimirComprovante, perguntarVias } from "@/lib/comprovante";
+import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 
 type PagamentoProps = {
     pagamentos: Pagamentos[],
@@ -28,12 +29,32 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
     }
 
     // Sem atendente: o pagamento não guarda quem registrou, e quem está reimprimindo pode ser outra pessoa.
-    function reimprimir(p: Pagamentos) {
+    async function reimprimir(p: Pagamentos) {
+        const vias = await perguntarVias({ titulo: 'Reimprimir comprovante', texto: p.clientes?.nome });
+        if (!vias) return;
+
+        // saldo de hoje do cliente (mesma regra do card: só nota com saldo > 0); se a busca falhar, o
+        // comprovante sai sem a linha de saldo em vez de sair com um número errado
+        let saldoRestante: number | undefined;
+        try {
+            const res = await pegarNotasDoClienteBack(p.id_cliente);
+            if (res.success && res.data) {
+                saldoRestante = (res.data as { valor_inicial: number, valor_abatido: number }[]).reduce((acc, n) => {
+                    const saldo = Number(n.valor_inicial) - Number(n.valor_abatido);
+                    return saldo > 0 ? acc + saldo : acc;
+                }, 0);
+            }
+        } catch (error) {
+            console.error("Erro ao buscar saldo pra reimpressão:", error);
+        }
+
         const empresa = JSON.parse(localStorage.getItem('empresa') ?? '{}');
         imprimirComprovante({
             empresa: empresa?.nome ?? '',
             cliente: p.clientes?.nome ?? '',
             valor: p.valor,
+            vias,
+            saldoRestante,
             reimpressaoDe: p.data
         });
     }

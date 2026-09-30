@@ -8,7 +8,7 @@ import Swal from "sweetalert2";
 import { CobrarBack, pagamentoAvulso, pagamentoEspecifico } from "./actions";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 import { formatarDataBR } from "@/lib/mask";
-import { imprimirComprovante } from "@/lib/comprovante";
+import { imprimirComprovante, imprimirExtrato, perguntarVias } from "@/lib/comprovante";
 
 type ClienteEmAberto = {
     id: number;
@@ -91,26 +91,32 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
             }, 0)
             : Math.max(totalAtualizado - valorPago, 0);
 
-        const result = await Swal.fire({
-            title: 'Sucesso!',
-            text: 'Pagamento registrado com sucesso.',
-            icon: 'success',
-            showCancelButton: true,
-            confirmButtonText: 'Imprimir comprovante',
-            confirmButtonColor: '#3C32E6',
-            cancelButtonText: 'Fechar'
-        });
+        const vias = await perguntarVias({ titulo: 'Sucesso!', texto: 'Pagamento registrado com sucesso.', sucesso: true });
 
-        if (result.isConfirmed) {
+        if (vias) {
             const usuario = JSON.parse(localStorage.getItem('usuario') ?? '{}');
             imprimirComprovante({
                 empresa: empresa?.nome ?? '',
                 cliente: cliente.nome,
                 valor: valorPago,
+                vias,
                 saldoRestante,
                 atendente: usuario?.nome
             });
         }
+    }
+
+    function extrato() {
+        imprimirExtrato({
+            empresa: empresa?.nome ?? '',
+            cliente: cliente.nome,
+            notas: notas.map(n => ({
+                data: n.data,
+                descricao: n.descricao,
+                valorInicial: Number(n.valor_inicial),
+                valorAbatido: Number(n.valor_abatido)
+            }))
+        });
     }
 
     function lancarPagamento(id: Number) {
@@ -294,6 +300,13 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                         className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
                     >
                         Cobrar pelo WhatsApp
+                    </button>
+                    <button
+                        onClick={extrato}
+                        disabled={carregandoNotas}
+                        className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] disabled:opacity-60 transition-all cursor-pointer"
+                    >
+                        Imprimir notas em aberto
                     </button>
                 </div>
 
