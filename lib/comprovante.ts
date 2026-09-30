@@ -1,5 +1,5 @@
 import Swal from "sweetalert2";
-import { FormatarValor, formatarDataBR } from "@/lib/mask";
+import { FormatarValor, formatarDataBR, linkWhatsApp } from "@/lib/mask";
 import { nomeForma } from "@/lib/formas";
 import { pegarCabecalhoComprovanteBack } from "@/app/dashboard/actions";
 
@@ -227,9 +227,7 @@ export async function enviarComprovanteWhatsApp(dados: DadosComprovante, whatsap
     const digitos = String(whatsapp ?? '').replace(/\D/g, '');
 
     if (digitos) {
-        // o cadastro guarda só DDD + número; o link do WhatsApp precisa do código do país
-        const numero = digitos.length <= 11 ? `55${digitos}` : digitos;
-        window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`, '_blank');
+        window.open(linkWhatsApp(digitos, mensagem), '_blank');
         return;
     }
 

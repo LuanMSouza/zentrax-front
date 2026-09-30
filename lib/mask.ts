@@ -39,3 +39,11 @@ export function hojeBR(): Date {
     const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()); // YYYY-MM-DD
     return new Date(`${dia}T00:00:00.000Z`);
 }
+
+// Link que abre a conversa do WhatsApp já com a mensagem escrita. O cadastro guarda só DDD + número e o wa.me
+// precisa do código do país: sem o 55 na frente o link abre um número inválido.
+export function linkWhatsApp(whatsapp: string | number | bigint, mensagem: string) {
+    const digitos = String(whatsapp).replace(/\D/g, '');
+    const numero = digitos.length <= 11 ? `55${digitos}` : digitos;
+    return `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
+}

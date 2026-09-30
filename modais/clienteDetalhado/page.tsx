@@ -7,7 +7,7 @@ import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
 import { CobrarBack, pagamentoAvulso, pagamentoEspecifico } from "./actions";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
-import { formatarDataBR } from "@/lib/mask";
+import { formatarDataBR, linkWhatsApp } from "@/lib/mask";
 import { imprimirExtrato, oferecerComprovante } from "@/lib/comprovante";
 import { FORMAS } from "@/lib/formas";
 import { Recibo } from "@/types";
@@ -215,8 +215,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                 cancelButtonText: 'Apenas Copiar',
             }).then(async (result) => {
                 if (result.isConfirmed) {
-                    const url = `https://wa.me/${res.whatsapp}?text=${encodeURIComponent(res.mensagem)}`;
-                    window.open(url, '_blank');
+                    window.open(linkWhatsApp(res.whatsapp, res.mensagem), '_blank');
                 } else if (result.dismiss === Swal.DismissReason.cancel) {
                     await navigator.clipboard.writeText(res.mensagem);
                     Swal.fire('Copiado!', 'Mensagem copiada para a área de transferência.', 'success');
