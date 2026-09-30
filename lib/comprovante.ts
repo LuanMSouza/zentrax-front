@@ -145,7 +145,10 @@ function imprimir(titulo: string, corpo: string): Promise<void> {
     .reimpressao { margin-bottom: 3mm; padding: 1mm 0; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; font-weight: 700; letter-spacing: 2px; }
     .nota { margin-bottom: 2mm; break-inside: avoid; }
     .detalhe { font-size: 11px; overflow-wrap: anywhere; }
-    .total { font-size: 15px; font-weight: 700; }
+    /* o total é o que o cliente procura no papel: caixa própria, do tamanho do VALOR PAGO do comprovante */
+    .total { margin: 3mm 0; padding: 2mm 0 3mm; border: 2px solid #000; text-align: center; }
+    .total .rotulo { margin-top: 0; font-weight: 700; letter-spacing: 1px; }
+    .total .valor { font-size: 28px; }
     .rodape { margin-top: 1mm; font-size: 11px; overflow-wrap: anywhere; }
     .assinatura { margin-top: 2mm; font-size: 9px; }
 </style>
@@ -276,8 +279,10 @@ export async function imprimirExtrato({ cliente, notas }: ExtratoProps) {
     ${emAberto.length === 0 ? '<p class="centro">Nenhuma nota em aberto.</p>' : linhas}
     <hr>
     <p class="linha"><span>Notas em aberto</span><span>${emAberto.length}</span></p>
-    <p class="linha total"><span>TOTAL</span><span>${FormatarValor(total)}</span></p>
-    <hr>
+    <div class="total">
+        <p class="rotulo">TOTAL EM ABERTO</p>
+        <p class="valor">${FormatarValor(total)}</p>
+    </div>
     ${htmlRodape(cab)}`);
 }
 
