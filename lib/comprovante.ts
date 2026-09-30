@@ -112,7 +112,7 @@ function htmlCabecalho(cab: Cabecalho) {
 function htmlRodape(cab: Cabecalho) {
     return `
     <p class="centro rodape">${escapar(cab.rodape ?? RODAPE_PADRAO)}</p>
-    <p class="centro assinatura">Registrado por ZentraX, um projeto DVLS</p>`;
+    <p class="centro assinatura">Emitido pelo ZentraX · zentrax.dvls.com.br</p>`;
 }
 
 // Imprime pelo diálogo de impressão do próprio navegador, num iframe escondido (pra não imprimir a tela do sistema
@@ -234,17 +234,18 @@ async function textoComprovante(dados: DadosComprovante) {
 }
 
 // Com WhatsApp cadastrado abre a conversa já com a mensagem; sem, copia a mensagem (igual ao "Cobrar pelo WhatsApp").
-export async function enviarComprovanteWhatsApp(dados: DadosComprovante, whatsapp: string | null | undefined) {
+// Devolve o que acabou fazendo.
+async function enviarComprovanteWhatsApp(dados: DadosComprovante, whatsapp: string | null | undefined): Promise<'aberto' | 'copiado'> {
     const mensagem = await textoComprovante(dados);
     const digitos = String(whatsapp ?? '').replace(/\D/g, '');
 
     if (digitos) {
         window.open(linkWhatsApp(digitos, mensagem), '_blank');
-        return;
+        return 'aberto';
     }
 
     await navigator.clipboard.writeText(mensagem);
-    Swal.showValidationMessage('Cliente sem WhatsApp cadastrado. Comprovante copiado, é só colar na conversa.');
+    return 'copiado';
 }
 
 // Extrato do que o cliente deve: uma linha por nota em aberto (da mais antiga pra mais nova) e o total.
@@ -288,8 +289,8 @@ type OferecerProps = {
     whatsapp: string | null | undefined
 }
 
-// Oferece o comprovante: imprimir (escolhendo as vias) e/ou mandar pelo WhatsApp. O WhatsApp não fecha a janela,
-// pra dar pra mandar pro cliente e ainda imprimir a via da loja. A última escolha de vias fica guardada no
+// Oferece o comprovante: imprimir (escolhendo as vias) e/ou mandar pelo WhatsApp / copiar o texto. Mandar e copiar
+// não fecham a janela, pra dar pra mandar pro cliente e ainda imprimir a via da loja. A última escolha de vias fica guardada no
 // navegador, pra quem sempre imprime só uma não ter que desmarcar toda vez.
 export async function oferecerComprovante({ titulo, texto, sucesso = false, dados, whatsapp }: OferecerProps) {
     cabecalho(); // já vai buscando, pra impressão e WhatsApp saírem na hora do clique
@@ -311,7 +312,24 @@ export async function oferecerComprovante({ titulo, texto, sucesso = false, dado
         .zx-via:has(input:checked) { border-color: #3C32E6; background: #EEEDFD; color: #3C32E6; box-shadow: 0 0 0 4px rgba(60, 50, 230, .12); }
         .zx-via:has(input:checked) .zx-marca { border-color: #3C32E6; background: #3C32E6; color: #fff; }
         .zx-via:has(input:focus-visible) { outline: 2px solid #3C32E6; outline-offset: 2px; }
+        .zx-acoes { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+        .zx-acao { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; border: 1.5px solid #e2e8f0; background: #fff; color: #475569; font-size: 13.5px; font-weight: 500; cursor: pointer; transition: all .15s ease; }
+        .zx-acao:hover { border-color: #c7c4f7; color: #3C32E6; }
+        .zx-acao:active { transform: scale(.98); }
+        .zx-acao:focus-visible { outline: 2px solid #3C32E6; outline-offset: 2px; }
     </style>`;
+
+    const icone = (caminho: string) => `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${caminho}</svg>`;
+
+    // troca o texto do botão por um aviso curto e volta ao normal depois
+    const avisarNoBotao = (botao: HTMLElement, aviso: string) => {
+        const rotulo = botao.querySelector('span');
+        if (!rotulo) return;
+        const original = rotulo.dataset.original ?? rotulo.textContent ?? '';
+        rotulo.dataset.original = original;
+        rotulo.textContent = aviso;
+        setTimeout(() => { rotulo.textContent = original; }, 2500);
+    };
 
     const caixa = (via: Via, rotulo: string) => `
         <label class="zx-via">
@@ -330,27 +348,41 @@ export async function oferecerComprovante({ titulo, texto, sucesso = false, dado
                 ${caixa('cliente', 'Via do cliente')}
                 ${caixa('loja', 'Via da loja')}
             </div>
-            <button type="button" id="copiar-comprovante" style="margin-top:16px;font-size:14px;text-decoration:underline;cursor:pointer;background:none;border:0;color:#475569;">
-                Só copiar o texto do comprovante
-            </button>`,
+            <div class="zx-acoes">
+                <button type="button" class="zx-acao" id="whatsapp-comprovante">
+                    ${icone('<path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20.5l1.7-5.2A8.5 8.5 0 1 1 21 11.5z"/>')}
+                    <span>WhatsApp</span>
+                </button>
+                <button type="button" class="zx-acao" id="copiar-comprovante">
+                    ${icone('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>')}
+                    <span>Copiar texto</span>
+                </button>
+            </div>`,
         didOpen: () => {
+            const botaoWhatsApp = document.getElementById('whatsapp-comprovante');
+            botaoWhatsApp?.addEventListener('click', async () => {
+                try {
+                    const feito = await enviarComprovanteWhatsApp(dados, whatsapp);
+                    if (feito === 'copiado') avisarNoBotao(botaoWhatsApp, 'Sem WhatsApp: texto copiado');
+                } catch {
+                    avisarNoBotao(botaoWhatsApp, 'Não deu pra enviar');
+                }
+            });
+
             // pra colar em outro lugar (outro número, e-mail...) sem abrir o WhatsApp
-            const botao = document.getElementById('copiar-comprovante');
-            botao?.addEventListener('click', async () => {
+            const botaoCopiar = document.getElementById('copiar-comprovante');
+            botaoCopiar?.addEventListener('click', async () => {
                 try {
                     await navigator.clipboard.writeText(await textoComprovante(dados));
-                    botao.textContent = 'Copiado!';
+                    avisarNoBotao(botaoCopiar, 'Copiado!');
                 } catch {
-                    botao.textContent = 'Não deu pra copiar neste navegador';
+                    avisarNoBotao(botaoCopiar, 'Não deu pra copiar');
                 }
             });
         },
         showCancelButton: true,
-        showDenyButton: true,
         confirmButtonText: 'Imprimir',
         confirmButtonColor: '#3C32E6',
-        denyButtonText: 'Enviar por WhatsApp',
-        denyButtonColor: '#25D366',
         cancelButtonText: 'Fechar',
         preConfirm: () => {
             const vias = (['cliente', 'loja'] as Via[]).filter(via =>
@@ -361,10 +393,6 @@ export async function oferecerComprovante({ titulo, texto, sucesso = false, dado
                 return false;
             }
             return vias;
-        },
-        preDeny: async () => {
-            await enviarComprovanteWhatsApp(dados, whatsapp);
-            return false;
         }
     });
 
