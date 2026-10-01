@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma"
 import stripe, { PRECOS_STRIPE, ehCicloValido, CicloAssinatura } from "@/lib/stripe"
 import autenticar from "@/lib/auth"
 import { verify } from "jsonwebtoken"
+import { CUPOM_FUNDADOR, vagasFundador } from "@/lib/fundador"
 
 const APP_URL = process.env.APP_URL ?? 'https://app.zentrax.dvls.com.br'
 
@@ -22,9 +23,13 @@ async function iniciarCheckout(empresaId: number, ciclo: CicloAssinatura): Promi
             return { success: false, error: 'Empresa não encontrada.' }
         }
 
+        // preço de fundador só no mensal e só enquanto o cupom tiver vaga
+        const comFundador = ciclo === 'mensal' && await vagasFundador() > 0
+
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
             line_items: [{ price: PRECOS_STRIPE[ciclo], quantity: 1 }],
+            ...(comFundador ? { discounts: [{ coupon: CUPOM_FUNDADOR }] } : {}),
             customer: empresa.stripe_customer_id ?? undefined,
             customer_email: empresa.stripe_customer_id ? undefined : (empresa.usuarios[0]?.email ?? undefined),
             client_reference_id: String(empresaId),
@@ -38,6 +43,11 @@ async function iniciarCheckout(empresaId: number, ciclo: CicloAssinatura): Promi
         console.error('Erro ao criar checkout Stripe:', error)
         return { success: false, error: 'Erro ao iniciar pagamento. Tente novamente.' }
     }
+}
+
+// vagas restantes do preço de fundador, pro modal de assinatura mostrar a oferta
+export async function vagasFundadorBack(): Promise<number> {
+    return vagasFundador()
 }
 
 // Empresa ainda ativa (ex: renovação antecipada pelo TopBar) - passa pelo autenticar() normal.
