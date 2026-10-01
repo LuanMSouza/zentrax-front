@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma"
 import bcrypt from 'bcrypt'
 import autenticar from "@/lib/auth"
+import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo"
 
 type NovoUsuarioProps = {
     empresa_id: number,
@@ -17,6 +18,7 @@ type NovoUsuarioProps = {
 export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
 
     const Auth = await autenticar()
+    if (await ehEmpresaDemo(Auth?.empresa_id)) return BLOQUEADO_NA_DEMO
 
     if (!Auth) {
         return {

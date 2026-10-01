@@ -3,6 +3,7 @@
 import autenticar from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from 'bcrypt';
+import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo";
 
 type AlterarUsuarioProps = {
     id: number,
@@ -25,6 +26,7 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
     try {
 
         const Auth = await autenticar()
+        if (await ehEmpresaDemo(Auth?.empresa_id)) return BLOQUEADO_NA_DEMO
 
         if (!Auth) {
             return {

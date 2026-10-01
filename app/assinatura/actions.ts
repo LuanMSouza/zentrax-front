@@ -5,6 +5,7 @@ import stripe, { PRECOS_STRIPE, ehCicloValido, CicloAssinatura } from "@/lib/str
 import autenticar from "@/lib/auth"
 import { verify } from "jsonwebtoken"
 import { CUPOM_FUNDADOR, vagasFundador } from "@/lib/fundador"
+import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo"
 
 const APP_URL = process.env.APP_URL ?? 'https://app.zentrax.dvls.com.br'
 
@@ -53,6 +54,7 @@ export async function vagasFundadorBack(): Promise<number> {
 // Empresa ainda ativa (ex: renovação antecipada pelo TopBar) - passa pelo autenticar() normal.
 export async function criarCheckoutBack(ciclo: string): Promise<CheckoutResult> {
     const payload = await autenticar()
+    if (await ehEmpresaDemo(payload?.empresa_id)) return BLOQUEADO_NA_DEMO
 
     if (!ehCicloValido(ciclo)) {
         return { success: false, error: 'Ciclo de cobrança inválido.' }
@@ -83,6 +85,7 @@ export async function criarCheckoutExpiradoBack(ciclo: string, billingToken: str
 // Portal de autoatendimento do Stripe: trocar cartão, ver faturas, cancelar.
 export async function criarPortalBack(): Promise<CheckoutResult> {
     const payload = await autenticar()
+    if (await ehEmpresaDemo(payload?.empresa_id)) return BLOQUEADO_NA_DEMO
 
     try {
         const empresa = await prisma.empresa.findUnique({

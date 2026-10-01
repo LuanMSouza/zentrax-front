@@ -69,7 +69,9 @@ export default function TopBar() {
     // empresa.assinante vem do login (undefined em sessões antigas → cai no
     // comportamento anterior: só oferece renovar quando faltam < 10 dias)
     const emTeste = empresa?.assinante === false
-    const mostrarAssinar = emTeste || (diasRestantes !== null && diasRestantes < 10)
+    // demonstração pública (app/demo): sem "Assinar", com faixa chamando pro cadastro
+    const ehDemo = empresa?.demo === true
+    const mostrarAssinar = !ehDemo && (emTeste || (diasRestantes !== null && diasRestantes < 10))
 
     const [config, setConfig] = useState(false)
     const [assinatura, setAssinatura] = useState(false)
@@ -84,6 +86,15 @@ export default function TopBar() {
 
     return (
         <>
+            {ehDemo && (
+                <div className="bg-cyan-400 text-marca-950 text-sm">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center">
+                        <span><strong>Demonstração</strong> com dados fictícios. Pode clicar e testar à vontade.</span>
+                        <a href="https://zentrax.dvls.com.br/cadastro?utm_source=demo&utm_medium=app&utm_campaign=demo"
+                            className="font-bold underline underline-offset-2 whitespace-nowrap">Criar minha conta grátis</a>
+                    </div>
+                </div>
+            )}
             <nav className="sticky top-0 z-40 bg-marca-950 border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 shrink-0">

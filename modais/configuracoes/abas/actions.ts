@@ -3,6 +3,7 @@ import autenticar from "@/lib/auth";
 import prisma from "@/lib/prisma"
 import bcrypt from 'bcrypt';
 import { boolean, success } from "zod";
+import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo";
 
 export async function ConfirmarSenha({ senha }: { id?: number, senha: string }) {
     try {
@@ -60,6 +61,7 @@ export async function Alterarperfil(form: AlterarPerfilProps) {
 
 
     const Auth = await autenticar()
+    if (await ehEmpresaDemo(Auth?.empresa_id)) return BLOQUEADO_NA_DEMO
 
     if (!Auth) {
         return {
@@ -144,6 +146,7 @@ export async function PegarUsuariosDaConta({ id }: { id?: number }) {
 export async function ApagarContaBack(id: number) {
 
     const Auth = await autenticar()
+    if (await ehEmpresaDemo(Auth?.empresa_id)) return BLOQUEADO_NA_DEMO
 
     if (!Auth) {
         return {
@@ -259,6 +262,7 @@ export async function PegarPreferenciasBack() {
 export async function AtualizarPreferencias(preferencias: Preferencias) {
 
     const Auth = await autenticar()
+    if (await ehEmpresaDemo(Auth?.empresa_id)) return BLOQUEADO_NA_DEMO
 
     if (!Auth) {
         return {
