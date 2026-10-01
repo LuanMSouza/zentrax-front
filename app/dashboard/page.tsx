@@ -12,6 +12,7 @@ import { pegarClientesBack, pegarPagamentosBack } from "./actions";
 import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import EditarClientes from "@/modais/editarClientes/page";
+import ImportarCaderno from "@/modais/importarCaderno/page";
 
 // types
 import { Cliente, Pagamentos, ClienteEmAberto } from '@/types'
@@ -22,6 +23,7 @@ export default function Home() {
     const [modalLancarNotas, setModalLancarNotas] = useState(false)
     const [modalClienteDetalhado, setModalClienteDetalhado] = useState(false)
     const [modalEditarClientes, setModalEditarClientes] = useState(false)
+    const [modalImportar, setModalImportar] = useState(false)
 
     const [mostrarValores, setMostrarValores] = useState(false)
     const [filtro, setFiltro] = useState('')
@@ -184,6 +186,12 @@ export default function Home() {
                             Cadastrar cliente
                         </button>
                         <button
+                            onClick={() => setModalImportar(true)}
+                            className="text-sm font-medium text-slate-600 hover:text-slate-900 underline underline-offset-4 decoration-slate-300 px-2 py-2 cursor-pointer"
+                        >
+                            Importar do caderno
+                        </button>
+                        <button
                             onClick={() => setModalEditarClientes(true)}
                             className="text-sm font-medium text-slate-600 hover:text-slate-900 underline underline-offset-4 decoration-slate-300 px-2 py-2 cursor-pointer"
                         >
@@ -252,6 +260,15 @@ export default function Home() {
                             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 p-10 text-center">
                                 <p className="font-medium text-slate-900">Nenhuma conta em aberto</p>
                                 <p className="text-sm text-slate-500 mt-1">Cadastre um cliente e lance a primeira nota para começar.</p>
+                                {/* conta nova: o atalho pra sair do caderno é colar a lista inteira */}
+                                {clientes.length === 0 && (
+                                    <button
+                                        onClick={() => setModalImportar(true)}
+                                        className="mt-5 bg-marca-700 hover:bg-marca-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-all cursor-pointer"
+                                    >
+                                        Tem tudo num caderno? Importe a lista de uma vez
+                                    </button>
+                                )}
                             </div>
                         )}
                         {emAberto.length > 0 && filtrados.length === 0 && (
@@ -280,6 +297,7 @@ export default function Home() {
             {/* Modais */}
             {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}
             {modalEditarClientes && <EditarClientes clientes={clientes} role={role} atualizar={atualizarClienteEditado} remover={removerCliente} sair={() => setModalEditarClientes(false)} />}
+            {modalImportar && <ImportarCaderno concluir={() => carregarDados()} sair={() => setModalImportar(false)} />}
             {modalLancarNotas && <ModalLançarNotas clientes={clientes} atualizar={() => recarregarClientes()} sair={() => setModalLancarNotas(false)} />}
             {modalClienteDetalhado && clienteSelect && (
                 <ClienteDetalhado
