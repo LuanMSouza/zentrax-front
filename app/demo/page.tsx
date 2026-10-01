@@ -8,6 +8,18 @@ export default function Demo() {
     const [erro, setErro] = useState<string | null>(null)
 
     useEffect(() => {
+        // conta a visita no analytics self-hosted (mesmo do LP) como 'ZentraX-Demo', com a origem
+        // (?utm_source=lp|email|whatsapp, ?lid= do convite) — fire-and-forget, nunca trava a entrada
+        try {
+            const q = new URLSearchParams(window.location.search)
+            navigator.sendBeacon?.('https://api.analitcs.dvls.com.br/api/track', new Blob([JSON.stringify({
+                projeto_nome: 'ZentraX-Demo', pagina_path: '/demo', url_completa: window.location.href,
+                referrer: document.referrer || 'direto', utm_source: q.get('utm_source'), utm_medium: q.get('utm_medium'),
+                utm_campaign: q.get('utm_campaign'), lid: q.get('lid'), largura_tela: window.innerWidth,
+                idioma: navigator.language, user_agent: navigator.userAgent,
+            })], { type: 'application/json' }))
+        } catch { /* sem analytics, segue */ }
+
         entrarDemo().then(r => {
             if (!r.success) { setErro(r.error); return }
             localStorage.clear()
