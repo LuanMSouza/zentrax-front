@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Swal from "sweetalert2"
 import Cortina from "@/componentes/cortina"
 import Container from "@/componentes/Container"
 import { Button } from "@/componentes/Buttons"
-import { criarCheckoutBack, criarCheckoutExpiradoBack } from "@/app/assinatura/actions"
+import { criarCheckoutBack, criarCheckoutExpiradoBack, vagasFundadorBack } from "@/app/assinatura/actions"
 
 const PLANOS = [
     { ciclo: 'mensal', titulo: 'Mensal', preco: 'R$ 49,90', porMes: null, detalhe: 'cobrado todo mês', destaque: false },
@@ -22,6 +22,13 @@ type AssinaturaModalProps = {
 
 export default function AssinaturaModal({ sair, billingToken }: AssinaturaModalProps) {
     const [carregando, setCarregando] = useState<string | null>(null)
+    // preço de fundador (lib/fundador.ts): enquanto tiver vaga, o mensal sai a R$ 29,90 pra sempre
+    const [vagas, setVagas] = useState(0)
+    useEffect(() => { vagasFundadorBack().then(setVagas).catch(() => {}) }, [])
+    const planos = PLANOS.map(p => p.ciclo === 'mensal' && vagas > 0
+        ? { ...p, preco: 'R$ 29,90', antes: 'R$ 49,90', porMes: 'pra sempre, enquanto for assinante', destaque: true,
+            selo: `Preço de fundador · ${vagas === 1 ? 'última vaga' : `restam ${vagas} vagas`}` }
+        : { ...p, antes: null, destaque: vagas > 0 ? false : p.destaque, selo: p.destaque && !vagas ? 'Melhor preço' : null })
 
     async function escolher(ciclo: string) {
         setCarregando(ciclo)
@@ -54,7 +61,7 @@ export default function AssinaturaModal({ sair, billingToken }: AssinaturaModalP
                 <p className="text-gray-600 -mt-2">Escolha o ciclo de cobrança:</p>
 
                 <div className="grid gap-4 md:grid-cols-3 w-full pt-2">
-                    {PLANOS.map((p) => {
+                    {planos.map((p) => {
                         const estaCarregando = carregando === p.ciclo
                         const outroCarregando = carregando !== null && !estaCarregando
 
@@ -69,15 +76,16 @@ export default function AssinaturaModal({ sair, billingToken }: AssinaturaModalP
                                 ${outroCarregando ? 'opacity-40' : 'hover:-translate-y-1 hover:shadow-xl hover:border-cyan-400'}
                                 `}
                             >
-                                {p.destaque && (
+                                {p.selo && (
                                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-cyan-600 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow">
-                                        Melhor preço
+                                        {p.selo}
                                     </span>
                                 )}
 
                                 <p className="text-marca-700 font-bold text-lg">{p.titulo}</p>
 
                                 <div className="flex items-baseline gap-1 mt-1">
+                                    {p.antes && <p className="text-sm text-gray-400 line-through whitespace-nowrap">{p.antes}</p>}
                                     <p className="text-2xl font-semibold tracking-tight text-slate-900 whitespace-nowrap">{p.preco}</p>
                                 </div>
 
