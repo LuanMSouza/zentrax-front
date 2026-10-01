@@ -104,6 +104,12 @@ export default function Home() {
             if (usuarioSalvo) {
                 setRole(JSON.parse(usuarioSalvo)?.role ?? null)
             }
+            // na demonstração pública (app/demo) os valores já abrem visíveis e em "mais atrasados":
+            // é o que mostra o valor do app logo de cara
+            if (JSON.parse(localStorage.getItem('empresa') ?? '{}')?.demo === true) {
+                setMostrarValores(true)
+                setArrumacao('data_desc')
+            }
         } catch (error) {
             console.error('Erro ao carregar usuario do localStorage:', error)
         }
