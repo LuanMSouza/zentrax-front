@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { erroAutenticacaoPainel } from '@/lib/painelAuth'
+import { idEmpresaDemo } from '@/lib/demo'
 
 // lista de empresas pro painel gerenciar (estender prazo, editar, excluir)
 // sem precisar abrir o banco na mão. ?q= filtra por nome.
@@ -12,8 +13,13 @@ export async function GET(request: Request) {
 
     const q = new URL(request.url).searchParams.get('q')?.trim()
 
+    // a empresa da demonstração pública não é cliente (e editar/excluir ela quebraria o /demo)
+    const demoId = await idEmpresaDemo()
     const empresas = await prisma.empresa.findMany({
-        where: q ? { nome: { contains: q, mode: 'insensitive' } } : undefined,
+        where: {
+            ...(q ? { nome: { contains: q, mode: 'insensitive' as const } } : {}),
+            ...(demoId !== null ? { id: { not: demoId } } : {}),
+        },
         orderBy: { created_at: 'desc' },
         take: 200,
         select: {

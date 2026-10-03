@@ -13,7 +13,7 @@ export const BLOQUEADO_NA_DEMO = {
 
 let empresaDemo: { id: number | null; em: number } | null = null
 
-async function idEmpresaDemo(): Promise<number | null> {
+export async function idEmpresaDemo(): Promise<number | null> {
     if (empresaDemo && Date.now() - empresaDemo.em < 5 * 60_000) return empresaDemo.id
     const u = await prisma.usuarios.findFirst({ where: { usuario: USUARIO_DEMO }, select: { empresa_id: true } })
     empresaDemo = { id: u?.empresa_id ?? null, em: Date.now() }

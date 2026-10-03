@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import stripe, { PRECOS_STRIPE, type CicloAssinatura } from '@/lib/stripe'
 import { erroAutenticacaoPainel } from '@/lib/painelAuth'
+import { idEmpresaDemo } from '@/lib/demo'
 
 // Endpoint interno pro Painel (leads-back, painel de operação do Luan) puxar
 // um resumo do negócio ZentraX — sem isso o painel não tem visibilidade
@@ -44,6 +45,9 @@ export async function GET(request: Request) {
         const hoje = new Date(agora); hoje.setHours(0, 0, 0, 0)
         const ha7dias = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000)
         const ha30dias = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000)
+        // a empresa da demonstração pública (/demo) não é cliente: contava como "ativa em trial"
+        const demoId = await idEmpresaDemo()
+        const sem = <T extends object>(where?: T) => (demoId === null ? where ?? {} : { ...where, id: { not: demoId } })
 
         const [
             totalEmpresas, ativas, inativas, comAssinatura,
@@ -52,22 +56,22 @@ export async function GET(request: Request) {
             porPlano, porSegmento, totalUsuarios,
             assinantesAtivos,
         ] = await Promise.all([
-            prisma.empresa.count(),
-            prisma.empresa.count({ where: { status: 'ativo' } }),
-            prisma.empresa.count({ where: { status: 'inativo' } }),
-            prisma.empresa.count({ where: { stripe_subscription_id: { not: null } } }),
-            prisma.empresa.count({ where: { created_at: { gte: hoje } } }),
-            prisma.empresa.count({ where: { created_at: { gte: ha7dias } } }),
-            prisma.empresa.count({ where: { created_at: { gte: ha30dias } } }),
-            prisma.empresa.count({ where: { status: 'ativo', data_expiracao: { gte: agora, lte: em7dias } } }),
+            prisma.empresa.count({ where: sem() }),
+            prisma.empresa.count({ where: sem({ status: 'ativo' }) }),
+            prisma.empresa.count({ where: sem({ status: 'inativo' }) }),
+            prisma.empresa.count({ where: sem({ stripe_subscription_id: { not: null } }) }),
+            prisma.empresa.count({ where: sem({ created_at: { gte: hoje } }) }),
+            prisma.empresa.count({ where: sem({ created_at: { gte: ha7dias } }) }),
+            prisma.empresa.count({ where: sem({ created_at: { gte: ha30dias } }) }),
+            prisma.empresa.count({ where: sem({ status: 'ativo', data_expiracao: { gte: agora, lte: em7dias } }) }),
             // trial que acabou e nunca virou assinatura paga — o lead mais quente
             // que existe: já usou o produto de verdade e não converteu ainda
-            prisma.empresa.count({ where: { status: 'ativo', stripe_subscription_id: null, data_expiracao: { lt: agora } } }),
-            prisma.empresa.groupBy({ by: ['plano'], _count: { _all: true } }),
-            prisma.empresa.groupBy({ by: ['segmento'], _count: { _all: true } }),
-            prisma.usuarios.count(),
+            prisma.empresa.count({ where: sem({ status: 'ativo', stripe_subscription_id: null, data_expiracao: { lt: agora } }) }),
+            prisma.empresa.groupBy({ by: ['plano'], where: sem(), _count: { _all: true } }),
+            prisma.empresa.groupBy({ by: ['segmento'], where: sem(), _count: { _all: true } }),
+            prisma.usuarios.count({ where: demoId === null ? {} : { empresa_id: { not: demoId } } }),
             prisma.empresa.findMany({
-                where: { status: 'ativo', stripe_subscription_id: { not: null } },
+                where: sem({ status: 'ativo', stripe_subscription_id: { not: null } }),
                 select: { stripe_ciclo: true },
             }),
         ])
