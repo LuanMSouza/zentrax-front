@@ -8,16 +8,17 @@ export default function Demo() {
     const [erro, setErro] = useState<string | null>(null)
 
     useEffect(() => {
-        // conta a visita no analytics self-hosted (mesmo do LP) como 'ZentraX-Demo', com a origem
-        // (?utm_source=lp|email|whatsapp, ?lid= do convite) — fire-and-forget, nunca trava a entrada
+        // conta a visita no analytics único do painel de leads (site 'zentrax-app'), com a
+        // origem (?utm_source=lp|email|whatsapp, ?lid= do convite) — fire-and-forget, nunca
+        // trava a entrada. Envio único (sem os sinais de tempo/rolagem): a página só redireciona.
+        // text/plain: o navegador manda pra outro domínio sem pergunta prévia de CORS
         try {
             const q = new URLSearchParams(window.location.search)
-            navigator.sendBeacon?.('https://api.analitcs.dvls.com.br/api/track', new Blob([JSON.stringify({
-                projeto_nome: 'ZentraX-Demo', pagina_path: '/demo', url_completa: window.location.href,
-                referrer: document.referrer || 'direto', utm_source: q.get('utm_source'), utm_medium: q.get('utm_medium'),
-                utm_campaign: q.get('utm_campaign'), lid: q.get('lid'), largura_tela: window.innerWidth,
-                idioma: navigator.language, user_agent: navigator.userAgent,
-            })], { type: 'application/json' }))
+            navigator.sendBeacon?.('https://api.leads.dvls.com.br/api/inbound/pageview', new Blob([JSON.stringify({
+                site: 'zentrax-app', path: '/demo', referrer: document.referrer || null,
+                utmSource: q.get('utm_source'), utmMedium: q.get('utm_medium'), utmCampaign: q.get('utm_campaign'),
+                lead: q.get('lid'), leadNoLink: !!q.get('lid'),
+            })], { type: 'text/plain' }))
         } catch { /* sem analytics, segue */ }
 
         entrarDemo().then(r => {
