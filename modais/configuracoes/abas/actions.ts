@@ -206,6 +206,7 @@ type Preferencias = {
     usar_papel_grande?: boolean,
     cobranca_text?: number | null
     avisar: boolean,
+    avisar_vencimentos?: boolean,
     telefone?: string | null,
     endereco?: string | null,
     rodape_comprovante?: string | null
@@ -235,6 +236,7 @@ export async function PegarPreferenciasBack() {
             empresa_id: true,
             cobranca_text: true,
             avisar: true,
+            avisar_vencimentos: true,
             telefone: true,
             endereco: true,
             rodape_comprovante: true
@@ -278,6 +280,7 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
             },
             data: {
                 avisar: Boolean(preferencias.avisar),
+                avisar_vencimentos: preferencias.avisar_vencimentos !== false,
                 cobranca_text: Number(preferencias.cobranca_text),
                 telefone: textoOuNull(preferencias.telefone, 20),
                 endereco: textoOuNull(preferencias.endereco, 120),

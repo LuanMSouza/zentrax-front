@@ -9,6 +9,7 @@ type Preferencias = {
     usar_papel_grande?: boolean,
     cobranca_text?: number,
     avisar: boolean,
+    avisar_vencimentos?: boolean,
     telefone?: string | null,
     endereco?: string | null,
     rodape_comprovante?: string | null
@@ -93,6 +94,23 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                     className="accent-marca-700 w-5 h-5 cursor-pointer shrink-0"
                 />
                 <span className="text-gray-700 text-sm md:text-base">Avisar 4 dias antes de vencer a assinatura</span>
+            </label>
+
+            <label
+                htmlFor="aviso-vencimentos"
+                className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded p-3 cursor-pointer"
+            >
+                <input
+                    type="checkbox"
+                    id="aviso-vencimentos"
+                    checked={novasPreferencias?.avisar_vencimentos !== false}
+                    onChange={(e) => {
+                        const valor = e.target.checked;
+                        setNovasPreferencias((prev) => ({ ...prev, avisar_vencimentos: valor }));
+                    }}
+                    className="accent-marca-700 w-5 h-5 cursor-pointer shrink-0"
+                />
+                <span className="text-gray-700 text-sm md:text-base">Me avisar por e-mail, de manhã, quando um fiado vence ou atrasa</span>
             </label>
 
             <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
