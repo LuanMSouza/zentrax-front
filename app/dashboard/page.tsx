@@ -155,6 +155,8 @@ export default function Home() {
         if (arrumacao === 'notas_asc') return b.quantidade_de_notas - a.quantidade_de_notas;
         if (arrumacao === 'notas_desc') return a.quantidade_de_notas - b.quantidade_de_notas;
         if (arrumacao === 'data_asc') return new Date(b.mais_nova).getTime() - new Date(a.mais_nova).getTime();
+        // sem data combinada vai pro fim da lista
+        if (arrumacao === 'vencimento') return (a.proximo_vencimento ? new Date(a.proximo_vencimento).getTime() : Infinity) - (b.proximo_vencimento ? new Date(b.proximo_vencimento).getTime() : Infinity);
         if (arrumacao === 'data_desc') return new Date(a.mais_antiga).getTime() - new Date(b.mais_antiga).getTime();
         return 0;
     });
@@ -224,6 +226,7 @@ export default function Home() {
                             >
                                 <option value="nome_asc">Nome A-Z</option>
                                 <option value="nome_desc">Nome Z-A</option>
+                                <option value="vencimento">Vence primeiro</option>
                                 <option value="data_desc">Mais atrasados</option>
                                 <option value="data_asc">Mais recentes</option>
                                 <option value="valor_asc">Maior valor</option>

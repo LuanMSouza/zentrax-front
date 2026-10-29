@@ -37,7 +37,8 @@ export type Notas = {
     quantidade: number,
     valor_extra: number,
     segmento: string,
-    valor_unitario: number
+    valor_unitario: number,
+    vencimento: Date | string | null
 }
 
 export type ClienteEmAberto = {
@@ -47,4 +48,9 @@ export type ClienteEmAberto = {
     quantidade_de_notas: number;
     mais_nova: string;
     mais_antiga: string;
+    // menor data combinada entre as notas em aberto (null = nenhuma nota tem data combinada)
+    proximo_vencimento: string | null;
+    // tem nota vencida: passou da data combinada, ou (sem data combinada) já tem 30 dias
+    atrasado: boolean;
+    vence_hoje: boolean;
 }

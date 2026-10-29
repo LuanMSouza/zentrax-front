@@ -7,7 +7,7 @@ import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
 import { CobrarBack, pagamentoAvulso, pagamentoEspecifico } from "./actions";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
-import { formatarDataBR, linkWhatsApp } from "@/lib/mask";
+import { formatarDataBR, linkWhatsApp, diasAteVencer } from "@/lib/mask";
 import { imprimirExtrato, oferecerComprovante } from "@/lib/comprovante";
 import { FORMAS } from "@/lib/formas";
 import { Recibo } from "@/types";
@@ -298,7 +298,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                                     <div className="flex flex-col justify-center min-w-0">
                                         <p className="text-lg font-semibold tabular-nums text-slate-900">{formatarValor(String(n.valor_inicial - n.valor_abatido))}</p>
                                         {n.descricao && <p className="text-sm text-slate-700 truncate">{n.descricao}</p>}
-                                        <p className="text-xs text-slate-500">{formatarDataBR(n.data)}</p>
+                                        <p className="text-xs text-slate-500">{formatarDataBR(n.data)}{!taPago && <DataCombinada vencimento={n.vencimento} />}</p>
                                         {(Number(n.valor_abatido) > 0) && (
                                             <p className="mt-1 text-xs text-slate-500">
                                                 Valor inicial {formatarValor(n.valor_inicial)} · já abatido {formatarValor(n.valor_abatido)}
@@ -313,7 +313,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                                         <p>🐶 Pet: {n.descricao ?? 'Não informado'}</p>
                                         <p>📃 {n.quantidade} (diárias) x {formatarValor(n.valor_unitario)}</p>
                                         <p>⭐ Extras: {formatarValor(n.valor_extra) ?? formatarValor('0')}</p>
-                                        <p className="text-xs text-slate-500">{formatarDataBR(n.data)}</p>
+                                        <p className="text-xs text-slate-500">{formatarDataBR(n.data)}{!taPago && <DataCombinada vencimento={n.vencimento} />}</p>
 
                                         {(Number(n.valor_abatido) > 0 && Number(n.valor_abatido) < Number(n.valor_inicial)) && (
                                             <p className="mt-1 text-xs text-slate-500">
@@ -343,4 +343,13 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
             </Container>
         </Cortina >
     )
+}
+
+// "· vence 10/11" ao lado da data da venda; vermelho quando já passou, âmbar quando é hoje.
+function DataCombinada({ vencimento }: { vencimento: string | Date | null | undefined }) {
+    const d = diasAteVencer(vencimento)
+    if (d === null) return null
+    const cls = d < 0 ? 'text-red-700 font-medium' : d === 0 ? 'text-amber-700 font-medium' : ''
+    const texto = d < 0 ? `venceu ${formatarDataBR(vencimento).slice(0, 5)}` : d === 0 ? 'vence hoje' : `vence ${formatarDataBR(vencimento).slice(0, 5)}`
+    return <span className={cls}> · {texto}</span>
 }

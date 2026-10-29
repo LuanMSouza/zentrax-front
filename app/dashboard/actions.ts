@@ -20,8 +20,14 @@ export async function pegarClientesBack() {
                 COUNT(p.id) FILTER (WHERE p.valor_restante > 0) AS quantidade_de_notas,
                 COALESCE(SUM(p.valor_restante) FILTER (WHERE p.valor_restante > 0), 0) AS total,
                 MIN(p.data) FILTER (WHERE p.valor_restante > 0) AS mais_antiga,
-                MAX(p.data) FILTER (WHERE p.valor_restante > 0) AS mais_nova
+                MAX(p.data) FILTER (WHERE p.valor_restante > 0) AS mais_nova,
+                MIN(p.vencimento) FILTER (WHERE p.valor_restante > 0) AS proximo_vencimento,
+                -- atrasada = passou do dia combinado; nota sem dia combinado segue a regra antiga (30 dias da venda)
+                COALESCE(BOOL_OR(p.vencimento < hoje.dia OR (p.vencimento IS NULL AND p.data <= hoje.dia - 30))
+                    FILTER (WHERE p.valor_restante > 0), false) AS atrasado,
+                COALESCE(BOOL_OR(p.vencimento = hoje.dia) FILTER (WHERE p.valor_restante > 0), false) AS vence_hoje
             FROM clientes c
+            CROSS JOIN (SELECT (now() AT TIME ZONE 'America/Sao_Paulo')::date AS dia) hoje
             LEFT JOIN pedidos p ON c.id = p.id_cliente
             WHERE c.empresa_id = ${empresaId}
             GROUP BY c.id, c.nome, c.whatsapp, c.papel_grande
@@ -43,6 +49,9 @@ export async function pegarClientesBack() {
             total: String(Number(item.total)), // ClienteEmAberto espera total como string
             mais_antiga: item.mais_antiga ? new Date(item.mais_antiga).toISOString() : null,
             mais_nova: item.mais_nova ? new Date(item.mais_nova).toISOString() : null,
+            proximo_vencimento: item.proximo_vencimento ? new Date(item.proximo_vencimento).toISOString() : null,
+            atrasado: Boolean(item.atrasado),
+            vence_hoje: Boolean(item.vence_hoje),
         }));
 
         return {

@@ -33,6 +33,14 @@ export function diasDesde(dataInput: string | Date | null | undefined): number |
 }
 
 
+// dias que faltam até a data combinada (só-data, UTC). 0 = vence hoje, negativo = atrasado há tantos dias.
+export function diasAteVencer(vencimento: string | Date | null | undefined): number | null {
+    if (!vencimento) return null;
+    const t = new Date(vencimento).getTime();
+    if (isNaN(t)) return null;
+    return Math.round((t - hojeBR().getTime()) / 86_400_000);
+}
+
 // "hoje" no Brasil como data (00:00 UTC do dia de Brasília), pra gravar em colunas @db.Date. `new Date()` cru gravava o
 // dia em UTC: um pagamento feito depois das 21h de Brasília ficava com a data de amanhã.
 export function hojeBR(): Date {

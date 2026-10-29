@@ -1,7 +1,7 @@
 'use client'
 
 import { ClienteEmAberto } from '@/types'
-import { formatarDataBR, diasDesde } from '@/lib/mask'
+import { formatarDataBR, diasDesde, diasAteVencer } from '@/lib/mask'
 
 type BlocoProps = {
     clientes: ClienteEmAberto[],
@@ -21,6 +21,17 @@ function faixa(dias: number | null) {
     return { rotulo: dias === 0 ? 'hoje' : `há ${dias} ${dias === 1 ? 'dia' : 'dias'}`, cls: 'bg-slate-100 text-slate-600 ring-slate-500/10' }
 }
 
+// Quando alguma nota tem dia combinado, a etiqueta fala do vencimento (o que importa pra cobrar); sem dia
+// combinado continua a idade da nota mais antiga.
+function etiquetaVencimento(c: ClienteEmAberto) {
+    const d = diasAteVencer(c.proximo_vencimento)
+    if (d === null) return null
+    if (d < 0) return { rotulo: `atrasado ${-d} ${d === -1 ? 'dia' : 'dias'}`, cls: 'bg-red-50 text-red-700 ring-red-600/20' }
+    if (d === 0) return { rotulo: 'vence hoje', cls: 'bg-amber-50 text-amber-700 ring-amber-600/20' }
+    if (d === 1) return { rotulo: 'vence amanhã', cls: 'bg-amber-50 text-amber-700 ring-amber-600/20' }
+    return { rotulo: `vence ${formatarDataBR(c.proximo_vencimento).slice(0, 5)}`, cls: 'bg-slate-100 text-slate-600 ring-slate-500/10' }
+}
+
 export function BlocoClientes({ clientes, onClick, valor }: BlocoProps) {
     return (
         // lista compacta: no celular 1 coluna de linhas (cabem ~8 por tela em vez
@@ -28,7 +39,7 @@ export function BlocoClientes({ clientes, onClick, valor }: BlocoProps) {
         <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {clientes.map(c => {
                 const dias = diasDesde(c.mais_antiga)
-                const f = faixa(dias)
+                const f = etiquetaVencimento(c) ?? faixa(dias)
                 return (
                     <li key={c.id}>
                         <button

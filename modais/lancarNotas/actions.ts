@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 
 
 export async function salvarNota(dados: any) {
-    const { cliente, data, valor, valor_total, descricao, exta, quantidade, segmento } = dados
+    const { cliente, data, valor, valor_total, descricao, exta, quantidade, segmento, vencimento } = dados
 
     try {
         const auth = await autenticar()
@@ -28,6 +28,15 @@ export async function salvarNota(dados: any) {
                 success: false,
                 error: "O valor da nota precisa ser maior que zero."
             }
+        }
+
+        // data combinada pra pagar: opcional, mas se vier tem que ser válida e não pode ser antes da venda
+        const vencimentoData = vencimento ? new Date(vencimento) : null
+        if (vencimentoData && isNaN(vencimentoData.getTime())) {
+            return { success: false, error: "Data combinada inválida." }
+        }
+        if (vencimentoData && vencimentoData < new Date(data)) {
+            return { success: false, error: "A data combinada pra pagar não pode ser antes da data da venda." }
         }
 
         // Confirma que o cliente pertence a essa empresa antes de criar a nota -
@@ -55,7 +64,8 @@ export async function salvarNota(dados: any) {
                 valor_extra: Number(exta) || 0,
                 quantidade: Number(quantidade) || 1,
                 empresa_id: empresaId,
-                segmento: String(segmento)
+                segmento: String(segmento),
+                vencimento: vencimentoData
             }
         })
 
@@ -89,4 +99,19 @@ export async function salvarNota(dados: any) {
             error: error.message || "Erro interno ao salvar nota"
         }
     }
+}
+
+// Dia do mês que o cliente combinou na última nota com data combinada (ex.: 10 = "paga todo dia 10"), pra já sugerir
+// na venda nova. null se ele nunca teve data combinada.
+export async function diaCombinadoDoCliente(clienteId: number) {
+    const auth = await autenticar()
+    if (!auth) return null
+
+    const ultima = await prisma.pedidos.findFirst({
+        where: { id_cliente: Number(clienteId), empresa_id: Number(auth.empresa_id), vencimento: { not: null } },
+        orderBy: [{ data: 'desc' }, { id: 'desc' }],
+        select: { vencimento: true }
+    })
+
+    return ultima?.vencimento ? ultima.vencimento.getUTCDate() : null
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { ClienteEmAberto } from '@/types'
-import { FormatarValor, diasDesde } from '@/lib/mask'
+import { FormatarValor } from '@/lib/mask'
 
 type Props = {
     emAberto: ClienteEmAberto[]
@@ -13,7 +13,8 @@ type Props = {
 // aparecia pro gestor com os valores visíveis. Agora é a primeira coisa da tela.
 export default function ResumoTopo({ emAberto, role, mostrarValores }: Props) {
     const total = emAberto.reduce((acc, c) => acc + Number(c.total), 0)
-    const atrasados = emAberto.filter(c => (diasDesde(c.mais_antiga) ?? 0) >= 30).length
+    const atrasados = emAberto.filter(c => c.atrasado).length
+    const venceHoje = emAberto.filter(c => c.vence_hoje).length
 
     const itens = [
         // valor financeiro total: só gestor (regra que já existia)
@@ -21,11 +22,12 @@ export default function ResumoTopo({ emAberto, role, mostrarValores }: Props) {
             ? [{ rotulo: 'Total na rua', valor: mostrarValores ? FormatarValor(total) : 'R$ ••••••', destaque: true }]
             : []),
         { rotulo: 'Clientes em aberto', valor: String(emAberto.length), destaque: false },
-        { rotulo: 'Atrasados (+30 dias)', valor: String(atrasados), destaque: false, alerta: atrasados > 0 },
+        { rotulo: 'Vence hoje', valor: String(venceHoje), destaque: false, alerta: venceHoje > 0 },
+        { rotulo: 'Atrasados', valor: String(atrasados), destaque: false, alerta: atrasados > 0 },
     ]
 
     return (
-        <dl className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <dl className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {itens.map(i => (
                 <div
                     key={i.rotulo}
