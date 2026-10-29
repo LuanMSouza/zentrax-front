@@ -31,6 +31,8 @@ export default function Home() {
     // no seletor pra quem quiser cobrar por antiguidade.
     const [arrumacao, setArrumacao] = useState('nome_asc')
     const [aba, setAba] = useState<'devedores' | 'pagamentos'>('devedores')
+    // tocar em "Vence hoje" / "Atrasados" no resumo do topo filtra a lista (a rotina de cobrar um por um)
+    const [situacao, setSituacao] = useState<'vence_hoje' | 'atrasados' | null>(null)
     const [loading, setLoading] = useState(true)
     const [role, setRole] = useState<string | null>(null)
 
@@ -161,7 +163,9 @@ export default function Home() {
         return 0;
     });
 
-    const filtrados = listaOrdenada.filter(e => e.nome.toLowerCase().includes(filtro.toLowerCase()))
+    const filtrados = listaOrdenada
+        .filter(e => situacao === 'vence_hoje' ? e.vence_hoje : situacao === 'atrasados' ? e.atrasado : true)
+        .filter(e => e.nome.toLowerCase().includes(filtro.toLowerCase()))
 
     const abaCls = (ativa: boolean) =>
         `px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
@@ -202,7 +206,8 @@ export default function Home() {
                     </div>
                 </div>
 
-                <ResumoTopo emAberto={emAberto} role={role} mostrarValores={mostrarValores} />
+                <ResumoTopo emAberto={emAberto} role={role} mostrarValores={mostrarValores} situacao={situacao}
+                    onFiltrar={(s) => { setSituacao(s); setAba('devedores') }} />
 
                 <div className="flex flex-wrap sm:flex-nowrap gap-2">
                     {aba === 'devedores' && (
@@ -274,8 +279,16 @@ export default function Home() {
                                 )}
                             </div>
                         )}
+                        {situacao && (
+                            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-amber-50 ring-1 ring-amber-600/20 px-3 py-2 text-sm text-amber-800">
+                                <span>Mostrando só quem {situacao === 'vence_hoje' ? 'vence hoje' : 'está atrasado'}</span>
+                                <button onClick={() => setSituacao(null)} className="font-medium underline cursor-pointer">Mostrar todos</button>
+                            </div>
+                        )}
                         {emAberto.length > 0 && filtrados.length === 0 && (
-                            <p className="text-sm text-slate-500 text-center py-8">Nenhum cliente encontrado para &ldquo;{filtro}&rdquo;.</p>
+                            <p className="text-sm text-slate-500 text-center py-8">
+                                {filtro ? <>Nenhum cliente encontrado para &ldquo;{filtro}&rdquo;.</> : situacao === 'vence_hoje' ? 'Ninguém vence hoje.' : 'Ninguém atrasado.'}
+                            </p>
                         )}
                         <BlocoClientes
                             valor={mostrarValores}

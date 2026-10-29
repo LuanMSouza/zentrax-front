@@ -5,7 +5,7 @@ import Container from "@/componentes/Container";
 import Cortina from "@/componentes/cortina";
 import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
-import { CobrarBack, pagamentoAvulso, pagamentoEspecifico } from "./actions";
+import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento } from "./actions";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 import { formatarDataBR, linkWhatsApp, diasAteVencer } from "@/lib/mask";
 import { imprimirExtrato, oferecerComprovante } from "@/lib/comprovante";
@@ -49,6 +49,31 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
     useEffect(() => {
         recarregarNotas();
     }, [cliente.id]);
+
+    async function remarcar(nota: { id: number, data: string, vencimento: string | null }) {
+        const { value, isConfirmed, isDenied } = await Swal.fire({
+            title: nota.vencimento ? 'Remarcar pagamento' : 'Combinar data',
+            text: 'Quando o cliente combinou de pagar essa nota?',
+            input: 'date',
+            inputValue: nota.vencimento ? String(nota.vencimento).slice(0, 10) : '',
+            inputAttributes: { min: String(nota.data).slice(0, 10) },
+            showCancelButton: true,
+            showDenyButton: !!nota.vencimento,
+            confirmButtonText: 'Salvar',
+            denyButtonText: 'Tirar data',
+            cancelButtonText: 'Cancelar',
+            inputValidator: (v) => (!v ? 'Escolhe uma data' : null)
+        })
+        if (!isConfirmed && !isDenied) return
+
+        const res = await combinarVencimento(nota.id, isDenied ? null : value)
+        if (!res.success) {
+            Swal.fire('Opa...', res.error, 'error')
+            return
+        }
+        recarregarNotas()
+        atualizarClientes() // etiqueta e resumo do topo dependem da data
+    }
 
     if (!cliente) return null;
 
@@ -325,13 +350,19 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
 
                                 {/* direita: parcial não é ação de perigo, então deixou de ser vermelho */}
                                 {n.valor_inicial != n.valor_abatido && (
-                                    <div className="flex gap-2 w-full sm:w-auto">
+                                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                                         <Button onClick={() => lancarPagEspecifico('total', n.id, Number(n.valor_inicial - n.valor_abatido))} texto="Pagou tudo" tipo="btn04" tamanho="m" corTexto="branco" />
                                         <button
                                             onClick={() => lancarPagEspecifico('parcial', n.id, Number(n.valor_inicial - n.valor_abatido))}
                                             className="px-3 py-1.5 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
                                         >
                                             Pagou parte
+                                        </button>
+                                        <button
+                                            onClick={() => remarcar(n)}
+                                            className="px-3 py-1.5 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
+                                        >
+                                            {n.vencimento ? 'Remarcar' : 'Combinar data'}
                                         </button>
                                     </div>
                                 )}

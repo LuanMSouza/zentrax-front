@@ -483,3 +483,33 @@ export async function CobrarBack(id: number) {
 }
 
 
+
+// Combinar ou remarcar o dia de pagar de uma nota já lançada ("pago semana que vem"). null tira a data combinada
+// (a nota volta pra regra antiga dos 30 dias).
+export async function combinarVencimento(notaId: number, vencimento: string | null) {
+    const Auth = await autenticar()
+    if (!Auth) return { success: false, error: "Sessão expirada ou inválida" }
+
+    const nota = await prisma.pedidos.findFirst({
+        where: { id: Number(notaId), empresa_id: Number(Auth.empresa_id) },
+        include: { clientes: { select: { nome: true } } }
+    })
+    if (!nota) return { success: false, error: "Nota não encontrada." }
+
+    const data = vencimento ? new Date(`${vencimento}T00:00:00.000Z`) : null
+    if (data && isNaN(data.getTime())) return { success: false, error: "Data inválida." }
+    if (data && data < nota.data) return { success: false, error: "A data combinada não pode ser antes da data da venda." }
+
+    await prisma.pedidos.update({ where: { id: nota.id }, data: { vencimento: data } })
+
+    await RegistrarAcao({
+        tabela: 'Notas',
+        operacao: data
+            ? `Combinou pagamento da nota de ${nota.clientes?.nome} para ${formatarDataBR(data)}`
+            : `Tirou a data combinada da nota de ${nota.clientes?.nome}`,
+        empresa_id: Number(Auth.empresa_id),
+        usuario_id: Number(Auth.usuario_id)
+    })
+
+    return { success: true }
+}
