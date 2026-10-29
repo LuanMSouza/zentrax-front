@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers"
 import { jwtVerify } from 'jose';
 import RegistrarAcao from "@/lib/logger";
-import { FormatarValor, hojeBR } from "@/lib/mask";
+import { FormatarValor, hojeBR, diasAteVencer, formatarDataBR } from "@/lib/mask";
 import autenticar from "@/lib/auth";
 import { Prisma } from "@prisma/client";
 import { formaValida } from "@/lib/formas";
@@ -428,44 +428,52 @@ export async function CobrarBack(id: number) {
 
     let mensagem = "";
 
+    // Data combinada pra pagar: a mais próxima entre as notas em aberto (se já passou, é a que está atrasada há
+    // mais tempo). Vira uma frase dentro da mensagem; sem data combinada a frase some e o texto fica como era.
+    const vencimentos = notasDevedoras.map(n => n.vencimento).filter((v): v is Date => !!v)
+    const vencimento = vencimentos.length ? new Date(Math.min(...vencimentos.map(v => v.getTime()))) : null
+    const combinado = vencimento
+        ? (diasAteVencer(vencimento) === 0 ? 'O pagamento ficou combinado para hoje. ' : `O pagamento ficou combinado para o dia ${formatarDataBR(vencimento).slice(0, 5)}. `)
+        : ''
+
 
     switch (modalDaMensagem?.cobranca_text) {
  
         case 1:
-            mensagem = `Olá, ${dadosDoCliente.nome}! Tudo bem? Passando apenas para te lembrar da(s) nota(s) em aberto no valor de ${FormatarValor(dadosDoCliente.totalDevedor)}. Consegue nos enviar o comprovante?`;
+            mensagem = `Olá, ${dadosDoCliente.nome}! Tudo bem? Passando apenas para te lembrar da(s) nota(s) em aberto no valor de ${FormatarValor(dadosDoCliente.totalDevedor)}. ${combinado}Consegue nos enviar o comprovante?`;
             break;
         case 2:
-            mensagem = `Olá, ${dadosDoCliente.nome}. Consta em nosso sistema um em aberto de ${FormatarValor(dadosDoCliente.totalDevedor)} referente a ${dadosDoCliente.quantidadeNotas} nota(s). Poderia nos encaminhar o comprovante?`;
+            mensagem = `Olá, ${dadosDoCliente.nome}. Consta em nosso sistema um em aberto de ${FormatarValor(dadosDoCliente.totalDevedor)} referente a ${dadosDoCliente.quantidadeNotas} nota(s). ${combinado}Poderia nos encaminhar o comprovante?`;
             break;
         case 3:
-            mensagem = `Olá, ${dadosDoCliente.nome}! Estamos organizando o fechamento financeiro e notamos ${dadosDoCliente.quantidadeNotas} nota(s) pendente(s) totalizando ${FormatarValor(dadosDoCliente.totalDevedor)}.`;
+            mensagem = `Olá, ${dadosDoCliente.nome}! Estamos organizando o fechamento financeiro e notamos ${dadosDoCliente.quantidadeNotas} nota(s) pendente(s) totalizando ${FormatarValor(dadosDoCliente.totalDevedor)}. ${combinado}`.trim();
             break;
         case 4:
-            mensagem = `Olá, ${dadosDoCliente.nome}. O débito de ${FormatarValor(dadosDoCliente.totalDevedor)} ainda não foi regularizado. Precisamos do comprovante hoje para evitar bloqueios.`;
+            mensagem = `Olá, ${dadosDoCliente.nome}. O débito de ${FormatarValor(dadosDoCliente.totalDevedor)} ainda não foi regularizado. ${combinado}Precisamos do comprovante hoje para evitar bloqueios.`;
             break;
         case 5:
-            mensagem = `Olá, ${dadosDoCliente.nome}! 🐾 O fechamento da estadia do seu pet está pronto. O total de diárias e extras ficou em ${FormatarValor(dadosDoCliente.totalDevedor)}. Consegue nos enviar o comprovante? Lambeijos! 🐶`;
+            mensagem = `Olá, ${dadosDoCliente.nome}! 🐾 O fechamento da estadia do seu pet está pronto. O total de diárias e extras ficou em ${FormatarValor(dadosDoCliente.totalDevedor)}. ${combinado}Consegue nos enviar o comprovante? Lambeijos! 🐶`;
             break;
         case 6:
-            mensagem = `Oi, ${dadosDoCliente.nome}! Tudo bem? O relatório de diárias e extras do seu pet está pronto. Valor total: ${FormatarValor(dadosDoCliente.totalDevedor)}. Qualquer dúvida sobre os itens, é só avisar! 🐾`;
+            mensagem = `Oi, ${dadosDoCliente.nome}! Tudo bem? O relatório de diárias e extras do seu pet está pronto. Valor total: ${FormatarValor(dadosDoCliente.totalDevedor)}. ${combinado}Qualquer dúvida sobre os itens, é só avisar! 🐾`;
             break;
         case 7:
             const corpo7 = notasDevedoras.map(n =>
                 `*-Dog-*: *${n.descricao || "Pet"}*\n💰 *Subtotal: ${FormatarValor(Number(n.valor_inicial) - Number(n.valor_abatido))}*`
             ).join("\n\n");
 
-            mensagem = `Olá, ${dadosDoCliente.nome}! 🐾 Segue o fechamento:\n\n${corpo7}\n\n✅ *TOTAL GERAL: ${FormatarValor(dadosDoCliente.totalDevedor)}*\n\nConsegue nos enviar o comprovante? 🐶`;
+            mensagem = `Olá, ${dadosDoCliente.nome}! 🐾 Segue o fechamento:\n\n${corpo7}\n\n✅ *TOTAL GERAL: ${FormatarValor(dadosDoCliente.totalDevedor)}*\n\n${combinado}Consegue nos enviar o comprovante? 🐶`;
             break;
         case 8:
             const corpo8 = notasDevedoras.map(n =>
                 `- *${n.descricao || "Pet"}*: ${FormatarValor(Number(n.valor_inicial) - Number(n.valor_abatido))}`
             ).join("\n");
 
-            mensagem = `Oi, ${dadosDoCliente.nome}! Tudo certo? Resumo:\n\n${corpo8}\n\nTotal: *${FormatarValor(dadosDoCliente.totalDevedor)}*. 🐾`;
+            mensagem = `Oi, ${dadosDoCliente.nome}! Tudo certo? Resumo:\n\n${corpo8}\n\nTotal: *${FormatarValor(dadosDoCliente.totalDevedor)}*. 🐾${combinado ? `\n\n${combinado.trim()}` : ''}`;
             break;
 
         default:
-            mensagem = `Olá ${dadosDoCliente.nome}! O total em aberto é ${FormatarValor(dadosDoCliente.totalDevedor)}.`;
+            mensagem = `Olá ${dadosDoCliente.nome}! O total em aberto é ${FormatarValor(dadosDoCliente.totalDevedor)}. ${combinado}`.trim();
     }
 
     return {
