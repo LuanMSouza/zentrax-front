@@ -10,6 +10,17 @@ export type Novidade = {
 
 export const NOVIDADES: Novidade[] = [
     {
+        id: '2026-10-31-comprovante',
+        data: '2026-10-31',
+        titulo: 'Comprovante mais completo',
+        itens: [
+            { titulo: 'Saldo anterior', texto: 'O comprovante agora mostra quanto o cliente devia antes, quanto pagou e quanto ficou.' },
+            { titulo: 'Notas abatidas', texto: 'Aparece quais notas o pagamento abateu e quanto falta em cada uma.' },
+            { titulo: 'QR code do extrato', texto: 'Na via do cliente sai um QR code. Ele aponta a câmera e vê todas as notas dele no celular.' },
+            { titulo: 'Logo da loja', texto: 'Coloque a logo em Configurações > Preferências e ela sai no topo do comprovante.' },
+        ]
+    },
+    {
         id: '2026-10-31-clientes',
         data: '2026-10-31',
         titulo: 'Ficha do cliente, relatórios e mais',

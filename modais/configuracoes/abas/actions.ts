@@ -214,7 +214,15 @@ type Preferencias = {
     juros_ativo?: boolean,
     juros_mes?: number | string,
     multa_atraso?: number | string,
-    juros_carencia?: number | string
+    juros_carencia?: number | string,
+    logo_comprovante?: string | null // undefined = não mexe; null = tira a logo
+}
+
+// Logo do comprovante: só PNG em data URL (o navegador já reduziu e converteu) e com teto de tamanho (o banco tem o
+// mesmo CHECK). Qualquer outra coisa é recusada em vez de gravada.
+const LOGO_MAX = 200_000
+function logoValida(valor: unknown): valor is string {
+    return typeof valor === 'string' && valor.length <= LOGO_MAX && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(valor)
 }
 
 // número de um campo de % ou dias: aceita "1,5", corta nos limites (os mesmos do CHECK no banco)
@@ -254,7 +262,8 @@ export async function PegarPreferenciasBack() {
             juros_ativo: true,
             juros_mes: true,
             multa_atraso: true,
-            juros_carencia: true
+            juros_carencia: true,
+            logo_comprovante: true
         }
     })
 
@@ -293,6 +302,10 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
         }
     }
 
+    if (preferencias.logo_comprovante && !logoValida(preferencias.logo_comprovante)) {
+        return { success: false, error: "Essa imagem não deu pra usar. Tente um PNG ou JPG menor." }
+    }
+
     try {
         await prisma.empresa_settings.update({
             where: {
@@ -305,6 +318,7 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
                 telefone: textoOuNull(preferencias.telefone, 20),
                 endereco: textoOuNull(preferencias.endereco, 120),
                 rodape_comprovante: textoOuNull(preferencias.rodape_comprovante, 80),
+                ...(preferencias.logo_comprovante !== undefined ? { logo_comprovante: preferencias.logo_comprovante || null } : {}),
                 // juros muda o valor que aparece pro cliente: só gestor mexe (os outros campos seguem abertos)
                 ...(Auth.role === 'gestor' && preferencias.juros_ativo !== undefined ? {
                     juros_ativo: Boolean(preferencias.juros_ativo),

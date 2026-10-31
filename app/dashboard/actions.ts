@@ -213,7 +213,7 @@ export async function pegarCabecalhoComprovanteBack() {
             select: {
                 nome: true,
                 documento: true,
-                empresa_settings: { select: { telefone: true, endereco: true, rodape_comprovante: true } }
+                empresa_settings: { select: { telefone: true, endereco: true, rodape_comprovante: true, logo_comprovante: true } }
             }
         });
 
@@ -226,6 +226,7 @@ export async function pegarCabecalhoComprovanteBack() {
         return {
             success: true,
             data: {
+                logo: empresa?.empresa_settings?.logo_comprovante ?? null,
                 nome: empresa?.nome ?? '',
                 cnpj,
                 telefone: empresa?.empresa_settings?.telefone ?? null,

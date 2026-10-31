@@ -646,10 +646,9 @@ export async function linkDoExtratoBack(clienteId: number) {
     })
     if (!cliente) return { success: false as const, error: "Cliente não encontrado." }
 
-    const base = (process.env.APP_URL ?? 'https://app.zentrax.dvls.com.br').replace(/\/$/, '')
     return {
         success: true as const,
-        url: `${base}/extrato/${criarTokenExtrato(cliente.id)}`,
+        url: urlDoExtrato(cliente.id),
         nome: cliente.nome,
         whatsapp: cliente.whatsapp ? String(cliente.whatsapp) : null,
         loja: cliente.empresa?.nome ?? '',
@@ -665,4 +664,46 @@ export async function configJurosBack() {
         select: { juros_ativo: true, juros_mes: true, multa_atraso: true, juros_carencia: true }
     })
     return configJurosDe(s)
+}
+
+function urlDoExtrato(clienteId: number, dias?: number) {
+    const base = (process.env.APP_URL ?? 'https://app.zentrax.dvls.com.br').replace(/\/$/, '')
+    return `${base}/extrato/${criarTokenExtrato(clienteId, dias)}`
+}
+
+// O que o comprovante precisa além do recibo: quais notas esse pagamento abateu (e quanto ficou em cada uma logo
+// depois dele) e o link do extrato pro QR code. Serve pra pagamento de agora e pra reimpressão.
+export async function detalhesDoReciboBack(numero: number) {
+    const Auth = await autenticar()
+    if (!Auth) return null
+    const empresaId = Number(Auth.empresa_id)
+
+    const recibo = await prisma.recibos.findFirst({
+        where: { empresa_id: empresaId, numero: Number(numero) },
+        select: { id: true, id_cliente: true }
+    })
+    if (!recibo) return null
+
+    // "ficou" = saldo de hoje + o que foi pago nessa nota DEPOIS desse recibo: assim a reimpressão de um recibo
+    // antigo mostra o saldo daquele dia, não o de hoje
+    const notas = await prisma.$queryRaw<{ data: Date, descricao: string | null, valor_inicial: string, pago: string, ficou: string }[]>`
+        SELECT p.data, p.descricao, p.valor_inicial, g.valor AS pago,
+               (p.valor_inicial - p.valor_abatido) + COALESCE((
+                   SELECT SUM(g2.valor) FROM pagamentos g2 WHERE g2.nota_abatida = p.id AND g2.id > g.id
+               ), 0) AS ficou
+        FROM pagamentos g JOIN pedidos p ON p.id = g.nota_abatida
+        WHERE g.recibo_id = ${recibo.id} AND g.empresa_id = ${empresaId}
+        ORDER BY p.data, p.id
+    `
+
+    return {
+        notas: notas.map(n => ({
+            data: new Date(n.data).toISOString(),
+            descricao: n.descricao,
+            valorNota: Number(n.valor_inicial),
+            pago: Number(n.pago),
+            ficou: Math.max(0, Number(n.ficou)),
+        })),
+        linkExtrato: urlDoExtrato(recibo.id_cliente, 90),
+    }
 }

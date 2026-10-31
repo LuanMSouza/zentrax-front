@@ -18,7 +18,8 @@ type Preferencias = {
     juros_ativo?: boolean,
     juros_mes?: number | string,
     multa_atraso?: number | string,
-    juros_carencia?: number | string
+    juros_carencia?: number | string,
+    logo_comprovante?: string | null
 }
 
 const camposComprovante = [
@@ -155,6 +156,8 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                     <p className="text-gray-700 text-sm md:text-base font-medium">Comprovante impresso</p>
                     <p className="text-gray-500 text-xs md:text-sm">Sai no topo do comprovante, junto do nome da loja. O que ficar em branco não aparece.</p>
                 </div>
+                <LogoComprovante valor={novasPreferencias?.logo_comprovante ?? null}
+                    onChange={(logo) => setNovasPreferencias(prev => ({ ...prev, logo_comprovante: logo }))} />
                 {camposComprovante.map(({ campo, rotulo, placeholder, max }) => (
                     <label key={campo} className="block">
                         <span className="text-gray-700 text-sm">{rotulo}</span>
@@ -259,6 +262,68 @@ function JurosConfig({ valor, onChange }: { valor: Preferencias, onChange: (camp
                     </p>
                 </>
             )}
+        </div>
+    )
+}
+
+
+// Reduz a imagem pra largura da bobina da térmica (58mm a 203dpi = 384 pontos), em tons de cinza e fundo branco
+// (PNG transparente sai preto em algumas impressoras). Fica pequena o bastante pra guardar no banco.
+function prepararLogo(arquivo: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(arquivo)
+        const img = new Image()
+        img.onload = () => {
+            const escala = Math.min(1, 384 / img.width, 160 / img.height)
+            const canvas = document.createElement('canvas')
+            canvas.width = Math.max(1, Math.round(img.width * escala))
+            canvas.height = Math.max(1, Math.round(img.height * escala))
+            const ctx = canvas.getContext('2d')!
+            ctx.fillStyle = '#fff'
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+            ctx.filter = 'grayscale(1)'
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+            URL.revokeObjectURL(url)
+            resolve(canvas.toDataURL('image/png'))
+        }
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagem inválida')) }
+        img.src = url
+    })
+}
+
+function LogoComprovante({ valor, onChange }: { valor: string | null, onChange: (logo: string | null) => void }) {
+    async function escolher(e: React.ChangeEvent<HTMLInputElement>) {
+        const arquivo = e.target.files?.[0]
+        e.target.value = ''
+        if (!arquivo) return
+        try {
+            const logo = await prepararLogo(arquivo)
+            if (logo.length > 200_000) {
+                Swal.fire('Opa...', 'Essa imagem ficou grande demais. Tente uma logo mais simples.', 'warning')
+                return
+            }
+            onChange(logo)
+        } catch {
+            Swal.fire('Opa...', 'Não deu pra abrir essa imagem. Tente um PNG ou JPG.', 'error')
+        }
+    }
+
+    return (
+        <div>
+            <span className="text-gray-700 text-sm">Logo (opcional)</span>
+            <div className="mt-1 flex items-center gap-3">
+                {valor
+                    ? <img src={valor} alt="Logo atual" className="h-14 max-w-40 object-contain bg-white border border-gray-200 rounded p-1" />
+                    : <span className="h-14 w-24 grid place-items-center text-xs text-gray-400 bg-white border border-dashed border-gray-300 rounded">sem logo</span>}
+                <label className="cursor-pointer text-sm font-medium text-marca-700 hover:text-marca-800">
+                    {valor ? 'Trocar' : 'Escolher imagem'}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={escolher} className="sr-only" />
+                </label>
+                {valor && (
+                    <button type="button" onClick={() => onChange(null)} className="text-sm text-red-600 hover:text-red-700 cursor-pointer">Tirar</button>
+                )}
+            </div>
+            <p className="text-gray-500 text-xs mt-1">Sai em preto e branco no topo do comprovante. Logo simples, com fundo branco, fica melhor.</p>
         </div>
     )
 }

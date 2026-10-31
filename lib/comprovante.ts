@@ -2,6 +2,8 @@ import Swal from "sweetalert2";
 import { FormatarValor, formatarDataBR, linkWhatsApp } from "@/lib/mask";
 import { nomeForma } from "@/lib/formas";
 import { pegarCabecalhoComprovanteBack } from "@/app/dashboard/actions";
+import { detalhesDoReciboBack } from "@/modais/clienteDetalhado/actions";
+import qrcode from "qrcode-generator";
 
 export type Via = 'cliente' | 'loja'
 
@@ -31,6 +33,7 @@ type ExtratoProps = {
 }
 
 type Cabecalho = {
+    logo?: string | null, // data:image/png;base64 já reduzida pra largura da bobina (Preferências)
     nome: string,
     cnpj: string | null,
     telefone: string | null,
@@ -108,8 +111,52 @@ function saldoAnterior(dados: DadosComprovante) {
     return Math.round((dados.saldo + dados.valor) * 100) / 100;
 }
 
+// Detalhes do recibo (notas abatidas + link do extrato), buscados uma vez por número: imprimir as duas vias e mandar
+// no WhatsApp não fazem três idas ao servidor. Se falhar, o comprovante sai como antes, sem essas partes.
+type Detalhes = Awaited<ReturnType<typeof detalhesDoReciboBack>>
+const detalhesGuardados = new Map<number, Promise<Detalhes>>()
+function detalhesDoRecibo(numero: number | undefined): Promise<Detalhes> {
+    if (!numero) return Promise.resolve(null)
+    if (!detalhesGuardados.has(numero)) {
+        detalhesGuardados.set(numero, detalhesDoReciboBack(numero).catch(() => {
+            detalhesGuardados.delete(numero)
+            return null
+        }))
+    }
+    return detalhesGuardados.get(numero)!
+}
+
+// Uma linha por nota que o pagamento abateu: data, quanto foi abatido e quanto ficou (ou QUITADA)
+function htmlNotasAbatidas(detalhes: Detalhes) {
+    if (!detalhes?.notas.length) return ''
+    return `
+    <p class="rotulo">ABATEU ${detalhes.notas.length === 1 ? 'A NOTA' : `${detalhes.notas.length} NOTAS`}</p>
+    ${detalhes.notas.map(n => `
+    <div class="nota">
+        <p class="linha"><span>Nota de ${formatarDataBR(n.data)}</span><span>${FormatarValor(n.pago)}</span></p>
+        ${n.descricao ? `<p class="detalhe">${escapar(n.descricao)}</p>` : ''}
+        <p class="detalhe">${n.ficou < 0.01 ? 'Quitada' : `Valor ${FormatarValor(n.valorNota)}, falta ${FormatarValor(n.ficou)}`}</p>
+    </div>`).join('')}
+    <hr>`
+}
+
+// QR code do link do extrato (só na via do cliente): ele aponta a câmera e vê todas as notas dele
+function htmlQrExtrato(detalhes: Detalhes) {
+    if (!detalhes?.linkExtrato) return ''
+    const qr = qrcode(0, 'M')
+    qr.addData(detalhes.linkExtrato)
+    qr.make()
+    return `
+    <div class="centro qr">
+        ${qr.createSvgTag({ cellSize: 3, margin: 0, scalable: true })}
+        <p class="detalhe">Aponte a câmera pra ver todas as suas notas</p>
+    </div>
+    <hr>`
+}
+
 function htmlCabecalho(cab: Cabecalho) {
     return `
+    ${cab.logo ? `<div class="centro"><img class="logo" src="${escapar(cab.logo)}" alt=""></div>` : ''}
     <p class="centro empresa">${escapar(cab.nome)}</p>
     ${cab.cnpj ? `<p class="centro loja">CNPJ ${cab.cnpj}</p>` : ''}
     ${cab.endereco ? `<p class="centro loja">${escapar(cab.endereco)}</p>` : ''}
@@ -159,6 +206,8 @@ function imprimir(titulo: string, corpo: string): Promise<void> {
     .total .valor { font-size: 28px; }
     .rodape { margin-top: 1mm; font-size: 11px; overflow-wrap: anywhere; }
     .assinatura { margin-top: 2mm; font-size: 9px; }
+    .logo { display: block; margin: 0 auto 2mm; max-width: 70%; max-height: 22mm; }
+    .qr svg { display: block; width: 30mm; height: 30mm; margin: 0 auto 1mm; }
 </style>
 </head>
 <body>
@@ -193,6 +242,7 @@ export async function imprimirComprovante(dados: DadosComprovante, vias: Via[]) 
     const mostraSaldo = dados.saldo !== undefined && !quitado;
     const rotuloSaldo = dados.saldoDeHoje ? 'Saldo em aberto hoje' : 'Saldo em aberto';
     const anterior = saldoAnterior(dados);
+    const detalhes = await detalhesDoRecibo(dados.numero);
 
     const corpo = (via: Via) => `
     ${dados.reimpressao ? '<p class="centro reimpressao">REIMPRESSÃO</p>' : ''}
@@ -213,9 +263,11 @@ export async function imprimirComprovante(dados: DadosComprovante, vias: Via[]) 
         ${quitado ? '<p class="quitado">QUITADO</p>' : ''}
     </div>
     <hr>
+    ${htmlNotasAbatidas(detalhes)}
     ${mostraSaldo ? `<p class="linha"><span>${rotuloSaldo}</span><span><b>${FormatarValor(dados.saldo!)}</b></span></p>` : ''}
     ${dados.atendente ? `<p class="linha"><span>Atendente</span><span>${escapar(dados.atendente)}</span></p>` : ''}
     ${mostraSaldo || dados.atendente ? '<hr>' : ''}
+    ${via === 'cliente' ? htmlQrExtrato(detalhes) : ''}
     ${htmlRodape(cab)}`;
 
     // Uma impressão por via, uma depois da outra: a térmica só corta no fim de cada impressão, então as duas vias
@@ -240,8 +292,17 @@ async function textoComprovante(dados: DadosComprovante) {
         ...(saldoAnterior(dados) !== null ? [`Saldo anterior: ${FormatarValor(saldoAnterior(dados)!)}`] : []),
         `Valor pago: *${FormatarValor(dados.valor)}*${dados.forma ? ` (${nomeForma(dados.forma)})` : ''}`,
     ];
+    const detalhes = await detalhesDoRecibo(dados.numero);
+    if (detalhes?.notas.length) {
+        linhas.push('', detalhes.notas.length === 1 ? 'Abateu a nota:' : 'Abateu as notas:');
+        for (const n of detalhes.notas) {
+            linhas.push(`- ${formatarDataBR(n.data)}: ${FormatarValor(n.pago)}${n.ficou < 0.01 ? ' (quitada)' : ` (falta ${FormatarValor(n.ficou)})`}`);
+        }
+        linhas.push('');
+    }
     if (quitado) linhas.push('Situação: *quitado* ✅');
     else if (dados.saldo !== undefined) linhas.push(`${dados.saldoDeHoje ? 'Saldo em aberto hoje' : 'Saldo em aberto'}: ${FormatarValor(dados.saldo)}`);
+    if (detalhes?.linkExtrato) linhas.push('', `Suas notas: ${detalhes.linkExtrato}`);
     linhas.push('', cab.rodape ?? RODAPE_PADRAO);
 
     return linhas.join('\n');

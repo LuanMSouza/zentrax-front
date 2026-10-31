@@ -25,7 +25,8 @@ export async function enviarLogin(formData: FormData) {
             },
             include: {
                 empresa: {
-                    include: { empresa_settings: true }
+                    // a logo do comprovante (até ~200KB) não vai junto: o login guarda as settings no localStorage
+                    include: { empresa_settings: { omit: { logo_comprovante: true } } }
                 }
             }
         });
