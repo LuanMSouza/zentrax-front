@@ -147,14 +147,15 @@ function svgQr(texto: string) {
     return qr.createSvgTag({ cellSize: 3, margin: 0, scalable: true })
 }
 
-// QR codes da via do cliente: o do extrato (aponta a câmera e vê todas as notas) e, se a loja configurou o Pix e
+// QR codes da via do cliente: o do extrato (se a loja não desligou) e, se a loja configurou o Pix e
 // ainda tem saldo, o do Pix já com o valor. Com os dois, ficam lado a lado pra não esticar o papel.
 function htmlQrs(detalhes: Detalhes) {
-    if (!detalhes?.linkExtrato) return ''
+    if (!detalhes) return ''
     const blocos = [
         ...(detalhes.pix ? [`<div class="qr">${svgQr(detalhes.pix.codigo)}<p class="detalhe"><b>Pague com Pix</b><br>${FormatarValor(detalhes.pix.valor)}</p></div>`] : []),
-        `<div class="qr">${svgQr(detalhes.linkExtrato)}<p class="detalhe">${detalhes.pix ? 'Veja suas notas' : 'Aponte a câmera pra ver todas as suas notas'}</p></div>`,
+        ...(detalhes.qrExtrato && detalhes.linkExtrato ? [`<div class="qr">${svgQr(detalhes.linkExtrato)}<p class="detalhe">${detalhes.pix ? 'Veja suas notas' : 'Aponte a câmera pra ver todas as suas notas'}</p></div>`] : []),
     ]
+    if (blocos.length === 0) return ''
     return `
     <div class="centro qrs">${blocos.join('')}</div>
     <hr>`

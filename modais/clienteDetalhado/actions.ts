@@ -6,6 +6,7 @@ import { jwtVerify } from 'jose';
 import RegistrarAcao from "@/lib/logger";
 import { FormatarValor, hojeBR, diasAteVencer, formatarDataBR } from "@/lib/mask";
 import autenticar from "@/lib/auth";
+import { pode } from "@/lib/permissoesServidor";
 import { Prisma } from "@prisma/client";
 import { formaValida } from "@/lib/formas";
 import { Recibo } from "@/types";
@@ -689,7 +690,7 @@ export async function detalhesDoReciboBack(numero: number) {
     if (!recibo) return null
     const settings = await prisma.empresa_settings.findFirst({
         where: { empresa_id: empresaId },
-        select: { pix_chave: true, pix_nome: true, pix_cidade: true }
+        select: { pix_chave: true, pix_nome: true, pix_cidade: true, qr_extrato: true }
     })
     const pix = configPixDe(settings)
     const saldo = Number(recibo.saldo_apos)
@@ -718,6 +719,8 @@ export async function detalhesDoReciboBack(numero: number) {
         // Pix do que ficou devendo (com o valor já preenchido); sem Pix configurado ou sem saldo, não vai
         pix: pix && saldo > 0.009 ? { codigo: codigoPix(pix, saldo), valor: saldo } : null,
         estornado: !!recibo.estornado_em,
+        // a loja pode desligar o QR das notas no papel (Preferências > Comprovante); o link no WhatsApp continua
+        qrExtrato: settings?.qr_extrato !== false,
     }
 }
 
@@ -726,13 +729,13 @@ function textoPix(pix: NonNullable<ReturnType<typeof configPixDe>>, valor: numbe
     return `Pra pagar no Pix, a chave é ${pix.chave}. Ou copie o código abaixo, que já vem com o valor:\n${codigoPix(pix, valor)}`
 }
 
-// Desfazer um pagamento lançado errado (só gestor, com a senha). Devolve o valor pras notas que ele abateu, apaga
+// Desfazer um pagamento lançado errado (gestor, ou atendente liberado; sempre com a senha). Devolve o valor pras notas que ele abateu, apaga
 // as linhas de pagamento e marca o recibo como estornado: o número não some (a sequência não fica com buraco) e o
 // Histórico registra quem desfez. Pagamento antigo, de antes do recibo numerado, não dá pra desfazer por aqui.
 export async function desfazerPagamentoBack(numero: number, senha: string) {
     const Auth = await autenticar()
     if (!Auth) return { success: false as const, error: "Sessão expirada ou inválida" }
-    if (Auth.role !== 'gestor') return { success: false as const, error: "Só gestor pode desfazer pagamento." }
+    if (!(await pode(Auth, 'desfazer'))) return { success: false as const, error: "Você não tem permissão pra desfazer pagamento." }
 
     const empresaId = Number(Auth.empresa_id)
     const usuario = await prisma.usuarios.findUnique({ where: { id: Number(Auth.usuario_id) }, select: { nome: true, senha: true } })

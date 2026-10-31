@@ -25,7 +25,8 @@ type Preferencias = {
     resumo_mensal?: boolean,
     pix_chave?: string | null,
     pix_nome?: string | null,
-    pix_cidade?: string | null
+    pix_cidade?: string | null,
+    qr_extrato?: boolean
 }
 
 const camposComprovante = [
@@ -175,6 +176,15 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
             {secao === 'comprovante' && (
                 <div className="space-y-3 bg-gray-50 border border-gray-200 rounded p-3">
                     <p className="text-gray-500 text-xs md:text-sm">Sai no topo do comprovante, junto do nome da loja. O que ficar em branco não aparece.</p>
+                    <label htmlFor="qr-extrato" className="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" id="qr-extrato" checked={novasPreferencias?.qr_extrato !== false}
+                            onChange={(e) => setNovasPreferencias(prev => ({ ...prev, qr_extrato: e.target.checked }))}
+                            className="mt-0.5 accent-marca-700 w-5 h-5 cursor-pointer shrink-0" />
+                        <span>
+                            <span className="block text-gray-700 text-sm md:text-base">Imprimir o QR code das notas na via do cliente</span>
+                            <span className="block text-gray-500 text-xs md:text-sm">O cliente aponta a câmera e vê todas as notas dele. Se seus clientes não usam, desligue. O QR do Pix continua, se tiver Pix.</span>
+                        </span>
+                    </label>
                     <LogoComprovante valor={novasPreferencias?.logo_comprovante ?? null}
                         onChange={(logo) => setNovasPreferencias(prev => ({ ...prev, logo_comprovante: logo }))} />
                     {camposComprovante.map(({ campo, rotulo, placeholder, max }) => (
