@@ -1,0 +1,30 @@
+// "O que tem de novo" do ZentraX. A cada atualização que o cliente PERCEBE, entra um item novo no TOPO da lista
+// (o primeiro é sempre o mais recente). O id precisa ser único e nunca mudar: é ele que fica guardado no
+// navegador pra saber o que a pessoa já viu. Texto pra lojista: o que mudou pra ele, não o que mudou no código.
+export type Novidade = {
+    id: string
+    data: string // AAAA-MM-DD
+    titulo: string
+    itens: { titulo: string, texto: string }[]
+}
+
+export const NOVIDADES: Novidade[] = [
+    {
+        id: '2026-10-31-clientes',
+        data: '2026-10-31',
+        titulo: 'Ficha do cliente, relatórios e mais',
+        itens: [
+            { titulo: 'Cadastro mais completo', texto: 'Agora dá pra colocar apelido, e-mail, endereço, aniversário, limite de fiado e observações no cliente. Tudo opcional, fica em "Mais detalhes".' },
+            { titulo: 'Limite de fiado', texto: 'Se uma nota nova passar do limite do cliente, o ZentraX avisa antes de lançar. Não bloqueia, só avisa.' },
+            { titulo: 'Resumo do cliente', texto: 'Na ficha tem a aba Resumo: média das últimas notas, quantos dias ele leva pra pagar, quanto comprou no mês e no ano e um gráfico dos últimos 12 meses.' },
+            { titulo: 'Relatórios', texto: 'Quem mais pagou, quem mais comprou, melhores pagadores, quem mais deve e clientes que sumiram. Fica no botão Relatórios, só pra gestor.' },
+            { titulo: 'Aniversariantes', texto: 'No dia do aniversário o cliente aparece no topo da tela, com o parabéns pronto pra mandar no WhatsApp.' },
+            { titulo: 'Link do extrato', texto: 'Na ficha do cliente, o botão "Mandar extrato" gera um link pro cliente ver as notas em aberto pelo celular, sem precisar de login.' },
+            { titulo: 'Cobrar atrasados em sequência', texto: 'Um botão passa pelos clientes atrasados um por um, com a mensagem de cobrança pronta. Não precisa abrir ficha por ficha.' },
+            { titulo: 'Fechamento do dia', texto: 'Quanto entrou no dia separado por dinheiro, Pix e cartão, pra bater com o caixa.' },
+            { titulo: 'Exportar pra Excel', texto: 'Em Configurações, baixe uma planilha com todos os clientes, notas e pagamentos. Seus dados são seus.' },
+        ]
+    },
+]
+
+export const ULTIMA_NOVIDADE = NOVIDADES[0]?.id ?? ''

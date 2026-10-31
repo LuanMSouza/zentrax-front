@@ -7,6 +7,7 @@ import Configuracoes from "@/modais/configuracoes/page";
 import HistoricoAtividades from "@/blocos/HistoricoAtividades/pages";
 import AssinaturaModal from "@/modais/assinatura/pages";
 import Swal from "sweetalert2";
+import Novidades from "@/blocos/Novidades";
 
 export default function TopBar() {
 
@@ -127,6 +128,8 @@ export default function TopBar() {
                                 {emTeste ? 'Assinar' : 'Renovar'}
                             </button>
                         )}
+
+                        <Novidades demo={ehDemo} />
 
                         <button
                             onClick={() => setConfig(true)}
