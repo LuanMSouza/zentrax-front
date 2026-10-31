@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import autenticar from "@/lib/auth";
 import { SELECT_EXTRAS, extrasParaTela } from "@/lib/cliente";
 import { ehEmpresaDemo } from "@/lib/demo";
+import { permissoesDoUsuario } from "@/lib/permissoesServidor";
 
 export async function pegarClientesBack() {
 
@@ -269,4 +270,12 @@ export async function responderEmailsBack(quer: boolean) {
         data: { avisar_vencimentos: quer, resumo_mensal: quer, emails_respondido_em: new Date() }
     })
     return { success: true as const }
+}
+
+// O que a pessoa logada pode ver/fazer (gestor: tudo; atendente: o que o gestor liberou). Só pra montar a tela:
+// cada action confere de novo no servidor.
+export async function minhasPermissoesBack() {
+    const Auth = await autenticar()
+    if (!Auth) return null
+    return permissoesDoUsuario(Auth)
 }

@@ -9,18 +9,19 @@ import { Button } from "@/componentes/Buttons"
 import { AlterarClienteBack, ApagarClienteBack, PegarImpactoClienteBack } from "./actions"
 import { ConfirmarSenha } from "@/modais/configuracoes/abas/actions"
 import { Cliente } from "@/types"
+import { MapaPermissoes } from "@/lib/permissoes"
 import CamposExtrasCliente, { EXTRAS_VAZIOS, extrasDoCliente, campo, rotulo } from "@/componentes/CamposExtrasCliente"
 import { bateBusca, textoAniversario } from "@/lib/cliente"
 
 type EditarClientesProps = {
     clientes: Cliente[],
-    role: string | null,
+    pode: MapaPermissoes, // excluir e bloquear: gestor, ou atendente liberado
     sair: () => void,
     atualizar: (cliente: Cliente) => void,
     remover: (id: number) => void
 }
 
-export default function EditarClientes({ clientes, role, sair, atualizar, remover }: EditarClientesProps) {
+export default function EditarClientes({ clientes, pode, sair, atualizar, remover }: EditarClientesProps) {
 
     const [filtro, setFiltro] = useState('')
     const [editandoId, setEditandoId] = useState<number | null>(null)
@@ -190,7 +191,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                                 </div>
                             </section>
 
-                            {role === 'gestor' && (
+                            {pode.bloquear && (
                                 <label className={`flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer ring-1 transition-colors ${bloqueado ? 'bg-red-50 ring-red-600/20' : 'bg-slate-50 ring-slate-900/5'}`}>
                                     <input type="checkbox" checked={bloqueado} onChange={(e) => setBloqueado(e.target.checked)}
                                         className="mt-0.5 accent-red-600 w-5 h-5 cursor-pointer shrink-0" />
@@ -209,7 +210,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                         </div>
 
                         <div className="shrink-0 border-t border-slate-100 pt-4 sm:pt-5 flex items-center gap-2 sm:gap-3">
-                            {role === 'gestor' && (
+                            {pode.excluir && (
                                 <button onClick={() => excluir(editando)} disabled={excluindoId !== null}
                                     className="-ml-3 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg px-3 py-2 cursor-pointer transition-colors disabled:opacity-50">
                                     {excluindoId === editando.id ? 'Excluindo...' : 'Excluir cliente'}

@@ -14,6 +14,8 @@ import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import EditarClientes from "@/modais/editarClientes/page";
 import FechamentoDia from "@/modais/fechamentoDia/page";
 import PerguntaEmails from "@/blocos/PerguntaEmails";
+import { minhasPermissoesBack } from "./actions";
+import { MapaPermissoes, permissoesDe } from "@/lib/permissoes";
 import CobrarAtrasados, { filaDoModo, ModoCobranca } from "@/modais/cobrarAtrasados/page";
 import ImportarCaderno from "@/modais/importarCaderno/page";
 import Aniversarios from "@/blocos/Aniversarios";
@@ -43,6 +45,9 @@ export default function Home() {
     const [situacao, setSituacao] = useState<'vence_hoje' | 'atrasados' | null>(null)
     const [loading, setLoading] = useState(true)
     const [role, setRole] = useState<string | null>(null)
+    // o que pode ver/fazer (gestor: tudo; atendente: o que o gestor liberou). Começa fechado até o servidor responder.
+    const [pode, setPode] = useState<MapaPermissoes>(permissoesDe(null, null))
+    useEffect(() => { minhasPermissoesBack().then(p => p && setPode(p)).catch(() => {}) }, [])
 
     const [clientes, setClientes] = useState<Cliente[]>([])
     const [emAberto, setEmAberto] = useState<ClienteEmAberto[]>([])
@@ -216,7 +221,7 @@ export default function Home() {
                             Editar clientes
                         </button>
                         {/* ranking e números da loja: mesma regra do "Total na rua", só gestor */}
-                        {role === 'gestor' && (
+                        {pode.relatorios && (
                             <Link
                                 href="/dashboard/relatorios"
                                 className="text-sm font-medium text-slate-600 hover:text-slate-900 underline underline-offset-4 decoration-slate-300 px-2 py-2"
@@ -230,7 +235,7 @@ export default function Home() {
                 <Aniversarios clientes={clientes} />
                 <PerguntaEmails />
 
-                <ResumoTopo emAberto={emAberto} role={role} mostrarValores={mostrarValores} situacao={situacao}
+                <ResumoTopo emAberto={emAberto} verTotal={pode.relatorios} mostrarValores={mostrarValores} situacao={situacao}
                     onFiltrar={(s) => { setSituacao(s); setAba('devedores') }} />
 
                 <div className="flex flex-wrap sm:flex-nowrap gap-2">
@@ -355,7 +360,7 @@ export default function Home() {
                         temMaisNoServidor={temMaisPagamentos}
                         carregandoMais={carregandoMaisPagamentos}
                         carregarMais={carregarMaisPagamentos}
-                        role={role}
+                        podeDesfazer={pode.desfazer}
                         aposDesfazer={() => { recarregarPagamentos(); recarregarClientes() }}
                     />
                 )}
@@ -363,7 +368,7 @@ export default function Home() {
 
             {/* Modais */}
             {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}
-            {modalEditarClientes && <EditarClientes clientes={clientes} role={role} atualizar={atualizarClienteEditado} remover={removerCliente} sair={() => setModalEditarClientes(false)} />}
+            {modalEditarClientes && <EditarClientes clientes={clientes} pode={pode} atualizar={atualizarClienteEditado} remover={removerCliente} sair={() => setModalEditarClientes(false)} />}
             {modalFechamento && <FechamentoDia sair={() => setModalFechamento(false)} />}
             {modalCobranca && <CobrarAtrasados modo={modalCobranca} emAberto={emAberto} sair={() => setModalCobranca(null)} />}
             {modalImportar && <ImportarCaderno concluir={() => carregarDados()} sair={() => setModalImportar(false)} />}

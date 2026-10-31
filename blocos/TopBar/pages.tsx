@@ -8,6 +8,7 @@ import HistoricoAtividades from "@/blocos/HistoricoAtividades/pages";
 import AssinaturaModal from "@/modais/assinatura/pages";
 import Swal from "sweetalert2";
 import Novidades from "@/blocos/Novidades";
+import { minhasPermissoesBack } from "@/app/dashboard/actions";
 
 export default function TopBar() {
 
@@ -16,6 +17,9 @@ export default function TopBar() {
     const [settings, setSettings] = useState<any>(null);
     const [nome, setNome] = useState("");
     const [diasRestantes, setDiasRestantes] = useState<number | null>(null);
+    // Histórico: gestor, ou atendente que o gestor liberou (Configurações > Conta)
+    const [verHistorico, setVerHistorico] = useState(false);
+    useEffect(() => { minhasPermissoesBack().then(p => setVerHistorico(!!p?.historico)).catch(() => {}) }, []);
 
     // Carrega os dados salvos no login (antes disso, nada aqui era preenchido
     // e o aviso de vencimento nunca disparava).
@@ -159,7 +163,7 @@ export default function TopBar() {
                     empresa={empresa}
                     sair={() => setConfig(false)} />}
 
-            {usuario?.role === 'gestor' && <HistoricoAtividades />}
+            {verHistorico && <HistoricoAtividades />}
 
             {assinatura && <AssinaturaModal sair={() => setAssinatura(false)} />}
         </>

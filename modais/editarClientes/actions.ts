@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma"
 import autenticar from "@/lib/auth"
+import { pode } from "@/lib/permissoesServidor"
 import RegistrarAcao from "@/lib/logger"
 import { lerCamposExtras, extrasParaTela, EntradaExtras } from "@/lib/cliente"
 
@@ -67,8 +68,8 @@ export async function AlterarClienteBack(dados: AlterarClienteProps) {
                 whatsapp: whatsappDigitos ? BigInt(whatsappDigitos) : null,
                 documento: documento || null,
                 ...extras.campos,
-                // bloquear pra fiado é decisão do gestor
-                ...(Auth.role === 'gestor' && typeof dados.bloqueado === 'boolean' ? { bloqueado: dados.bloqueado } : {})
+                // bloquear pra fiado: gestor, ou atendente liberado
+                ...(typeof dados.bloqueado === 'boolean' && await pode(Auth, 'bloquear') ? { bloqueado: dados.bloqueado } : {})
             }
         })
 
@@ -140,8 +141,8 @@ export async function ApagarClienteBack(id: number) {
         return { success: false, error: "Sessão expirada ou inválida" }
     }
 
-    if (Auth.role !== 'gestor') {
-        return { success: false, error: "Apenas gestores podem excluir clientes." }
+    if (!(await pode(Auth, 'excluir'))) {
+        return { success: false, error: "Você não tem permissão pra excluir cliente." }
     }
 
     const empresaId = Number(Auth.empresa_id)

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from "react"
-import { ApagarContaBack, ConfirmarSenha, PegarUsuariosDaConta } from "./actions"
+import { ApagarContaBack, ConfirmarSenha, PegarUsuariosDaConta, permissoesAtendenteBack, salvarPermissoesAtendenteBack } from "./actions"
+import { LISTA_PERMISSOES, MapaPermissoes, PERMISSOES } from "@/lib/permissoes"
 import Swal from "sweetalert2"
 import CriarUsuario from "@/modais/criarUsuario/page"
 import AlterarUsuario from "@/modais/alterarConta/page"
@@ -174,6 +175,8 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
             </div>
 
 
+            {usuario.role === 'gestor' && <PermissoesAtendente />}
+
             {/* modais */}
             {modalCriarUsuario &&
                 <CriarUsuario
@@ -193,5 +196,48 @@ export default function ContaConfig({ usuario, empresa }: ContaConfigProps) {
                 />
             }
         </div >
+    )
+}
+
+// O que os atendentes (usuários que não são gestor) podem fazer além do básico. Salva na hora de cada clique.
+function PermissoesAtendente() {
+    const [permissoes, setPermissoes] = useState<MapaPermissoes | null>(null)
+    const [salvando, setSalvando] = useState(false)
+
+    useEffect(() => { permissoesAtendenteBack().then(setPermissoes).catch(() => {}) }, [])
+
+    async function mudar(chave: keyof MapaPermissoes, valor: boolean) {
+        if (!permissoes) return
+        const antes = permissoes
+        const novas = { ...permissoes, [chave]: valor }
+        setPermissoes(novas)
+        setSalvando(true)
+        const res = await salvarPermissoesAtendenteBack(novas).catch(() => null)
+        setSalvando(false)
+        if (!res?.success) {
+            setPermissoes(antes)
+            Swal.fire('Opa...', (res as { error?: string } | null)?.error ?? 'Não deu pra salvar agora.', 'error')
+        }
+    }
+
+    if (!permissoes) return null
+
+    return (
+        <section className="space-y-2">
+            <div>
+                <h2 className="text-xl font-semibold text-marca-700">O que os atendentes podem fazer</h2>
+                <p className="text-sm text-gray-500">Gestor pode tudo. Atendente sempre pode lançar nota, receber pagamento, cobrar e cadastrar cliente. Marque o que mais ele pode fazer. {salvando && <span className="text-marca-700">Salvando...</span>}</p>
+            </div>
+            {LISTA_PERMISSOES.map(chave => (
+                <label key={chave} className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded p-3 cursor-pointer">
+                    <input type="checkbox" checked={permissoes[chave]} onChange={(e) => mudar(chave, e.target.checked)}
+                        className="mt-0.5 accent-marca-700 w-5 h-5 cursor-pointer shrink-0" />
+                    <span>
+                        <span className="block text-gray-700 text-sm md:text-base">{PERMISSOES[chave].rotulo}</span>
+                        <span className="block text-gray-500 text-xs md:text-sm">{PERMISSOES[chave].descricao}</span>
+                    </span>
+                </label>
+            ))}
+        </section>
     )
 }

@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma"
 import autenticar from "@/lib/auth"
+import { pode } from "@/lib/permissoesServidor"
 
 export async function pegarAtividades() {
     const Auth = await autenticar()
@@ -10,8 +11,8 @@ export async function pegarAtividades() {
         return { success: false, error: "Sessão expirada ou inválida" }
     }
 
-    if (Auth.role !== 'gestor') {
-        return { success: false, error: "Apenas gestores podem ver o histórico de atividades." }
+    if (!(await pode(Auth, 'historico'))) {
+        return { success: false, error: "Você não tem permissão pra ver o histórico." }
     }
 
     try {

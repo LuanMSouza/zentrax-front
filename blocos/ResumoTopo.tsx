@@ -7,7 +7,7 @@ type Situacao = 'vence_hoje' | 'atrasados'
 
 type Props = {
     emAberto: ClienteEmAberto[]
-    role: string | null
+    verTotal: boolean // gestor, ou atendente que o gestor liberou (Configurações > Conta)
     mostrarValores: boolean
     situacao: Situacao | null
     onFiltrar: (s: Situacao | null) => void
@@ -15,14 +15,14 @@ type Props = {
 
 // O total na rua ficava no FIM da página, depois de todos os cards, e só
 // aparecia pro gestor com os valores visíveis. Agora é a primeira coisa da tela.
-export default function ResumoTopo({ emAberto, role, mostrarValores, situacao, onFiltrar }: Props) {
+export default function ResumoTopo({ emAberto, verTotal, mostrarValores, situacao, onFiltrar }: Props) {
     const total = emAberto.reduce((acc, c) => acc + Number(c.total), 0)
     const atrasados = emAberto.filter(c => c.atrasado).length
     const venceHoje = emAberto.filter(c => c.vence_hoje).length
 
     const itens = [
-        // valor financeiro total: só gestor (regra que já existia)
-        ...(role === 'gestor'
+        // valor financeiro total: gestor, ou atendente liberado
+        ...(verTotal
             ? [{ rotulo: 'Total na rua', valor: mostrarValores ? FormatarValor(total) : 'R$ ••••••', destaque: true }]
             : []),
         { rotulo: 'Clientes em aberto', valor: String(emAberto.length), destaque: false },

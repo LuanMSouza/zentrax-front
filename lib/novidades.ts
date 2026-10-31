@@ -10,6 +10,15 @@ export type Novidade = {
 
 export const NOVIDADES: Novidade[] = [
     {
+        id: '2026-10-31-permissoes',
+        data: '2026-10-31',
+        titulo: 'Permissões dos atendentes',
+        itens: [
+            { titulo: 'Você decide o que o atendente faz', texto: 'Em Configurações > Conta, marque se os atendentes podem ver relatórios, ver o histórico, desfazer pagamento, excluir cliente ou bloquear fiado.' },
+            { titulo: 'QR code das notas opcional', texto: 'Se seus clientes não usam QR code, desligue em Preferências > Comprovante. O papel fica mais curto.' },
+        ]
+    },
+    {
         id: '2026-10-31-pix',
         data: '2026-10-31',
         titulo: 'Pix, lembretes e mais controle',

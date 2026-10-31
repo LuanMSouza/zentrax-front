@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import autenticar from "@/lib/auth";
+import { pode } from "@/lib/permissoesServidor";
 import { Prisma } from "@prisma/client";
 import { estaSumido } from "@/lib/cliente";
 
@@ -9,13 +10,13 @@ export type Periodo = 'mes' | 'ano' | 'tudo'
 
 const LIMITE = 50
 
-// Relatórios (rankings e números da loja). Só gestor: é a mesma regra do "Total na rua" no topo do dashboard.
+// Relatórios (rankings e números da loja). Gestor, ou atendente se o gestor liberou: mesma regra do "Total na rua".
 // Período "mês" e "ano" vão do dia 1 (ou 1º de janeiro) até hoje, e a comparação é com o MESMO trecho do mês/ano
 // anterior (1 a 15 de outubro contra 1 a 15 de setembro), pra não comparar meio mês com um mês inteiro.
 export async function relatorioBack(periodo: Periodo) {
     const Auth = await autenticar()
     if (!Auth) return { success: false as const, error: "Sessão expirada ou inválida" }
-    if (Auth.role !== 'gestor') return { success: false as const, error: "Os relatórios são só pra gestor." }
+    if (!(await pode(Auth, 'relatorios'))) return { success: false as const, error: "Os relatórios são só pra gestor (ou pra quem ele liberou)." }
     if (!['mes', 'ano', 'tudo'].includes(periodo)) return { success: false as const, error: "Período inválido." }
 
     const empresaId = Number(Auth.empresa_id)

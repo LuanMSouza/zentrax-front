@@ -16,11 +16,11 @@ type PagamentoProps = {
     temMaisNoServidor: boolean,
     carregandoMais: boolean,
     carregarMais: () => void,
-    role?: string | null,
+    podeDesfazer?: boolean,
     aposDesfazer?: () => void
 }
 
-export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoServidor, carregandoMais, carregarMais, role, aposDesfazer }: PagamentoProps) {
+export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoServidor, carregandoMais, carregarMais, podeDesfazer, aposDesfazer }: PagamentoProps) {
 
 
     const [mostrando, setMostrando] = useState(4);
@@ -74,7 +74,7 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
         });
     }
 
-    // Pagamento lançado errado: devolve o valor pras notas. Só gestor, com a senha (o servidor confere as duas coisas).
+    // Pagamento lançado errado: devolve o valor pras notas. Gestor ou atendente liberado, com a senha (o servidor confere).
     async function desfazer(p: Pagamentos) {
         if (!p.recibo) return;
         const { value: senha, isConfirmed } = await Swal.fire({
@@ -140,7 +140,7 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
                                     >
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" /></svg>
                                     </button>
-                                    {role === 'gestor' && p.recibo && (
+                                    {podeDesfazer && p.recibo && (
                                         <button
                                             onClick={() => desfazer(p)}
                                             aria-label={`Desfazer pagamento de ${p.clientes?.nome ?? 'cliente'}`}

@@ -6,6 +6,8 @@ import { boolean, success } from "zod";
 import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo";
 import { MAX_JUROS_MES, MAX_MULTA, MAX_CARENCIA } from "@/lib/juros";
 import { chavePixValida, normalizarChavePix } from "@/lib/pix";
+import { lerPermissoes, LISTA_PERMISSOES, PERMISSOES } from "@/lib/permissoes";
+import RegistrarAcao from "@/lib/logger";
 
 export async function ConfirmarSenha({ senha }: { id?: number, senha: string }) {
     try {
@@ -220,7 +222,8 @@ type Preferencias = {
     resumo_mensal?: boolean,
     pix_chave?: string | null,
     pix_nome?: string | null,
-    pix_cidade?: string | null
+    pix_cidade?: string | null,
+    qr_extrato?: boolean
 }
 
 // Logo do comprovante: só PNG em data URL (o navegador já reduziu e converteu) e com teto de tamanho (o banco tem o
@@ -273,7 +276,8 @@ export async function PegarPreferenciasBack() {
             pix_chave: true,
             pix_nome: true,
             pix_cidade: true,
-            emails_respondido_em: true
+            emails_respondido_em: true,
+            qr_extrato: true
         }
     })
 
@@ -353,6 +357,7 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
                 telefone: textoOuNull(preferencias.telefone, 20),
                 endereco: textoOuNull(preferencias.endereco, 120),
                 rodape_comprovante: textoOuNull(preferencias.rodape_comprovante, 80),
+                ...(typeof preferencias.qr_extrato === 'boolean' ? { qr_extrato: preferencias.qr_extrato } : {}),
                 ...(preferencias.logo_comprovante !== undefined ? { logo_comprovante: preferencias.logo_comprovante || null } : {}),
                 // chave Pix decide pra onde vai o dinheiro: só gestor muda
                 ...(Auth.role === 'gestor' && preferencias.pix_chave !== undefined ? {
@@ -382,4 +387,30 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
             error: "Erro ao atualizar as preferências."
         }
     }
+}
+// Permissões dos atendentes (Configurações > Conta). Só gestor lê e muda.
+export async function permissoesAtendenteBack() {
+    const Auth = await autenticar()
+    if (!Auth || Auth.role !== 'gestor') return null
+    const s = await prisma.empresa_settings.findFirst({ where: { empresa_id: Number(Auth.empresa_id) }, select: { permissoes_atendente: true } })
+    return lerPermissoes(s?.permissoes_atendente)
+}
+
+export async function salvarPermissoesAtendenteBack(permissoes: Record<string, unknown>) {
+    const Auth = await autenticar()
+    if (await ehEmpresaDemo(Auth?.empresa_id)) return BLOQUEADO_NA_DEMO
+    if (!Auth || Auth.role !== 'gestor') return { success: false, error: "Só gestor muda as permissões." }
+
+    // lerPermissoes descarta chave desconhecida e qualquer valor que não seja true
+    const limpas = lerPermissoes(permissoes)
+    await prisma.empresa_settings.update({ where: { empresa_id: Number(Auth.empresa_id) }, data: { permissoes_atendente: limpas } })
+
+    const ligadas = LISTA_PERMISSOES.filter(p => limpas[p]).map(p => PERMISSOES[p].rotulo.toLowerCase())
+    await RegistrarAcao({
+        tabela: 'Usuarios',
+        operacao: ligadas.length ? `Liberou pros atendentes: ${ligadas.join(', ')}` : 'Tirou todas as permissões extras dos atendentes',
+        empresa_id: Number(Auth.empresa_id),
+        usuario_id: Number(Auth.usuario_id)
+    })
+    return { success: true }
 }
