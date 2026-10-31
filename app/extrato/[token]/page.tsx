@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { lerTokenExtrato } from "@/lib/linkExtrato";
 import { FormatarValor, formatarDataBR } from "@/lib/mask";
 import { nomeForma } from "@/lib/formas";
+import { configJurosDe, jurosDaNota } from "@/lib/juros";
 
 // Página PÚBLICA (fora do middleware de login): o cliente da loja abre pelo link que recebeu no WhatsApp.
 // Mostra só o que é dele: notas em aberto e os últimos pagamentos. Nada de outros clientes, nada de valores da loja.
@@ -35,7 +36,7 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
         where: { id: clienteId },
         select: {
             nome: true,
-            empresa: { select: { nome: true, status: true, empresa_settings: { select: { telefone: true, endereco: true } } } },
+            empresa: { select: { nome: true, status: true, empresa_settings: { select: { telefone: true, endereco: true, juros_ativo: true, juros_mes: true, multa_atraso: true, juros_carencia: true } } } },
         }
     })
     if (!cliente || cliente.empresa?.status !== 'ativo') {
@@ -60,10 +61,13 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
 
     const saldo = (n: typeof notas[number]) => Number(n.valor_inicial) - Number(n.valor_abatido)
     const total = notas.reduce((acc, n) => acc + saldo(n), 0)
+    const configJuros = configJurosDe(cliente.empresa?.empresa_settings)
     const loja = cliente.empresa?.nome ?? ''
     const contato = [cliente.empresa?.empresa_settings?.telefone, cliente.empresa?.empresa_settings?.endereco].filter(Boolean).join(' · ')
     const quando = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(agora)
     const hojeISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora)
+    const juros = new Map(notas.map(n => [n.id, jurosDaNota(saldo(n), n, configJuros, hojeISO)]))
+    const totalJuros = [...juros.values()].reduce((acc, j) => acc + j.valor, 0)
 
     return (
         <main className="min-h-dvh bg-slate-50">
@@ -78,6 +82,11 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
                     <p className="text-sm text-slate-300">{total > 0 ? 'Total em aberto' : 'Situação'}</p>
                     <p className="text-3xl font-semibold tabular-nums mt-1">{total > 0 ? FormatarValor(total) : 'Tudo pago'}</p>
                     {total > 0 && <p className="text-sm text-slate-300 mt-1">{notas.length} {notas.length === 1 ? 'nota em aberto' : 'notas em aberto'}</p>}
+                    {totalJuros > 0 && (
+                        <p className="text-sm text-amber-300 mt-2 pt-2 border-t border-white/10">
+                            Com juros e multa por atraso: <span className="font-semibold tabular-nums">{FormatarValor(total + totalJuros)}</span>
+                        </p>
+                    )}
                 </section>
 
                 {notas.length > 0 && (
@@ -99,6 +108,9 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
                                                 <p className={`text-xs mt-0.5 ${atrasada ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
                                                     {atrasada ? 'Venceu em' : 'Combinado pra'} {formatarDataBR(n.vencimento)}
                                                 </p>
+                                            )}
+                                            {(juros.get(n.id)?.valor ?? 0) > 0 && (
+                                                <p className="text-xs text-amber-700 mt-0.5">+ {FormatarValor(juros.get(n.id)!.valor)} de juros ({juros.get(n.id)!.dias} dias de atraso)</p>
                                             )}
                                         </div>
                                         <p className="text-base font-semibold tabular-nums text-slate-900 shrink-0">{FormatarValor(saldo(n))}</p>

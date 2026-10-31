@@ -3,6 +3,8 @@ import { useEffect, useState } from "react"
 import { AtualizarPreferencias, PegarPreferenciasBack } from "./actions"
 import Swal from "sweetalert2"
 import { esquecerCabecalho } from "@/lib/comprovante"
+import { configJurosDe, jurosDaNota, MAX_JUROS_MES, MAX_MULTA, MAX_CARENCIA } from "@/lib/juros"
+import { FormatarValor } from "@/lib/mask"
 
 type Preferencias = {
     empresa_id: number,
@@ -12,7 +14,11 @@ type Preferencias = {
     avisar_vencimentos?: boolean,
     telefone?: string | null,
     endereco?: string | null,
-    rodape_comprovante?: string | null
+    rodape_comprovante?: string | null,
+    juros_ativo?: boolean,
+    juros_mes?: number | string,
+    multa_atraso?: number | string,
+    juros_carencia?: number | string
 }
 
 const camposComprovante = [
@@ -35,8 +41,11 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
         const response = await PegarPreferenciasBack()
 
         if (response.success) {
-            setPreferenciasSalvas(response.data as Preferencias);
-            setNovasPreferencias(response.data as Preferencias);
+            // 0 que vem do banco nos campos de juros aparece vazio (com o placeholder), senão digitar 1 vira "01"
+            const dados = { ...response.data } as Preferencias
+            for (const k of ['juros_mes', 'multa_atraso', 'juros_carencia'] as const) if (Number(dados[k] ?? 0) === 0) dados[k] = ''
+            setPreferenciasSalvas(dados);
+            setNovasPreferencias(dados);
         }
         if (!response.success) {
             Swal.fire(`Opa...`, response.error, `error`)
@@ -165,6 +174,10 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
             </div>
 
             {ehGestor && (
+                <JurosConfig valor={novasPreferencias} onChange={(campos) => setNovasPreferencias(prev => ({ ...prev, ...campos }))} />
+            )}
+
+            {ehGestor && (
                 <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
                     <div>
                         <p className="text-gray-700 text-sm md:text-base font-medium">Seus dados</p>
@@ -193,6 +206,59 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                 </button>
             )}
 
+        </div>
+    )
+}
+
+// Juros por atraso: só gestor vê (o servidor também só grava se for gestor). Mostra um exemplo com os números
+// digitados, pra ficar claro o que o cliente vai ver.
+function JurosConfig({ valor, onChange }: { valor: Preferencias, onChange: (campos: Partial<Preferencias>) => void }) {
+    const ativo = valor.juros_ativo === true
+    const config = configJurosDe({ ...valor, juros_ativo: true, juros_mes: String(valor.juros_mes ?? 0).replace(',', '.'), multa_atraso: String(valor.multa_atraso ?? 0).replace(',', '.') })
+    const exemplo = jurosDaNota(100, { data: '2026-01-01', vencimento: '2026-01-01' }, config, '2026-01-16')
+    const campo = "mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2 text-sm md:text-base text-gray-900 focus:outline-none focus:border-marca-700"
+    const mostrar = (v: unknown) => String(v ?? '')
+
+    return (
+        <div className="space-y-3 bg-gray-50 border border-gray-200 rounded p-3">
+            <label htmlFor="juros" className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" id="juros" checked={ativo} onChange={(e) => onChange({ juros_ativo: e.target.checked })}
+                    className="accent-marca-700 w-5 h-5 cursor-pointer shrink-0" />
+                <span>
+                    <span className="block text-gray-700 text-sm md:text-base font-medium">Cobrar juros por atraso</span>
+                    <span className="block text-gray-500 text-xs md:text-sm">Opcional. Mostra o valor com juros na ficha, na cobrança e no link do extrato. O pagamento continua sendo registrado normalmente na nota.</span>
+                </span>
+            </label>
+
+            {ativo && (
+                <>
+                    <div className="grid grid-cols-3 gap-3">
+                        <label className="block">
+                            <span className="text-gray-700 text-sm">Juros ao mês (%)</span>
+                            <input inputMode="decimal" value={mostrar(valor.juros_mes)} max={MAX_JUROS_MES} placeholder="ex: 1"
+                                onChange={(e) => onChange({ juros_mes: e.target.value })} className={campo} />
+                        </label>
+                        <label className="block">
+                            <span className="text-gray-700 text-sm">Multa (%)</span>
+                            <input inputMode="decimal" value={mostrar(valor.multa_atraso)} max={MAX_MULTA} placeholder="ex: 2"
+                                onChange={(e) => onChange({ multa_atraso: e.target.value })} className={campo} />
+                        </label>
+                        <label className="block">
+                            <span className="text-gray-700 text-sm">Tolerância (dias)</span>
+                            <input inputMode="numeric" value={mostrar(valor.juros_carencia)} max={MAX_CARENCIA} placeholder="ex: 5"
+                                onChange={(e) => onChange({ juros_carencia: e.target.value })} className={campo} />
+                        </label>
+                    </div>
+                    <p className="text-gray-500 text-xs md:text-sm">
+                        Conta a partir do dia combinado. Nota sem dia combinado conta 30 dias depois da compra, igual ao "atrasado" da tela principal.
+                        A lei do consumidor limita a multa a 2%.
+                    </p>
+                    <p className="text-sm text-gray-700 bg-white border border-gray-200 rounded px-3 py-2">
+                        Exemplo: uma nota de R$ 100,00 com 15 dias de atraso fica {FormatarValor(100 + exemplo.valor)}
+                        {exemplo.valor === 0 && config.carencia >= 15 ? ' (ainda dentro da tolerância)' : ''}.
+                    </p>
+                </>
+            )}
         </div>
     )
 }

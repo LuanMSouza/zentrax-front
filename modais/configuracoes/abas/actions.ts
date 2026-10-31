@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma"
 import bcrypt from 'bcrypt';
 import { boolean, success } from "zod";
 import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo";
+import { MAX_JUROS_MES, MAX_MULTA, MAX_CARENCIA } from "@/lib/juros";
 
 export async function ConfirmarSenha({ senha }: { id?: number, senha: string }) {
     try {
@@ -209,7 +210,17 @@ type Preferencias = {
     avisar_vencimentos?: boolean,
     telefone?: string | null,
     endereco?: string | null,
-    rodape_comprovante?: string | null
+    rodape_comprovante?: string | null,
+    juros_ativo?: boolean,
+    juros_mes?: number | string,
+    multa_atraso?: number | string,
+    juros_carencia?: number | string
+}
+
+// número de um campo de % ou dias: aceita "1,5", corta nos limites (os mesmos do CHECK no banco)
+function numeroEntre(valor: unknown, max: number) {
+    const n = Number(String(valor ?? '').replace(',', '.'))
+    return Number.isFinite(n) ? Math.min(Math.max(n, 0), max) : 0
 }
 
 // texto livre vindo do formulário: apara, corta no tamanho da coluna e grava vazio como null
@@ -228,7 +239,7 @@ export async function PegarPreferenciasBack() {
         }
     }
 
-    const preferencias: Preferencias | null = await prisma.empresa_settings.findFirst({
+    const preferencias = await prisma.empresa_settings.findFirst({
         where: {
             empresa_id: Number(Auth.empresa_id)
         },
@@ -239,14 +250,23 @@ export async function PegarPreferenciasBack() {
             avisar_vencimentos: true,
             telefone: true,
             endereco: true,
-            rodape_comprovante: true
+            rodape_comprovante: true,
+            juros_ativo: true,
+            juros_mes: true,
+            multa_atraso: true,
+            juros_carencia: true
         }
     })
 
     if (preferencias) {
         return {
             success: true,
-            data: preferencias
+            // Decimal do Prisma não atravessa pro navegador: vira número
+            data: {
+                ...preferencias,
+                juros_mes: Number(preferencias.juros_mes ?? 0),
+                multa_atraso: Number(preferencias.multa_atraso ?? 0),
+            }
         }
     }
 
@@ -284,7 +304,14 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
                 cobranca_text: Number(preferencias.cobranca_text),
                 telefone: textoOuNull(preferencias.telefone, 20),
                 endereco: textoOuNull(preferencias.endereco, 120),
-                rodape_comprovante: textoOuNull(preferencias.rodape_comprovante, 80)
+                rodape_comprovante: textoOuNull(preferencias.rodape_comprovante, 80),
+                // juros muda o valor que aparece pro cliente: só gestor mexe (os outros campos seguem abertos)
+                ...(Auth.role === 'gestor' && preferencias.juros_ativo !== undefined ? {
+                    juros_ativo: Boolean(preferencias.juros_ativo),
+                    juros_mes: numeroEntre(preferencias.juros_mes, MAX_JUROS_MES),
+                    multa_atraso: numeroEntre(preferencias.multa_atraso, MAX_MULTA),
+                    juros_carencia: Math.round(numeroEntre(preferencias.juros_carencia, MAX_CARENCIA)),
+                } : {})
             }
         })
 

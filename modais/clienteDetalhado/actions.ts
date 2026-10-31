@@ -11,6 +11,7 @@ import { formaValida } from "@/lib/formas";
 import { Recibo } from "@/types";
 import { SELECT_EXTRAS, extrasParaTela } from "@/lib/cliente";
 import { criarTokenExtrato } from "@/lib/linkExtrato";
+import { configJurosDe, jurosDaNota, hojeISOBR } from "@/lib/juros";
 
 type PagAvulsoProps = {
     id: number,
@@ -438,6 +439,15 @@ export async function CobrarBack(id: number) {
         ? (diasAteVencer(vencimento) === 0 ? 'O pagamento ficou combinado para hoje. ' : `O pagamento ficou combinado para o dia ${formatarDataBR(vencimento).slice(0, 5)}. `)
         : ''
 
+    // juros por atraso (se a loja ligou): entra como uma frase a mais no fim da mensagem, em qualquer modelo
+    const configJuros = configJurosDe(modalDaMensagem)
+    const hoje = hojeISOBR()
+    const totalJuros = notasDevedoras.reduce((acc, n) =>
+        acc + jurosDaNota(Number(n.valor_inicial) - Number(n.valor_abatido), n, configJuros, hoje).valor, 0)
+    const fraseJuros = totalJuros > 0
+        ? `Com juros e multa por atraso, o total fica ${FormatarValor(dadosDoCliente.totalDevedor + totalJuros)}.`
+        : ''
+
 
     switch (modalDaMensagem?.cobranca_text) {
  
@@ -477,6 +487,8 @@ export async function CobrarBack(id: number) {
         default:
             mensagem = `Olá ${dadosDoCliente.nome}! O total em aberto é ${FormatarValor(dadosDoCliente.totalDevedor)}. ${combinado}`.trim();
     }
+
+    if (fraseJuros) mensagem = `${mensagem.trim()}\n\n${fraseJuros}`
 
     return {
         mensagem,
@@ -642,4 +654,15 @@ export async function linkDoExtratoBack(clienteId: number) {
         whatsapp: cliente.whatsapp ? String(cliente.whatsapp) : null,
         loja: cliente.empresa?.nome ?? '',
     }
+}
+
+// Config de juros da loja pra ficha calcular nota a nota (desligado = nada aparece)
+export async function configJurosBack() {
+    const Auth = await autenticar()
+    if (!Auth) return configJurosDe(null)
+    const s = await prisma.empresa_settings.findFirst({
+        where: { empresa_id: Number(Auth.empresa_id) },
+        select: { juros_ativo: true, juros_mes: true, multa_atraso: true, juros_carencia: true }
+    })
+    return configJurosDe(s)
 }

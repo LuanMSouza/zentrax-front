@@ -5,7 +5,8 @@ import Container from "@/componentes/Container";
 import Cortina from "@/componentes/cortina";
 import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
-import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento, resumoDoClienteBack, linkDoExtratoBack } from "./actions";
+import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento, resumoDoClienteBack, linkDoExtratoBack, configJurosBack } from "./actions";
+import { ConfigJuros, JUROS_DESLIGADO, jurosDaNota, hojeISOBR } from "@/lib/juros";
 import Resumo, { DadosResumo } from "./Resumo";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 import { formatarDataBR, linkWhatsApp, diasAteVencer } from "@/lib/mask";
@@ -32,6 +33,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
     const [aba, setAba] = useState<'notas' | 'resumo'>('notas');
     const [resumo, setResumo] = useState<DadosResumo | null>(null);
     const [erroResumo, setErroResumo] = useState<string | null>(null);
+    const [configJuros, setConfigJuros] = useState<ConfigJuros>(JUROS_DESLIGADO);
 
     async function recarregarResumo() {
         try {
@@ -63,6 +65,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
     useEffect(() => {
         recarregarNotas();
         recarregarResumo(); // junto: as observações do cadastro aparecem já na aba Notas
+        configJurosBack().then(setConfigJuros).catch(() => {});
     }, [cliente.id]);
 
     async function remarcar(nota: { id: number, data: string, vencimento: string | null }) {
@@ -100,6 +103,12 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
         const saldo = Number(n.valor_inicial) - Number(n.valor_abatido);
         return saldo > 0 ? acc + saldo : acc;
     }, 0);
+
+    // juros por atraso (só se a loja ligou em Preferências): informativo, não muda o saldo da nota
+    const hoje = hojeISOBR();
+    const jurosPorNota = new Map<number, { dias: number, valor: number }>(
+        notas.map(n => [n.id, jurosDaNota(Number(n.valor_inicial) - Number(n.valor_abatido), n, configJuros, hoje)]));
+    const totalJuros = [...jurosPorNota.values()].reduce((acc, j) => acc + j.valor, 0);
 
     const quantidadeNotasAtivas = notas.filter(n =>
         (Number(n.valor_inicial) - Number(n.valor_abatido)) > 0
@@ -338,6 +347,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                     <div className="rounded-xl bg-marca-950 text-white px-4 py-3">
                         <dt className="text-xs text-slate-300">Total em aberto</dt>
                         <dd className="mt-0.5 text-xl sm:text-2xl font-semibold tabular-nums">{formatarValor(String(totalAtualizado))}</dd>
+                        {totalJuros > 0 && <dd className="text-xs text-amber-300 mt-0.5">com juros: {formatarValor(totalAtualizado + totalJuros)}</dd>}
                     </div>
                     <div className="rounded-xl bg-slate-100 px-4 py-3">
                         <dt className="text-xs text-slate-500">Notas em aberto</dt>
@@ -397,6 +407,9 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                                         <p className="text-lg font-semibold tabular-nums text-slate-900">{formatarValor(String(n.valor_inicial - n.valor_abatido))}</p>
                                         {n.descricao && <p className="text-sm text-slate-700 truncate">{n.descricao}</p>}
                                         <p className="text-xs text-slate-500">{formatarDataBR(n.data)}{!taPago && <DataCombinada vencimento={n.vencimento} />}</p>
+                                        {!taPago && (jurosPorNota.get(n.id)?.valor ?? 0) > 0 && (
+                                            <p className="text-xs font-medium text-amber-700">+ {formatarValor(jurosPorNota.get(n.id)!.valor)} de juros ({jurosPorNota.get(n.id)!.dias} dias de atraso)</p>
+                                        )}
                                         {(Number(n.valor_abatido) > 0) && (
                                             <p className="mt-1 text-xs text-slate-500">
                                                 Valor inicial {formatarValor(n.valor_inicial)} · já abatido {formatarValor(n.valor_abatido)}
@@ -412,6 +425,9 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                                         <p>📃 {n.quantidade} (diárias) x {formatarValor(n.valor_unitario)}</p>
                                         <p>⭐ Extras: {formatarValor(n.valor_extra) ?? formatarValor('0')}</p>
                                         <p className="text-xs text-slate-500">{formatarDataBR(n.data)}{!taPago && <DataCombinada vencimento={n.vencimento} />}</p>
+                                        {!taPago && (jurosPorNota.get(n.id)?.valor ?? 0) > 0 && (
+                                            <p className="text-xs font-medium text-amber-700">+ {formatarValor(jurosPorNota.get(n.id)!.valor)} de juros ({jurosPorNota.get(n.id)!.dias} dias de atraso)</p>
+                                        )}
 
                                         {(Number(n.valor_abatido) > 0 && Number(n.valor_abatido) < Number(n.valor_inicial)) && (
                                             <p className="mt-1 text-xs text-slate-500">

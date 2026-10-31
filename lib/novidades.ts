@@ -22,6 +22,7 @@ export const NOVIDADES: Novidade[] = [
             { titulo: 'Link do extrato', texto: 'Na ficha do cliente, o botão "Mandar extrato" gera um link pro cliente ver as notas em aberto pelo celular, sem precisar de login.' },
             { titulo: 'Cobrar atrasados em sequência', texto: 'Um botão passa pelos clientes atrasados um por um, com a mensagem de cobrança pronta. Não precisa abrir ficha por ficha.' },
             { titulo: 'Fechamento do dia', texto: 'Quanto entrou no dia separado por dinheiro, Pix e cartão, pra bater com o caixa.' },
+            { titulo: 'Juros por atraso (opcional)', texto: 'Se a sua loja cobra juros, ligue em Configurações > Preferências. O ZentraX mostra o valor com juros na ficha, na cobrança e no extrato do cliente.' },
             { titulo: 'Exportar pra Excel', texto: 'Em Configurações, baixe uma planilha com todos os clientes, notas e pagamentos. Seus dados são seus.' },
         ]
     },
