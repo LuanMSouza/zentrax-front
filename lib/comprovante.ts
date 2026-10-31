@@ -288,6 +288,36 @@ export async function imprimirExtrato({ cliente, clienteDesde, notas }: ExtratoP
     ${htmlRodape(cab)}`);
 }
 
+export type FechamentoProps = {
+    dia: string,
+    recebido: number,
+    formas: { nome: string, total: number, qtd: number }[],
+    vendidoFiado: number,
+    notasLancadas: number,
+}
+
+// Fechamento do dia na térmica, pra grampear junto do caixa
+export async function imprimirFechamento({ dia, recebido, formas, vendidoFiado, notasLancadas }: FechamentoProps) {
+    const cab = await cabecalho();
+
+    await imprimir('Fechamento do dia', `
+    ${htmlCabecalho(cab)}
+    <p class="centro titulo">FECHAMENTO DO DIA</p>
+    <hr>
+    <p class="linha"><span>Dia</span><span><b>${formatarDataBR(dia)}</b></span></p>
+    <p class="linha"><span>Emitido em</span><span>${dataHoraBR()}</span></p>
+    <hr>
+    ${formas.length === 0 ? '<p class="centro">Nenhum pagamento no dia.</p>' : formas.map(f => `
+    <p class="linha"><span>${escapar(f.nome)} (${f.qtd})</span><span><b>${FormatarValor(f.total)}</b></span></p>`).join('')}
+    <div class="total">
+        <p class="rotulo">TOTAL RECEBIDO</p>
+        <p class="valor">${FormatarValor(recebido)}</p>
+    </div>
+    <hr>
+    <p class="linha"><span>Vendido fiado (${notasLancadas} ${notasLancadas === 1 ? 'nota' : 'notas'})</span><span>${FormatarValor(vendidoFiado)}</span></p>
+    ${htmlRodape(cab)}`);
+}
+
 type OferecerProps = {
     titulo: string,
     texto?: string,

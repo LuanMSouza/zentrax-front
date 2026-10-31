@@ -12,6 +12,8 @@ import { pegarClientesBack, pegarPagamentosBack } from "./actions";
 import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import EditarClientes from "@/modais/editarClientes/page";
+import FechamentoDia from "@/modais/fechamentoDia/page";
+import CobrarAtrasados from "@/modais/cobrarAtrasados/page";
 import ImportarCaderno from "@/modais/importarCaderno/page";
 import Aniversarios from "@/blocos/Aniversarios";
 import { bateBusca } from "@/lib/cliente";
@@ -27,6 +29,8 @@ export default function Home() {
     const [modalClienteDetalhado, setModalClienteDetalhado] = useState(false)
     const [modalEditarClientes, setModalEditarClientes] = useState(false)
     const [modalImportar, setModalImportar] = useState(false)
+    const [modalFechamento, setModalFechamento] = useState(false)
+    const [modalCobrarAtrasados, setModalCobrarAtrasados] = useState(false)
 
     const [mostrarValores, setMostrarValores] = useState(false)
     const [filtro, setFiltro] = useState('')
@@ -175,6 +179,8 @@ export default function Home() {
             ativa ? 'bg-marca-950 text-white' : 'text-slate-600 hover:bg-slate-200/70'
         }`
 
+    const qtdAtrasados = emAberto.filter(c => c.atrasado).length
+
     return (
         <>
             <TopBar />
@@ -267,13 +273,28 @@ export default function Home() {
                     </button>
                 </div>
 
-                <div className="flex gap-1 p-1 bg-slate-200/60 rounded-xl w-fit" role="tablist">
-                    <button role="tab" aria-selected={aba === 'devedores'} onClick={() => setAba('devedores')} className={abaCls(aba === 'devedores')}>
-                        Devedores <span className="opacity-70 tabular-nums">({emAberto.length})</span>
-                    </button>
-                    <button role="tab" aria-selected={aba === 'pagamentos'} onClick={() => setAba('pagamentos')} className={abaCls(aba === 'pagamentos')}>
-                        Pagamentos
-                    </button>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex gap-1 p-1 bg-slate-200/60 rounded-xl w-fit" role="tablist">
+                        <button role="tab" aria-selected={aba === 'devedores'} onClick={() => setAba('devedores')} className={abaCls(aba === 'devedores')}>
+                            Devedores <span className="opacity-70 tabular-nums">({emAberto.length})</span>
+                        </button>
+                        <button role="tab" aria-selected={aba === 'pagamentos'} onClick={() => setAba('pagamentos')} className={abaCls(aba === 'pagamentos')}>
+                            Pagamentos
+                        </button>
+                    </div>
+                    {/* ação de cada aba fica do lado das abas */}
+                    {aba === 'devedores' && qtdAtrasados > 0 && (
+                        <button onClick={() => setModalCobrarAtrasados(true)}
+                            className="bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 active:scale-[0.98] text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-all cursor-pointer">
+                            Cobrar atrasados <span className="tabular-nums text-slate-400">({qtdAtrasados})</span>
+                        </button>
+                    )}
+                    {aba === 'pagamentos' && (
+                        <button onClick={() => setModalFechamento(true)}
+                            className="bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 active:scale-[0.98] text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-all cursor-pointer">
+                            Fechamento do dia
+                        </button>
+                    )}
                 </div>
 
                 {aba === 'devedores' ? (
@@ -327,6 +348,8 @@ export default function Home() {
             {/* Modais */}
             {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}
             {modalEditarClientes && <EditarClientes clientes={clientes} role={role} atualizar={atualizarClienteEditado} remover={removerCliente} sair={() => setModalEditarClientes(false)} />}
+            {modalFechamento && <FechamentoDia sair={() => setModalFechamento(false)} />}
+            {modalCobrarAtrasados && <CobrarAtrasados emAberto={emAberto} sair={() => setModalCobrarAtrasados(false)} />}
             {modalImportar && <ImportarCaderno concluir={() => carregarDados()} sair={() => setModalImportar(false)} />}
             {modalLancarNotas && <ModalLançarNotas clientes={clientes} atualizar={() => recarregarClientes()} sair={() => setModalLancarNotas(false)} />}
             {modalClienteDetalhado && clienteSelect && (
