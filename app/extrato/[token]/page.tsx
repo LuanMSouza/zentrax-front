@@ -4,6 +4,10 @@ import { lerTokenExtrato } from "@/lib/linkExtrato";
 import { FormatarValor, formatarDataBR } from "@/lib/mask";
 import { nomeForma } from "@/lib/formas";
 import { configJurosDe, jurosDaNota } from "@/lib/juros";
+import { codigoPix, configPixDe } from "@/lib/pix";
+import { garantirCodigo } from "@/lib/indicacao";
+import qrcode from "qrcode-generator";
+import CopiarPix from "./CopiarPix";
 
 // Página PÚBLICA (fora do middleware de login): o cliente da loja abre pelo link que recebeu no WhatsApp.
 // Mostra só o que é dele: notas em aberto e os últimos pagamentos. Nada de outros clientes, nada de valores da loja.
@@ -36,7 +40,7 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
         where: { id: clienteId },
         select: {
             nome: true,
-            empresa: { select: { nome: true, status: true, empresa_settings: { select: { telefone: true, endereco: true, juros_ativo: true, juros_mes: true, multa_atraso: true, juros_carencia: true } } } },
+            empresa: { select: { id: true, nome: true, status: true, empresa_settings: { select: { telefone: true, endereco: true, juros_ativo: true, juros_mes: true, multa_atraso: true, juros_carencia: true, pix_chave: true, pix_nome: true, pix_cidade: true } } } },
         }
     })
     if (!cliente || cliente.empresa?.status !== 'ativo') {
@@ -51,7 +55,7 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
             ORDER BY data ASC, id ASC
         `,
         prisma.recibos.findMany({
-            where: { id_cliente: clienteId },
+            where: { id_cliente: clienteId, estornado_em: null },
             orderBy: { criado_em: 'desc' },
             take: 5,
             select: { id: true, valor: true, forma: true, criado_em: true }
@@ -68,6 +72,22 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
     const hojeISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora)
     const juros = new Map(notas.map(n => [n.id, jurosDaNota(saldo(n), n, configJuros, hojeISO)]))
     const totalJuros = [...juros.values()].reduce((acc, j) => acc + j.valor, 0)
+
+    // Pix com o valor em aberto já preenchido (se a loja configurou)
+    const configPix = configPixDe(cliente.empresa?.empresa_settings)
+    const pix = configPix && total > 0.009 ? codigoPix(configPix, total) : null
+    let qrPix = ''
+    if (pix) {
+        const qr = qrcode(0, 'M')
+        qr.addData(pix)
+        qr.make()
+        qrPix = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })
+    }
+
+    // rodapé chama outros comerciantes pro ZentraX com o código de indicação da loja: se alguém criar conta por aqui,
+    // a loja ganha o mês grátis do programa de indicação
+    const codigo = cliente.empresa?.id ? await garantirCodigo(cliente.empresa.id).catch(() => null) : null
+    const linkCadastro = `https://zentrax.dvls.com.br/cadastro?utm_source=extrato&utm_medium=link${codigo ? `&ref=${codigo}` : ''}`
 
     return (
         <main className="min-h-dvh bg-slate-50">
@@ -121,6 +141,18 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
                     </section>
                 )}
 
+                {pix && (
+                    <section className="rounded-2xl bg-white ring-1 ring-slate-900/5 px-5 py-5 flex flex-col items-center gap-3 text-center">
+                        <h2 className="text-base font-semibold text-slate-900">Pagar com Pix</h2>
+                        <div className="w-44 h-44 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: qrPix }} />
+                        <p className="text-sm text-slate-500">
+                            Valor: <span className="font-medium text-slate-900">{FormatarValor(total)}</span>. No celular, copie o código e cole no app do banco.
+                        </p>
+                        <CopiarPix codigo={pix} />
+                        <p className="text-xs text-slate-400 break-all">Chave: {configPix!.chave}</p>
+                    </section>
+                )}
+
                 {recibos.length > 0 && (
                     <section>
                         <h2 className="text-sm font-medium text-slate-700 mb-2">Últimos pagamentos</h2>
@@ -140,7 +172,10 @@ export default async function ExtratoPublico({ params }: { params: Promise<{ tok
 
                 <footer className="text-xs text-slate-400 text-center pt-2">
                     <p>Atualizado em {quando}. Alguma dúvida? Fale com a loja.</p>
-                    <p className="mt-1">Feito com <a href="https://zentrax.dvls.com.br/?utm_source=extrato&utm_medium=link" className="underline underline-offset-2">ZentraX</a></p>
+                    <a href={linkCadastro} className="mt-4 block rounded-xl bg-white ring-1 ring-slate-900/5 px-4 py-3 text-left hover:ring-marca-700/30 transition-shadow">
+                        <span className="block text-sm font-medium text-slate-700">Tem um comércio e vende fiado?</span>
+                        <span className="block text-xs text-slate-500 mt-0.5">Esse extrato foi feito com o ZentraX. Teste grátis e largue o caderno.</span>
+                    </a>
                 </footer>
             </div>
         </main>

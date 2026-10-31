@@ -5,6 +5,8 @@ import Swal from "sweetalert2"
 import { esquecerCabecalho } from "@/lib/comprovante"
 import { configJurosDe, jurosDaNota, MAX_JUROS_MES, MAX_MULTA, MAX_CARENCIA } from "@/lib/juros"
 import { FormatarValor } from "@/lib/mask"
+import { chavePixValida, codigoPix } from "@/lib/pix"
+import qrcode from "qrcode-generator"
 
 type Preferencias = {
     empresa_id: number,
@@ -19,7 +21,11 @@ type Preferencias = {
     juros_mes?: number | string,
     multa_atraso?: number | string,
     juros_carencia?: number | string,
-    logo_comprovante?: string | null
+    logo_comprovante?: string | null,
+    resumo_mensal?: boolean,
+    pix_chave?: string | null,
+    pix_nome?: string | null,
+    pix_cidade?: string | null
 }
 
 const camposComprovante = [
@@ -88,117 +94,138 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
         window.location.href = window.location.href;
     };
 
+    // Tudo numa tela só ficou comprido demais: as preferências viraram seções. O estado e o Salvar são um só,
+    // então dá pra mexer em várias seções e salvar de uma vez.
+    const secoes = [
+        { id: 'avisos', nome: 'Avisos' },
+        { id: 'cobranca', nome: 'Cobrança' },
+        { id: 'comprovante', nome: 'Comprovante' },
+        ...(ehGestor ? [{ id: 'pix', nome: 'Pix' }] : []),
+        { id: 'dados', nome: 'Dados' },
+    ] as const
+    const [secao, setSecao] = useState<typeof secoes[number]['id']>('avisos')
+    const caixa = "flex items-center gap-3 bg-gray-50 border border-gray-200 rounded p-3 cursor-pointer"
+    const marcar = (campo: 'avisar' | 'avisar_vencimentos' | 'resumo_mensal', valor: boolean) =>
+        setNovasPreferencias((prev) => ({ ...prev, [campo]: valor }))
+
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-marca-700">Preferências do App</h2>
-
-            <label
-                htmlFor="notif"
-                className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded p-3 cursor-pointer"
-            >
-                <input
-                    type="checkbox"
-                    id="notif"
-                    checked={novasPreferencias?.avisar || false}
-                    onChange={(e) => {
-                        const valor = e.target.checked;
-                        setNovasPreferencias((prev) => ({
-                            ...prev,
-                            avisar: valor
-                        }));
-                    }}
-                    className="accent-marca-700 w-5 h-5 cursor-pointer shrink-0"
-                />
-                <span className="text-gray-700 text-sm md:text-base">Avisar 4 dias antes de vencer a assinatura</span>
-            </label>
-
-            <label
-                htmlFor="aviso-vencimentos"
-                className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded p-3 cursor-pointer"
-            >
-                <input
-                    type="checkbox"
-                    id="aviso-vencimentos"
-                    checked={novasPreferencias?.avisar_vencimentos !== false}
-                    onChange={(e) => {
-                        const valor = e.target.checked;
-                        setNovasPreferencias((prev) => ({ ...prev, avisar_vencimentos: valor }));
-                    }}
-                    className="accent-marca-700 w-5 h-5 cursor-pointer shrink-0"
-                />
-                <span className="text-gray-700 text-sm md:text-base">Me avisar por e-mail, de manhã, quando um fiado vence ou atrasa</span>
-            </label>
-
-            <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
-                <span className="text-gray-700 text-sm md:text-base">Selecione seu texto de cobrança</span>
-                <button
-                    id="cobranca"
-                    onClick={() => setAbrirTextoCobranca(true)}
-                    className="cursor-pointer bg-marca-700 hover:bg-marca-800 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0"
-                >
-                    Clique aqui
-                </button>
-            </div>
-
-            {abrirTextoCobranca &&
-                <TextoCobrancaConfig
-                    set={(id) => setNovasPreferencias((prev) => ({
-                        ...prev,
-                        cobranca_text: id ?? undefined,
-                        avisar: prev?.avisar ?? false
-                    }))}
-                    selecionada={preferenciasSalvas?.cobranca_text || 0}
-                    sair={() => setAbrirTextoCobranca(false)}
-                />}
-
-            <div className="space-y-3 bg-gray-50 border border-gray-200 rounded p-3">
-                <div>
-                    <p className="text-gray-700 text-sm md:text-base font-medium">Comprovante impresso</p>
-                    <p className="text-gray-500 text-xs md:text-sm">Sai no topo do comprovante, junto do nome da loja. O que ficar em branco não aparece.</p>
-                </div>
-                <LogoComprovante valor={novasPreferencias?.logo_comprovante ?? null}
-                    onChange={(logo) => setNovasPreferencias(prev => ({ ...prev, logo_comprovante: logo }))} />
-                {camposComprovante.map(({ campo, rotulo, placeholder, max }) => (
-                    <label key={campo} className="block">
-                        <span className="text-gray-700 text-sm">{rotulo}</span>
-                        <input
-                            type="text"
-                            maxLength={max}
-                            placeholder={placeholder}
-                            value={novasPreferencias?.[campo] ?? ''}
-                            onChange={(e) => {
-                                const valor = e.target.value;
-                                setNovasPreferencias((prev) => ({ ...prev, [campo]: valor }));
-                            }}
-                            className="mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2 text-sm md:text-base text-gray-900 focus:outline-none focus:border-marca-700"
-                        />
-                    </label>
+            <div className="flex flex-wrap gap-1 p-1 bg-slate-100 rounded-xl w-fit" role="tablist" aria-label="Seções das preferências">
+                {secoes.map(s => (
+                    <button key={s.id} role="tab" aria-selected={secao === s.id} onClick={() => setSecao(s.id)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${secao === s.id ? 'bg-white text-marca-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+                        {s.nome}
+                    </button>
                 ))}
             </div>
 
-            {ehGestor && (
-                <JurosConfig valor={novasPreferencias} onChange={(campos) => setNovasPreferencias(prev => ({ ...prev, ...campos }))} />
+            {secao === 'avisos' && (
+                <>
+                    <label htmlFor="notif" className={caixa}>
+                        <input type="checkbox" id="notif" checked={novasPreferencias?.avisar || false}
+                            onChange={(e) => marcar('avisar', e.target.checked)}
+                            className="accent-marca-700 w-5 h-5 cursor-pointer shrink-0" />
+                        <span className="text-gray-700 text-sm md:text-base">Avisar 4 dias antes de vencer a assinatura</span>
+                    </label>
+                    <label htmlFor="aviso-vencimentos" className={caixa}>
+                        <input type="checkbox" id="aviso-vencimentos" checked={novasPreferencias?.avisar_vencimentos !== false}
+                            onChange={(e) => marcar('avisar_vencimentos', e.target.checked)}
+                            className="accent-marca-700 w-5 h-5 cursor-pointer shrink-0" />
+                        <span className="text-gray-700 text-sm md:text-base">Me avisar por e-mail, de manhã, quando um fiado vence ou atrasa</span>
+                    </label>
+                    <label htmlFor="resumo-mensal" className={caixa}>
+                        <input type="checkbox" id="resumo-mensal" checked={novasPreferencias?.resumo_mensal !== false}
+                            onChange={(e) => marcar('resumo_mensal', e.target.checked)}
+                            className="accent-marca-700 w-5 h-5 cursor-pointer shrink-0" />
+                        <span className="text-gray-700 text-sm md:text-base">Mandar por e-mail, todo dia 1º, o resumo do mês (vendido, recebido, quem mais deve)</span>
+                    </label>
+                </>
             )}
 
-            {ehGestor && (
-                <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
-                    <div>
-                        <p className="text-gray-700 text-sm md:text-base font-medium">Seus dados</p>
-                        <p className="text-gray-500 text-xs md:text-sm">Planilha do Excel com todos os clientes, notas e pagamentos.</p>
+            {secao === 'cobranca' && (
+                <>
+                    <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
+                        <span className="text-gray-700 text-sm md:text-base">Texto da mensagem de cobrança</span>
+                        <button
+                            id="cobranca"
+                            onClick={() => setAbrirTextoCobranca(true)}
+                            className="cursor-pointer bg-marca-700 hover:bg-marca-800 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0"
+                        >
+                            Escolher
+                        </button>
                     </div>
-                    <a href="/api/exportar" download
-                        className="cursor-pointer bg-marca-700 hover:bg-marca-800 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0 text-sm md:text-base">
-                        Baixar planilha
-                    </a>
+
+                    {abrirTextoCobranca &&
+                        <TextoCobrancaConfig
+                            set={(id) => setNovasPreferencias((prev) => ({
+                                ...prev,
+                                cobranca_text: id ?? undefined,
+                                avisar: prev?.avisar ?? false
+                            }))}
+                            selecionada={preferenciasSalvas?.cobranca_text || 0}
+                            sair={() => setAbrirTextoCobranca(false)}
+                        />}
+
+                    {ehGestor && (
+                        <JurosConfig valor={novasPreferencias} onChange={(campos) => setNovasPreferencias(prev => ({ ...prev, ...campos }))} />
+                    )}
+                </>
+            )}
+
+            {secao === 'comprovante' && (
+                <div className="space-y-3 bg-gray-50 border border-gray-200 rounded p-3">
+                    <p className="text-gray-500 text-xs md:text-sm">Sai no topo do comprovante, junto do nome da loja. O que ficar em branco não aparece.</p>
+                    <LogoComprovante valor={novasPreferencias?.logo_comprovante ?? null}
+                        onChange={(logo) => setNovasPreferencias(prev => ({ ...prev, logo_comprovante: logo }))} />
+                    {camposComprovante.map(({ campo, rotulo, placeholder, max }) => (
+                        <label key={campo} className="block">
+                            <span className="text-gray-700 text-sm">{rotulo}</span>
+                            <input
+                                type="text"
+                                maxLength={max}
+                                placeholder={placeholder}
+                                value={novasPreferencias?.[campo] ?? ''}
+                                onChange={(e) => {
+                                    const valor = e.target.value;
+                                    setNovasPreferencias((prev) => ({ ...prev, [campo]: valor }));
+                                }}
+                                className="mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2 text-sm md:text-base text-gray-900 focus:outline-none focus:border-marca-700"
+                            />
+                        </label>
+                    ))}
                 </div>
             )}
 
-            <button
-                onClick={hardRefresh}
-                className="w-full py-2 bg-red-700 hover:bg-red-800 active:scale-95 transition-all text-white font-semibold cursor-pointer rounded"
-            >
-                Forçar atualização
-            </button>
+            {secao === 'pix' && ehGestor && (
+                <PixConfig valor={novasPreferencias} onChange={(campos) => setNovasPreferencias(prev => ({ ...prev, ...campos }))} />
+            )}
+
+            {secao === 'dados' && (
+                <>
+                    {ehGestor && (
+                        <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
+                            <div>
+                                <p className="text-gray-700 text-sm md:text-base font-medium">Seus dados</p>
+                                <p className="text-gray-500 text-xs md:text-sm">Planilha do Excel com todos os clientes, notas e pagamentos.</p>
+                            </div>
+                            <a href="/api/exportar" download
+                                className="cursor-pointer bg-marca-700 hover:bg-marca-800 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0 text-sm md:text-base">
+                                Baixar planilha
+                            </a>
+                        </div>
+                    )}
+                    <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
+                        <div>
+                            <p className="text-gray-700 text-sm md:text-base font-medium">App travado ou desatualizado?</p>
+                            <p className="text-gray-500 text-xs md:text-sm">Recarrega o ZentraX do zero, com a versão mais nova.</p>
+                        </div>
+                        <button onClick={hardRefresh}
+                            className="cursor-pointer bg-red-700 hover:bg-red-800 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0 text-sm md:text-base">
+                            Forçar atualização
+                        </button>
+                    </div>
+                </>
+            )}
 
             {preferenciasSalvas !== novasPreferencias && (
                 <button
@@ -209,6 +236,60 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                 </button>
             )}
 
+        </div>
+    )
+}
+
+// Pix da loja: vai no comprovante (QR com o valor que falta), na cobrança e no link do extrato. Só gestor mexe,
+// porque é pra onde o dinheiro vai. O QR de teste deixa conferir no app do banco antes de usar com cliente.
+function PixConfig({ valor, onChange }: { valor: Preferencias, onChange: (campos: Partial<Preferencias>) => void }) {
+    const chave = valor.pix_chave ?? ''
+    const valida = chave.trim() !== '' && chavePixValida(chave)
+    const teste = valida ? codigoPix({ chave, nome: valor.pix_nome ?? '', cidade: valor.pix_cidade ?? '' }, 1) : null
+    let svg = ''
+    if (teste) {
+        const qr = qrcode(0, 'M')
+        qr.addData(teste)
+        qr.make()
+        svg = qr.createSvgTag({ cellSize: 3, margin: 2, scalable: true })
+    }
+    const campo = "mt-1 w-full bg-white border border-gray-300 rounded px-3 py-2 text-sm md:text-base text-gray-900 focus:outline-none focus:border-marca-700"
+
+    return (
+        <div className="space-y-3 bg-gray-50 border border-gray-200 rounded p-3">
+            <p className="text-gray-500 text-xs md:text-sm">
+                Com o Pix configurado, o comprovante, a cobrança e o link do extrato já mostram um QR code com o valor que falta.
+                Deixe a chave em branco pra não usar.
+            </p>
+            <label className="block">
+                <span className="text-gray-700 text-sm">Chave Pix</span>
+                <input value={chave} maxLength={77} placeholder="CPF, CNPJ, e-mail, celular ou chave aleatória"
+                    onChange={(e) => onChange({ pix_chave: e.target.value })} className={campo} />
+                {chave.trim() !== '' && !valida && (
+                    <span className="block text-xs text-red-600 mt-1">Essa chave não parece válida. Celular vai com DDD, ex.: (13) 99999-8888.</span>
+                )}
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                    <span className="text-gray-700 text-sm">Nome de quem recebe</span>
+                    <input value={valor.pix_nome ?? ''} maxLength={25} placeholder="ex: Maria Silva"
+                        onChange={(e) => onChange({ pix_nome: e.target.value })} className={campo} />
+                </label>
+                <label className="block">
+                    <span className="text-gray-700 text-sm">Cidade</span>
+                    <input value={valor.pix_cidade ?? ''} maxLength={15} placeholder="ex: Santos"
+                        onChange={(e) => onChange({ pix_cidade: e.target.value })} className={campo} />
+                </label>
+            </div>
+            {teste && (
+                <div className="flex items-center gap-3 bg-white border border-gray-200 rounded p-3">
+                    <div className="w-24 h-24 shrink-0 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: svg }} />
+                    <p className="text-xs md:text-sm text-gray-600">
+                        <span className="font-medium text-gray-800">Teste antes de usar:</span> abra o app do banco, escolha pagar com Pix e aponte pra esse QR (R$ 1,00).
+                        Confira se aparece o nome certo. Não precisa pagar.
+                    </p>
+                </div>
+            )}
         </div>
     )
 }

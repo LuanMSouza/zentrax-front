@@ -140,17 +140,23 @@ function htmlNotasAbatidas(detalhes: Detalhes) {
     <hr>`
 }
 
-// QR code do link do extrato (só na via do cliente): ele aponta a câmera e vê todas as notas dele
-function htmlQrExtrato(detalhes: Detalhes) {
-    if (!detalhes?.linkExtrato) return ''
+function svgQr(texto: string) {
     const qr = qrcode(0, 'M')
-    qr.addData(detalhes.linkExtrato)
+    qr.addData(texto)
     qr.make()
+    return qr.createSvgTag({ cellSize: 3, margin: 0, scalable: true })
+}
+
+// QR codes da via do cliente: o do extrato (aponta a câmera e vê todas as notas) e, se a loja configurou o Pix e
+// ainda tem saldo, o do Pix já com o valor. Com os dois, ficam lado a lado pra não esticar o papel.
+function htmlQrs(detalhes: Detalhes) {
+    if (!detalhes?.linkExtrato) return ''
+    const blocos = [
+        ...(detalhes.pix ? [`<div class="qr">${svgQr(detalhes.pix.codigo)}<p class="detalhe"><b>Pague com Pix</b><br>${FormatarValor(detalhes.pix.valor)}</p></div>`] : []),
+        `<div class="qr">${svgQr(detalhes.linkExtrato)}<p class="detalhe">${detalhes.pix ? 'Veja suas notas' : 'Aponte a câmera pra ver todas as suas notas'}</p></div>`,
+    ]
     return `
-    <div class="centro qr">
-        ${qr.createSvgTag({ cellSize: 3, margin: 0, scalable: true })}
-        <p class="detalhe">Aponte a câmera pra ver todas as suas notas</p>
-    </div>
+    <div class="centro qrs">${blocos.join('')}</div>
     <hr>`
 }
 
@@ -207,7 +213,9 @@ function imprimir(titulo: string, corpo: string): Promise<void> {
     .rodape { margin-top: 1mm; font-size: 11px; overflow-wrap: anywhere; }
     .assinatura { margin-top: 2mm; font-size: 9px; }
     .logo { display: block; margin: 0 auto 2mm; max-width: 70%; max-height: 22mm; }
-    .qr svg { display: block; width: 30mm; height: 30mm; margin: 0 auto 1mm; }
+    .qrs { display: flex; justify-content: center; gap: 4mm; }
+    .qr { flex: 0 1 30mm; text-align: center; }
+    .qr svg { display: block; width: 100%; max-width: 30mm; height: auto; aspect-ratio: 1; margin: 0 auto 1mm; }
 </style>
 </head>
 <body>
@@ -267,7 +275,7 @@ export async function imprimirComprovante(dados: DadosComprovante, vias: Via[]) 
     ${mostraSaldo ? `<p class="linha"><span>${rotuloSaldo}</span><span><b>${FormatarValor(dados.saldo!)}</b></span></p>` : ''}
     ${dados.atendente ? `<p class="linha"><span>Atendente</span><span>${escapar(dados.atendente)}</span></p>` : ''}
     ${mostraSaldo || dados.atendente ? '<hr>' : ''}
-    ${via === 'cliente' ? htmlQrExtrato(detalhes) : ''}
+    ${via === 'cliente' ? htmlQrs(detalhes) : ''}
     ${htmlRodape(cab)}`;
 
     // Uma impressão por via, uma depois da outra: a térmica só corta no fim de cada impressão, então as duas vias
@@ -302,6 +310,7 @@ async function textoComprovante(dados: DadosComprovante) {
     }
     if (quitado) linhas.push('Situação: *quitado* ✅');
     else if (dados.saldo !== undefined) linhas.push(`${dados.saldoDeHoje ? 'Saldo em aberto hoje' : 'Saldo em aberto'}: ${FormatarValor(dados.saldo)}`);
+    if (detalhes?.pix) linhas.push('', `Pra pagar o restante no Pix, copie o código abaixo (já vem com o valor):`, detalhes.pix.codigo);
     if (detalhes?.linkExtrato) linhas.push('', `Suas notas: ${detalhes.linkExtrato}`);
     linhas.push('', cab.rodape ?? RODAPE_PADRAO);
 

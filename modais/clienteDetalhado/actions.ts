@@ -12,6 +12,8 @@ import { Recibo } from "@/types";
 import { SELECT_EXTRAS, extrasParaTela } from "@/lib/cliente";
 import { criarTokenExtrato } from "@/lib/linkExtrato";
 import { configJurosDe, jurosDaNota, hojeISOBR } from "@/lib/juros";
+import { codigoPix, configPixDe } from "@/lib/pix";
+import bcrypt from "bcrypt";
 
 type PagAvulsoProps = {
     id: number,
@@ -489,6 +491,8 @@ export async function CobrarBack(id: number) {
     }
 
     if (fraseJuros) mensagem = `${mensagem.trim()}\n\n${fraseJuros}`
+    const pix = configPixDe(modalDaMensagem)
+    if (pix && dadosDoCliente.totalDevedor > 0) mensagem = `${mensagem.trim()}\n\n${textoPix(pix, dadosDoCliente.totalDevedor)}`
 
     return {
         mensagem,
@@ -680,9 +684,15 @@ export async function detalhesDoReciboBack(numero: number) {
 
     const recibo = await prisma.recibos.findFirst({
         where: { empresa_id: empresaId, numero: Number(numero) },
-        select: { id: true, id_cliente: true }
+        select: { id: true, id_cliente: true, saldo_apos: true, estornado_em: true }
     })
     if (!recibo) return null
+    const settings = await prisma.empresa_settings.findFirst({
+        where: { empresa_id: empresaId },
+        select: { pix_chave: true, pix_nome: true, pix_cidade: true }
+    })
+    const pix = configPixDe(settings)
+    const saldo = Number(recibo.saldo_apos)
 
     // "ficou" = saldo de hoje + o que foi pago nessa nota DEPOIS desse recibo: assim a reimpressão de um recibo
     // antigo mostra o saldo daquele dia, não o de hoje
@@ -705,5 +715,103 @@ export async function detalhesDoReciboBack(numero: number) {
             ficou: Math.max(0, Number(n.ficou)),
         })),
         linkExtrato: urlDoExtrato(recibo.id_cliente, 90),
+        // Pix do que ficou devendo (com o valor já preenchido); sem Pix configurado ou sem saldo, não vai
+        pix: pix && saldo > 0.009 ? { codigo: codigoPix(pix, saldo), valor: saldo } : null,
+        estornado: !!recibo.estornado_em,
     }
+}
+
+// Bloco do Pix nas mensagens de WhatsApp: a chave pra quem prefere digitar e o copia e cola com o valor
+function textoPix(pix: NonNullable<ReturnType<typeof configPixDe>>, valor: number) {
+    return `Pra pagar no Pix, a chave é ${pix.chave}. Ou copie o código abaixo, que já vem com o valor:\n${codigoPix(pix, valor)}`
+}
+
+// Desfazer um pagamento lançado errado (só gestor, com a senha). Devolve o valor pras notas que ele abateu, apaga
+// as linhas de pagamento e marca o recibo como estornado: o número não some (a sequência não fica com buraco) e o
+// Histórico registra quem desfez. Pagamento antigo, de antes do recibo numerado, não dá pra desfazer por aqui.
+export async function desfazerPagamentoBack(numero: number, senha: string) {
+    const Auth = await autenticar()
+    if (!Auth) return { success: false as const, error: "Sessão expirada ou inválida" }
+    if (Auth.role !== 'gestor') return { success: false as const, error: "Só gestor pode desfazer pagamento." }
+
+    const empresaId = Number(Auth.empresa_id)
+    const usuario = await prisma.usuarios.findUnique({ where: { id: Number(Auth.usuario_id) }, select: { nome: true, senha: true } })
+    const senhaOk = usuario?.senha ? await bcrypt.compare(String(senha ?? ''), usuario.senha).catch(() => false) : false
+    if (!senhaOk) return { success: false as const, error: "Senha incorreta." }
+
+    try {
+        const resultado = await prisma.$transaction(async (tx) => {
+            // trava o recibo: dois cliques em "desfazer" ao mesmo tempo não devolvem o valor duas vezes
+            const [recibo] = await tx.$queryRaw<{ id: number, id_cliente: number, valor: string, estornado_em: Date | null }[]>`
+                SELECT id, id_cliente, valor, estornado_em FROM recibos
+                WHERE empresa_id = ${empresaId} AND numero = ${Number(numero)}
+                FOR UPDATE
+            `
+            if (!recibo) throw new Error('NAO_ACHOU')
+            if (recibo.estornado_em) throw new Error('JA_ESTORNADO')
+
+            const linhas = await tx.pagamentos.findMany({ where: { recibo_id: recibo.id, empresa_id: empresaId } })
+            for (const l of linhas) {
+                await tx.$executeRaw`
+                    UPDATE pedidos
+                    SET valor_abatido = GREATEST(valor_abatido - ${l.valor}, 0),
+                        valor_restante = LEAST(valor_restante + ${l.valor}, valor_inicial)
+                    WHERE id = ${l.nota_abatida} AND empresa_id = ${empresaId}
+                `
+            }
+            await tx.pagamentos.deleteMany({ where: { recibo_id: recibo.id, empresa_id: empresaId } })
+            await tx.recibos.update({
+                where: { id: recibo.id },
+                data: { estornado_em: new Date(), estornado_por: usuario?.nome ?? null }
+            })
+            return { valor: Number(recibo.valor), notas: linhas.length }
+        })
+
+        await RegistrarAcao({
+            tabela: 'Pagamentos',
+            operacao: `Desfez o pagamento nº ${String(numero).padStart(6, '0')} de ${FormatarValor(resultado.valor)}`,
+            empresa_id: empresaId,
+            usuario_id: Number(Auth.usuario_id)
+        })
+        return { success: true as const, ...resultado }
+    } catch (error: any) {
+        if (error?.message === 'JA_ESTORNADO') return { success: false as const, error: "Esse pagamento já foi desfeito." }
+        if (error?.message === 'NAO_ACHOU') return { success: false as const, error: "Pagamento não encontrado." }
+        console.error("[desfazerPagamentoBack]", error)
+        return { success: false as const, error: "Não deu pra desfazer o pagamento." }
+    }
+}
+
+// Lembrete antes de atrasar: "combinamos pra hoje/amanhã". Soma só as notas com dia combinado hoje ou amanhã
+// (o resto da conta não entra, pra não parecer cobrança). Vai com o Pix se a loja configurou.
+export async function mensagemLembreteBack(clienteId: number) {
+    const Auth = await autenticar()
+    if (!Auth) return null
+    const empresaId = Number(Auth.empresa_id)
+
+    const [cliente, notas, settings] = await Promise.all([
+        prisma.clientes.findFirst({ where: { id: Number(clienteId), empresa_id: empresaId }, select: { nome: true, whatsapp: true } }),
+        prisma.$queryRaw<{ vencimento: Date, valor: string, hoje: boolean }[]>`
+            SELECT vencimento, SUM(valor_inicial - valor_abatido) AS valor,
+                   vencimento = (now() AT TIME ZONE 'America/Sao_Paulo')::date AS hoje
+            FROM pedidos
+            WHERE id_cliente = ${Number(clienteId)} AND empresa_id = ${empresaId}
+              AND valor_inicial - valor_abatido > 0
+              AND vencimento BETWEEN (now() AT TIME ZONE 'America/Sao_Paulo')::date AND (now() AT TIME ZONE 'America/Sao_Paulo')::date + 1
+            GROUP BY vencimento ORDER BY vencimento
+        `,
+        prisma.empresa_settings.findFirst({ where: { empresa_id: empresaId }, select: { pix_chave: true, pix_nome: true, pix_cidade: true } }),
+    ])
+    if (!cliente || notas.length === 0) return null
+
+    const primeiro = notas[0]
+    const valor = notas.reduce((acc, n) => acc + Number(n.valor), 0)
+    const quando = primeiro.hoje ? 'pra hoje' : `pra amanhã (${formatarDataBR(primeiro.vencimento).slice(0, 5)})`
+    const nome = cliente.nome.trim().split(/\s+/)[0]
+
+    let mensagem = `Oi, ${nome}! Tudo bem? Passando só pra lembrar que o pagamento de ${FormatarValor(valor)} ficou combinado ${quando}.`
+    const pix = configPixDe(settings)
+    if (pix) mensagem += `\n\n${textoPix(pix, valor)}`
+
+    return { mensagem, whatsapp: cliente.whatsapp ? String(cliente.whatsapp) : null }
 }

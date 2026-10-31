@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import { boolean, success } from "zod";
 import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo";
 import { MAX_JUROS_MES, MAX_MULTA, MAX_CARENCIA } from "@/lib/juros";
+import { chavePixValida, normalizarChavePix } from "@/lib/pix";
 
 export async function ConfirmarSenha({ senha }: { id?: number, senha: string }) {
     try {
@@ -215,7 +216,11 @@ type Preferencias = {
     juros_mes?: number | string,
     multa_atraso?: number | string,
     juros_carencia?: number | string,
-    logo_comprovante?: string | null // undefined = não mexe; null = tira a logo
+    logo_comprovante?: string | null, // undefined = não mexe; null = tira a logo
+    resumo_mensal?: boolean,
+    pix_chave?: string | null,
+    pix_nome?: string | null,
+    pix_cidade?: string | null
 }
 
 // Logo do comprovante: só PNG em data URL (o navegador já reduziu e converteu) e com teto de tamanho (o banco tem o
@@ -263,7 +268,11 @@ export async function PegarPreferenciasBack() {
             juros_mes: true,
             multa_atraso: true,
             juros_carencia: true,
-            logo_comprovante: true
+            logo_comprovante: true,
+            resumo_mensal: true,
+            pix_chave: true,
+            pix_nome: true,
+            pix_cidade: true
         }
     })
 
@@ -302,6 +311,11 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
         }
     }
 
+    const chavePix = String(preferencias.pix_chave ?? '').trim()
+    if (chavePix && !chavePixValida(chavePix)) {
+        return { success: false, error: "A chave Pix não parece válida. Confira e tente de novo." }
+    }
+
     if (preferencias.logo_comprovante && !logoValida(preferencias.logo_comprovante)) {
         return { success: false, error: "Essa imagem não deu pra usar. Tente um PNG ou JPG menor." }
     }
@@ -319,6 +333,13 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
                 endereco: textoOuNull(preferencias.endereco, 120),
                 rodape_comprovante: textoOuNull(preferencias.rodape_comprovante, 80),
                 ...(preferencias.logo_comprovante !== undefined ? { logo_comprovante: preferencias.logo_comprovante || null } : {}),
+                resumo_mensal: preferencias.resumo_mensal !== false,
+                // chave Pix decide pra onde vai o dinheiro: só gestor muda
+                ...(Auth.role === 'gestor' && preferencias.pix_chave !== undefined ? {
+                    pix_chave: chavePix ? normalizarChavePix(chavePix) : null,
+                    pix_nome: textoOuNull(preferencias.pix_nome, 25),
+                    pix_cidade: textoOuNull(preferencias.pix_cidade, 15),
+                } : {}),
                 // juros muda o valor que aparece pro cliente: só gestor mexe (os outros campos seguem abertos)
                 ...(Auth.role === 'gestor' && preferencias.juros_ativo !== undefined ? {
                     juros_ativo: Boolean(preferencias.juros_ativo),

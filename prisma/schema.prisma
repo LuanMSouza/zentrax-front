@@ -33,6 +33,7 @@ model clientes {
   aniversario_mes Int?      @db.SmallInt
   observacoes     String?   @db.VarChar(500)
   limite_fiado    Decimal?  @db.Decimal(10, 2)
+  bloqueado       Boolean   @default(false)
   empresa      empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pagamentos   pagamentos[]
   pedidos      pedidos[]
@@ -97,6 +98,11 @@ model empresa_settings {
   multa_atraso      Decimal   @default(0) @db.Decimal(5, 2)
   juros_carencia    Int       @default(0) @db.SmallInt
   logo_comprovante  String?
+  pix_chave         String?   @db.VarChar(77)
+  pix_nome          String?   @db.VarChar(25)
+  pix_cidade        String?   @db.VarChar(15)
+  resumo_mensal     Boolean   @default(true)
+  ultimo_resumo_mensal DateTime? @db.Date
   empresa           empresa   @relation(fields: [empresa_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -131,6 +137,8 @@ model recibos {
   forma      String       @db.VarChar(15)
   saldo_apos Decimal      @default(0) @db.Decimal(10, 2)
   criado_em  DateTime     @default(now()) @db.Timestamptz(6)
+  estornado_em  DateTime? @db.Timestamptz(6)
+  estornado_por String?   @db.VarChar(120)
   pagamentos pagamentos[]
   empresa    empresa      @relation(fields: [empresa_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   clientes   clientes     @relation(fields: [id_cliente], references: [id], onDelete: Cascade, onUpdate: NoAction)
