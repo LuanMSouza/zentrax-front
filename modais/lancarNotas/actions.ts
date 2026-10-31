@@ -101,17 +101,36 @@ export async function salvarNota(dados: any) {
     }
 }
 
-// Dia do mês que o cliente combinou na última nota com data combinada (ex.: 10 = "paga todo dia 10"), pra já sugerir
-// na venda nova. null se ele nunca teve data combinada.
-export async function diaCombinadoDoCliente(clienteId: number) {
+// O que o lançar nota precisa saber do cliente escolhido:
+// - dia do mês que ele combinou na última nota com data combinada (ex.: 10 = "paga todo dia 10"), pra já sugerir na
+//   venda nova; null se ele nunca teve data combinada;
+// - quanto ele deve agora e o limite de fiado, pro aviso de "passa do limite" (só aviso, não bloqueia);
+// - as observações do cadastro ("não vender mais fiado" tem que aparecer antes de lançar).
+export async function infoDoClienteNaNota(clienteId: number) {
     const auth = await autenticar()
     if (!auth) return null
 
-    const ultima = await prisma.pedidos.findFirst({
-        where: { id_cliente: Number(clienteId), empresa_id: Number(auth.empresa_id), vencimento: { not: null } },
-        orderBy: [{ data: 'desc' }, { id: 'desc' }],
-        select: { vencimento: true }
-    })
+    const empresaId = Number(auth.empresa_id)
+    const [ultima, cliente, saldo] = await Promise.all([
+        prisma.pedidos.findFirst({
+            where: { id_cliente: Number(clienteId), empresa_id: empresaId, vencimento: { not: null } },
+            orderBy: [{ data: 'desc' }, { id: 'desc' }],
+            select: { vencimento: true }
+        }),
+        prisma.clientes.findFirst({
+            where: { id: Number(clienteId), empresa_id: empresaId },
+            select: { limite_fiado: true, observacoes: true }
+        }),
+        prisma.pedidos.aggregate({
+            where: { id_cliente: Number(clienteId), empresa_id: empresaId, valor_restante: { gt: 0 } },
+            _sum: { valor_restante: true }
+        })
+    ])
 
-    return ultima?.vencimento ? ultima.vencimento.getUTCDate() : null
+    return {
+        dia: ultima?.vencimento ? ultima.vencimento.getUTCDate() : null,
+        limite: cliente?.limite_fiado != null ? Number(cliente.limite_fiado) : null,
+        observacoes: cliente?.observacoes ?? null,
+        deve: Number(saldo._sum.valor_restante ?? 0)
+    }
 }

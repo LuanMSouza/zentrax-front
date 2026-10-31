@@ -26,6 +26,13 @@ model clientes {
   papel_grande Boolean?
   empresa_id   Int?
   documento    String?      @db.VarChar(20)
+  apelido         String?   @db.VarChar(60)
+  email           String?   @db.VarChar(120)
+  endereco        String?   @db.VarChar(160)
+  aniversario_dia Int?      @db.SmallInt
+  aniversario_mes Int?      @db.SmallInt
+  observacoes     String?   @db.VarChar(500)
+  limite_fiado    Decimal?  @db.Decimal(10, 2)
   empresa      empresa?     @relation(fields: [empresa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pagamentos   pagamentos[]
   pedidos      pedidos[]

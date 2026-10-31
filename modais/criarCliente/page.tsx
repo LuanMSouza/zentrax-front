@@ -9,6 +9,7 @@ import { useState, useTransition } from "react";
 import Swal from "sweetalert2";
 import cadastrarClienteBack from "./actions";
 import { Cliente } from "@/types";
+import CamposExtrasCliente, { EXTRAS_VAZIOS } from "@/componentes/CamposExtrasCliente";
 
 
 interface RespostaCadastro {
@@ -27,6 +28,7 @@ export default function CriarCliente({ sair, atualizar }: CriarProps) {
     const [nome, setNome] = useState('')
     const [whatsapp, setWhatsapp] = useState('')
     const [documento, setDocumento] = useState('')
+    const [extras, setExtras] = useState(EXTRAS_VAZIOS)
     const [loading, setLoading] = useState(false)
 
 
@@ -35,6 +37,7 @@ export default function CriarCliente({ sair, atualizar }: CriarProps) {
 
         setLoading(true)
 
+        for (const [chave, valor] of Object.entries(extras)) formData.set(chave, valor)
         const result = await cadastrarClienteBack(formData) as RespostaCadastro
 
         if (result.success && result.novoCliente) {
@@ -70,6 +73,8 @@ export default function CriarCliente({ sair, atualizar }: CriarProps) {
                         <Label texto="CPF/CNPJ">
                             <Input name="documento" tamanho="g" placeholder="Opcional" type="text" value={documento} onChange={(e) => setDocumento(e)} />
                         </Label>
+
+                        <CamposExtrasCliente valor={extras} onChange={setExtras} />
 
                         <Button texto="Cadastrar!!" tamanho="gg" tipo="btn02" corTexto="cinza" funcao="submit" />
 

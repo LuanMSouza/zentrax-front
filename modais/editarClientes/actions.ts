@@ -3,8 +3,9 @@
 import prisma from "@/lib/prisma"
 import autenticar from "@/lib/auth"
 import RegistrarAcao from "@/lib/logger"
+import { lerCamposExtras, extrasParaTela, EntradaExtras } from "@/lib/cliente"
 
-type AlterarClienteProps = {
+type AlterarClienteProps = EntradaExtras & {
     id: number,
     nome: string,
     whatsapp: string,
@@ -25,6 +26,9 @@ export async function AlterarClienteBack(dados: AlterarClienteProps) {
     if (!nome) {
         return { success: false, error: "O nome é obrigatório." }
     }
+
+    const extras = lerCamposExtras(dados)
+    if (!extras.ok) return { success: false, error: extras.error }
 
     // Confirma que o cliente pertence a essa empresa antes de alterar.
     const alvo = await prisma.clientes.findUnique({ where: { id } })
@@ -60,7 +64,8 @@ export async function AlterarClienteBack(dados: AlterarClienteProps) {
             data: {
                 nome,
                 whatsapp: whatsappDigitos ? BigInt(whatsappDigitos) : null,
-                documento: documento || null
+                documento: documento || null,
+                ...extras.campos
             }
         })
 
@@ -77,7 +82,8 @@ export async function AlterarClienteBack(dados: AlterarClienteProps) {
                 id: clienteAtualizado.id,
                 nome: clienteAtualizado.nome,
                 whatsapp: clienteAtualizado.whatsapp ? String(clienteAtualizado.whatsapp) : "",
-                documento: clienteAtualizado.documento ?? ""
+                documento: clienteAtualizado.documento ?? "",
+                ...extrasParaTela(clienteAtualizado)
             }
         }
 

@@ -10,6 +10,8 @@ import Input from "@/componentes/Inputs"
 import { AlterarClienteBack, ApagarClienteBack, PegarImpactoClienteBack } from "./actions"
 import { ConfirmarSenha } from "@/modais/configuracoes/abas/actions"
 import { Cliente } from "@/types"
+import CamposExtrasCliente, { EXTRAS_VAZIOS, extrasDoCliente } from "@/componentes/CamposExtrasCliente"
+import { bateBusca, textoAniversario } from "@/lib/cliente"
 
 type EditarClientesProps = {
     clientes: Cliente[],
@@ -24,6 +26,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
     const [filtro, setFiltro] = useState('')
     const [editandoId, setEditandoId] = useState<number | null>(null)
     const [form, setForm] = useState({ nome: '', whatsapp: '', documento: '' })
+    const [extras, setExtras] = useState(EXTRAS_VAZIOS)
     const [salvando, setSalvando] = useState(false)
     const [excluindoId, setExcluindoId] = useState<number | null>(null)
 
@@ -34,6 +37,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
             whatsapp: c.whatsapp ? String(c.whatsapp) : '',
             documento: c.documento ?? ''
         })
+        setExtras(extrasDoCliente(c))
     }
 
     function cancelarEdicao() {
@@ -49,7 +53,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
         setSalvando(true)
 
         try {
-            const res = await AlterarClienteBack({ id, ...form })
+            const res = await AlterarClienteBack({ id, ...form, ...extras })
 
             if (res.success && res.clienteAtualizado) {
                 Swal.fire('Sucesso!', 'Cliente atualizado com sucesso!', 'success')
@@ -129,7 +133,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
     }
 
     const clientesFiltrados = clientes
-        .filter(c => c.nome.toLowerCase().includes(filtro.toLowerCase()))
+        .filter(c => bateBusca(c, filtro))
         .sort((a, b) => a.nome.localeCompare(b.nome))
 
     return (
@@ -138,7 +142,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                 <Titulo texto="Editar clientes" cor="preto" />
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="g" corTexto="branco" />
 
-                <Input name="filtro" tamanho="g" type="text" value={filtro} placeholder="Filtrar pelo nome..." onChange={(e) => setFiltro(e)} />
+                <Input name="filtro" tamanho="g" type="text" value={filtro} placeholder="Filtrar pelo nome ou apelido..." onChange={(e) => setFiltro(e)} />
 
                 <div className="w-full flex flex-col gap-2 max-h-96 overflow-y-auto">
                     {clientesFiltrados.length === 0 && (
@@ -176,6 +180,9 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                                         />
                                     </label>
 
+                                    <CamposExtrasCliente valor={extras} onChange={setExtras}
+                                        abertoDeInicio={Object.values(extrasDoCliente(c)).some(Boolean)} />
+
                                     <div className="flex gap-2 mt-1">
                                         <Button onClick={() => salvar(c.id)} texto={salvando ? 'Salvando...' : 'Salvar'} tipo="btn01" tamanho="m" corTexto="branco" />
                                         <Button onClick={cancelarEdicao} texto="Cancelar" tipo="btn05" tamanho="m" corTexto="branco" />
@@ -184,10 +191,13 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                             ) : (
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="min-w-0">
-                                        <p className="font-semibold text-gray-900 truncate">{c.nome}</p>
+                                        <p className="font-semibold text-gray-900 truncate">
+                                            {c.nome}{c.apelido && <span className="font-normal text-gray-500"> ({c.apelido})</span>}
+                                        </p>
                                         <p className="text-sm text-gray-500 truncate">
                                             {c.whatsapp ? `Whats: ${c.whatsapp}` : 'Sem whatsapp'}
                                             {c.documento ? ` · Doc: ${c.documento}` : ''}
+                                            {textoAniversario(c.aniversario_dia, c.aniversario_mes) ? ` · Aniversário: ${textoAniversario(c.aniversario_dia, c.aniversario_mes)}` : ''}
                                         </p>
                                     </div>
                                     <div className="flex gap-1 shrink-0">

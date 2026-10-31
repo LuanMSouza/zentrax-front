@@ -3,6 +3,7 @@
 import autenticar from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import RegistrarAcao from "@/lib/logger"
+import { lerCamposExtras, extrasParaTela } from "@/lib/cliente"
 
 export default async function cadastrarClienteBack(formData: FormData) {
     const nome = String(formData.get('nome') ?? '').trim()
@@ -17,6 +18,8 @@ export default async function cadastrarClienteBack(formData: FormData) {
             error: "Preencha todos os campos obrigatórios."
         }
     }
+    const extras = lerCamposExtras(Object.fromEntries(formData))
+    if (!extras.ok) return { success: false, error: extras.error }
     // checagem central (também barra empresa vencida/inativa); fora do try pro redirect de sessão inválida funcionar
     const auth = await autenticar()
     if (!auth) return { success: false, error: "Não autenticado" };
@@ -51,6 +54,7 @@ export default async function cadastrarClienteBack(formData: FormData) {
                 nome: nome,
                 whatsapp: whatsappDigitos ? BigInt(whatsappDigitos) : null,
                 documento: documento || null,
+                ...extras.campos,
                 empresa_id: Number(empresaId)
             }
         })
@@ -69,6 +73,7 @@ export default async function cadastrarClienteBack(formData: FormData) {
             success: true,
             novoCliente: {
                 ...novoCliente,
+                ...extrasParaTela(novoCliente),
                 whatsapp: novoCliente.whatsapp ? String(novoCliente.whatsapp) : ""
             }
         })

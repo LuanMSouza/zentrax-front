@@ -3,6 +3,14 @@ export type Cliente = {
     nome: string,
     whatsapp: string | bigint | null,
     documento: string | null
+    // cadastro completo, tudo opcional (lib/cliente.ts)
+    apelido?: string | null,
+    email?: string | null,
+    endereco?: string | null,
+    aniversario_dia?: number | null,
+    aniversario_mes?: number | null,
+    observacoes?: string | null,
+    limite_fiado?: number | null
 }
 
 export type Pagamentos = {
@@ -53,4 +61,8 @@ export type ClienteEmAberto = {
     // tem nota vencida: passou da data combinada, ou (sem data combinada) já tem 30 dias
     atrasado: boolean;
     vence_hoje: boolean;
+    apelido?: string | null;
+    // média de dias entre a nota e o pagamento que a quitou, e em quantas notas isso foi medido (pro selo de pagador)
+    media_dias_quitar?: number | null;
+    notas_quitadas?: number;
 }

@@ -7,7 +7,8 @@ import Selects from "@/componentes/Select";
 import Titulo from "@/componentes/Titulo";
 import { useState } from "react";
 import Swal from "sweetalert2";
-import { salvarNota, diaCombinadoDoCliente } from "./actions";
+import { salvarNota, infoDoClienteNaNota } from "./actions";
+import { FormatarValor } from "@/lib/mask";
 import Loading from "@/componentes/loading";
 
 // types
@@ -83,6 +84,19 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
             Swal.fire('Opa...', 'A data combinada pra pagar não pode ser antes da data da venda.', 'warning');
             return;
         }
+        // limite de fiado é só aviso: a loja decide se vende mesmo assim
+        if (info?.limite && valorTotal > 0 && info.deve + valorTotal > info.limite) {
+            const { isConfirmed } = await Swal.fire({
+                title: 'Passa do limite de fiado',
+                text: `Com essa nota o cliente fica devendo ${FormatarValor(info.deve + valorTotal)}. O limite dele é ${FormatarValor(info.limite)}.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Lançar mesmo assim',
+                cancelButtonText: 'Voltar',
+                confirmButtonColor: '#3C32E6'
+            });
+            if (!isConfirmed) return;
+        }
 
         setLoading(true)
 
@@ -124,13 +138,16 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
 
     const [data, setData] = useState(formatarDataParaInput(new Date()))
     const [vencimento, setVencimento] = useState('')
-    // "paga todo dia 10": vem da última nota do cliente que teve data combinada
-    const [diaDoCliente, setDiaDoCliente] = useState<number | null>(null)
+    // "paga todo dia 10" (vem da última nota do cliente que teve data combinada), quanto deve, limite e observações
+    const [info, setInfo] = useState<Awaited<ReturnType<typeof infoDoClienteNaNota>>>(null)
+    const diaDoCliente = info?.dia ?? null
 
     async function escolherCliente(id: string) {
         setCliete(id)
-        const dia = await diaCombinadoDoCliente(Number(id))
-        setDiaDoCliente(dia)
+        setInfo(null)
+        const novaInfo = await infoDoClienteNaNota(Number(id))
+        setInfo(novaInfo)
+        const dia = novaInfo?.dia ?? null
         // já sugere o dia de sempre desse cliente; o usuário pode trocar ou tirar
         setVencimento(dia ? proximoDiaDoMes(data, dia) : '')
     }
@@ -159,12 +176,23 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
 
                             {clientes.map((c: any) => (
                                 <option key={c.id} value={c.id}>
-                                    {c.nome}
+                                    {c.nome}{c.apelido ? ` (${c.apelido})` : ''}
                                 </option>
                             ))}
 
                         </Selects>
                     </Label>
+
+                    {info && (info.observacoes || info.limite) && (
+                        <div className="w-full rounded-lg bg-slate-50 ring-1 ring-slate-900/10 px-3 py-2 text-sm text-slate-700 space-y-0.5">
+                            {info.observacoes && <p className="whitespace-pre-line"><span className="font-medium">Obs.:</span> {info.observacoes}</p>}
+                            {info.limite && (
+                                <p className={info.deve >= info.limite ? 'text-amber-700 font-medium' : ''}>
+                                    Deve {FormatarValor(info.deve)} de um limite de {FormatarValor(info.limite)}
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     <Label texto="Data">
                         <Input type="date" value={data} onChange={(e) => setData(e)} tamanho="g" name="data" placeholder="" />
