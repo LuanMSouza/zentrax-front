@@ -5,7 +5,7 @@ import Container from "@/componentes/Container";
 import Cortina from "@/componentes/cortina";
 import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
-import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento, resumoDoClienteBack } from "./actions";
+import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento, resumoDoClienteBack, linkDoExtratoBack } from "./actions";
 import Resumo, { DadosResumo } from "./Resumo";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 import { formatarDataBR, linkWhatsApp, diasAteVencer } from "@/lib/mask";
@@ -275,6 +275,34 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
         }
     }
 
+    // Link pro cliente ver as notas dele no celular (vale 30 dias)
+    async function mandarExtrato() {
+        const res = await linkDoExtratoBack(cliente.id);
+        if (!res.success) {
+            Swal.fire('Opa...', res.error, 'error');
+            return;
+        }
+        const primeiroNome = res.nome.trim().split(/\s+/)[0];
+        const mensagem = `Oi, ${primeiroNome}! Segue o link com suas notas${res.loja ? ` aqui da ${res.loja}` : ''}: ${res.url}`;
+
+        const escolha = await Swal.fire({
+            title: 'Link do extrato pronto',
+            text: 'O cliente abre no celular e vê as notas em aberto e os últimos pagamentos. O link vale 30 dias.',
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonColor: '#25D366',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: res.whatsapp ? 'Mandar no WhatsApp' : 'Copiar mensagem',
+            cancelButtonText: res.whatsapp ? 'Só copiar' : 'Fechar',
+        });
+        if (escolha.isConfirmed && res.whatsapp) {
+            window.open(linkWhatsApp(res.whatsapp, mensagem), '_blank');
+        } else if (escolha.isConfirmed || (res.whatsapp && escolha.dismiss === Swal.DismissReason.cancel)) {
+            await navigator.clipboard.writeText(mensagem);
+            Swal.fire('Copiado!', 'A mensagem com o link foi copiada.', 'success');
+        }
+    }
+
     const empresaRaw = localStorage.getItem('empresa')
     const empresa = JSON.parse(empresaRaw ?? '{}')
     const segmento = empresa?.segmento ?? 'geral'
@@ -336,6 +364,12 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                         className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
                     >
                         Cobrar pelo WhatsApp
+                    </button>
+                    <button
+                        onClick={mandarExtrato}
+                        className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
+                    >
+                        Mandar extrato
                     </button>
                     <button
                         onClick={extrato}

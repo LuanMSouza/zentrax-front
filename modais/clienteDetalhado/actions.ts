@@ -10,6 +10,7 @@ import { Prisma } from "@prisma/client";
 import { formaValida } from "@/lib/formas";
 import { Recibo } from "@/types";
 import { SELECT_EXTRAS, extrasParaTela } from "@/lib/cliente";
+import { criarTokenExtrato } from "@/lib/linkExtrato";
 
 type PagAvulsoProps = {
     id: number,
@@ -619,5 +620,26 @@ export async function resumoDoClienteBack(clienteId: number) {
     } catch (error) {
         console.error("[resumoDoClienteBack]", error)
         return { success: false as const, error: "Erro ao montar o resumo do cliente." }
+    }
+}
+
+// Link do extrato pro cliente abrir no celular (página pública /extrato/<token>, ver lib/linkExtrato.ts)
+export async function linkDoExtratoBack(clienteId: number) {
+    const Auth = await autenticar()
+    if (!Auth) return { success: false as const, error: "Sessão expirada ou inválida" }
+
+    const cliente = await prisma.clientes.findFirst({
+        where: { id: Number(clienteId), empresa_id: Number(Auth.empresa_id) },
+        select: { id: true, nome: true, whatsapp: true, empresa: { select: { nome: true } } }
+    })
+    if (!cliente) return { success: false as const, error: "Cliente não encontrado." }
+
+    const base = (process.env.APP_URL ?? 'https://app.zentrax.dvls.com.br').replace(/\/$/, '')
+    return {
+        success: true as const,
+        url: `${base}/extrato/${criarTokenExtrato(cliente.id)}`,
+        nome: cliente.nome,
+        whatsapp: cliente.whatsapp ? String(cliente.whatsapp) : null,
+        loja: cliente.empresa?.nome ?? '',
     }
 }
