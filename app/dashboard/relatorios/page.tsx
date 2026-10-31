@@ -210,7 +210,9 @@ export default function Relatorios() {
 
                 <ol className={`grid gap-2 transition-opacity ${carregando ? 'opacity-60' : ''}`}>
                     {lista.map((l, i) => (
-                        <li key={l.id}>
+                        // min-w-0: item de grid não encolhe abaixo do conteúdo, e nome comprido empurrava a linha
+                        // pra fora da tela no celular (o truncate não chegava a cortar)
+                        <li key={l.id} className="min-w-0">
                             <div role="button" tabIndex={0}
                                 onClick={() => setFicha({ id: l.id, nome: l.nome })}
                                 onKeyDown={(e) => { if (e.key === 'Enter') setFicha({ id: l.id, nome: l.nome }) }}
