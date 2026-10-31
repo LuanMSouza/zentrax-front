@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import autenticar from "@/lib/auth";
+import { SELECT_EXTRAS, extrasParaTela } from "@/lib/cliente";
 
 export async function pegarClientesBack() {
 
@@ -12,8 +13,22 @@ export async function pegarClientesBack() {
     try {
 
         const emAberto = await prisma.$queryRaw<any[]>`
+            -- selo de pagador: dias entre a nota e o último pagamento que a zerou, nas 10 últimas notas quitadas de
+            -- cada cliente (nota quitada sem linha em pagamentos é do tempo de antes do histórico e fica de fora; a
+            -- de 0001-01-01 é lixo de importação)
+            WITH quitadas AS (
+                SELECT p.id_cliente, GREATEST(MAX(g.data) - p.data, 0) AS dias,
+                       ROW_NUMBER() OVER (PARTITION BY p.id_cliente ORDER BY p.data DESC, p.id DESC) AS ordem
+                FROM pedidos p
+                JOIN pagamentos g ON g.nota_abatida = p.id
+                WHERE p.empresa_id = ${empresaId} AND p.valor_restante <= 0 AND p.data > DATE '1900-01-01'
+                GROUP BY p.id, p.id_cliente, p.data
+            ), pagador AS (
+                SELECT id_cliente, AVG(dias) AS media, COUNT(*) AS n FROM quitadas WHERE ordem <= 10 GROUP BY id_cliente
+            )
             SELECT 
-                c.id, c.nome, c.whatsapp, c.papel_grande,
+                c.id, c.nome, c.apelido, c.whatsapp, c.papel_grande,
+                pg.media AS media_dias_quitar, COALESCE(pg.n, 0) AS notas_quitadas,
                 -- ">0", não "<>0": uma nota com saldo NEGATIVO (pago a mais que o valor — sempre um bug/erro de
                 -- lançamento, nunca deveria existir) contava aqui mas era excluída do "Notas em aberto" do modal
                 -- de detalhe (esse sim já usava >0), fazendo os dois números baterem diferente pro mesmo cliente.
@@ -29,15 +44,16 @@ export async function pegarClientesBack() {
             FROM clientes c
             CROSS JOIN (SELECT (now() AT TIME ZONE 'America/Sao_Paulo')::date AS dia) hoje
             LEFT JOIN pedidos p ON c.id = p.id_cliente
+            LEFT JOIN pagador pg ON pg.id_cliente = c.id
             WHERE c.empresa_id = ${empresaId}
-            GROUP BY c.id, c.nome, c.whatsapp, c.papel_grande
+            GROUP BY c.id, c.nome, c.apelido, c.whatsapp, c.papel_grande, pg.media, pg.n
             HAVING COUNT(p.id) FILTER (WHERE p.valor_restante > 0) > 0;
         `;
 
         // 2. Busca a lista completa de clientes (já com whatsapp e documento)
         const clientes = await prisma.clientes.findMany({
             where: { empresa_id: empresaId },
-            select: { id: true, nome: true, whatsapp: true, documento: true },
+            select: { id: true, nome: true, whatsapp: true, documento: true, ...SELECT_EXTRAS },
             orderBy: { nome: 'asc' }
         });
 
@@ -52,6 +68,8 @@ export async function pegarClientesBack() {
             proximo_vencimento: item.proximo_vencimento ? new Date(item.proximo_vencimento).toISOString() : null,
             atrasado: Boolean(item.atrasado),
             vence_hoje: Boolean(item.vence_hoje),
+            media_dias_quitar: item.media_dias_quitar != null ? Number(item.media_dias_quitar) : null,
+            notas_quitadas: Number(item.notas_quitadas),
         }));
 
         return {
@@ -60,6 +78,7 @@ export async function pegarClientesBack() {
                 emAberto: emAbertoLimpo,
                 clientes: clientes.map(c => ({
                     ...c,
+                    ...extrasParaTela(c),
                     id: Number(c.id),
                     whatsapp: c.whatsapp ? String(c.whatsapp) : "",
                     documento: c.documento ? String(c.documento) : ""

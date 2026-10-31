@@ -2,6 +2,7 @@
 
 import { ClienteEmAberto } from '@/types'
 import { formatarDataBR, diasDesde, diasAteVencer } from '@/lib/mask'
+import { seloPagador } from '@/lib/cliente'
 
 type BlocoProps = {
     clientes: ClienteEmAberto[],
@@ -40,6 +41,7 @@ export function BlocoClientes({ clientes, onClick, valor }: BlocoProps) {
             {clientes.map(c => {
                 const dias = diasDesde(c.mais_antiga)
                 const f = etiquetaVencimento(c) ?? faixa(dias)
+                const selo = seloPagador(c.media_dias_quitar, c.notas_quitadas)
                 return (
                     <li key={c.id}>
                         <button
@@ -47,10 +49,14 @@ export function BlocoClientes({ clientes, onClick, valor }: BlocoProps) {
                             className="w-full text-left bg-white rounded-xl ring-1 ring-slate-900/5 hover:ring-marca-700/40 hover:shadow-sm active:scale-[0.99] transition-all px-4 py-3 flex items-center justify-between gap-3 cursor-pointer focus-visible:outline-2 focus-visible:outline-marca-700"
                         >
                             <div className="min-w-0">
-                                <p className="font-semibold text-slate-900 truncate">{c.nome}</p>
+                                <p className="font-semibold text-slate-900 truncate">{c.nome}{c.apelido && <span className="font-normal text-slate-500"> ({c.apelido})</span>}</p>
                                 <p className="mt-0.5 text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <span>{valor ? c.quantidade_de_notas : '•'} {c.quantidade_de_notas === 1 ? 'nota' : 'notas'}</span>
                                     {f && <span className={`inline-flex px-2 py-0.5 rounded-full ring-1 ring-inset font-medium ${f.cls}`}>{f.rotulo}</span>}
+                                    {selo && (
+                                        <span title={`Em média ${Math.round(c.media_dias_quitar!)} dias pra quitar (últimas ${c.notas_quitadas} notas)`}
+                                            className={`inline-flex px-2 py-0.5 rounded-full ring-1 ring-inset ${selo.cls}`}>{selo.rotulo}</span>
+                                    )}
                                 </p>
                             </div>
                             <div className="text-right shrink-0">

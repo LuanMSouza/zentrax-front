@@ -13,6 +13,9 @@ import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import EditarClientes from "@/modais/editarClientes/page";
 import ImportarCaderno from "@/modais/importarCaderno/page";
+import Aniversarios from "@/blocos/Aniversarios";
+import { bateBusca } from "@/lib/cliente";
+import Link from "next/link";
 
 // types
 import { Cliente, Pagamentos, ClienteEmAberto } from '@/types'
@@ -165,7 +168,7 @@ export default function Home() {
 
     const filtrados = listaOrdenada
         .filter(e => situacao === 'vence_hoje' ? e.vence_hoje : situacao === 'atrasados' ? e.atrasado : true)
-        .filter(e => e.nome.toLowerCase().includes(filtro.toLowerCase()))
+        .filter(e => bateBusca(e, filtro))
 
     const abaCls = (ativa: boolean) =>
         `px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
@@ -203,8 +206,19 @@ export default function Home() {
                         >
                             Editar clientes
                         </button>
+                        {/* ranking e números da loja: mesma regra do "Total na rua", só gestor */}
+                        {role === 'gestor' && (
+                            <Link
+                                href="/dashboard/relatorios"
+                                className="text-sm font-medium text-slate-600 hover:text-slate-900 underline underline-offset-4 decoration-slate-300 px-2 py-2"
+                            >
+                                Relatórios
+                            </Link>
+                        )}
                     </div>
                 </div>
+
+                <Aniversarios clientes={clientes} />
 
                 <ResumoTopo emAberto={emAberto} role={role} mostrarValores={mostrarValores} situacao={situacao}
                     onFiltrar={(s) => { setSituacao(s); setAba('devedores') }} />
@@ -218,8 +232,8 @@ export default function Home() {
                                     type="search"
                                     value={filtro}
                                     onChange={(e) => setFiltro(e.target.value)}
-                                    placeholder="Buscar cliente pelo nome"
-                                    aria-label="Buscar cliente pelo nome"
+                                    placeholder="Buscar cliente pelo nome ou apelido"
+                                    aria-label="Buscar cliente pelo nome ou apelido"
                                     className="w-full pl-10 pr-3 py-2.5 bg-white rounded-lg ring-1 ring-slate-900/10 text-sm outline-none focus:ring-2 focus:ring-marca-700 transition-shadow"
                                 />
                             </div>
