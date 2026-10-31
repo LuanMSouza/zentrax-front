@@ -62,6 +62,12 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
 
     const [abrirTextoCobranca, setAbrirTextoCobranca] = useState(false)
 
+    // exportar é só pra gestor (o servidor confere de novo); o papel vem do login
+    const [ehGestor, setEhGestor] = useState(false)
+    useEffect(() => {
+        try { setEhGestor(JSON.parse(localStorage.getItem('usuario') ?? '{}')?.role === 'gestor') } catch { }
+    }, [])
+
     const hardRefresh = async () => {
         if ('serviceWorker' in navigator) {
             const registrations = await navigator.serviceWorker.getRegistrations();
@@ -157,6 +163,19 @@ export default function PreferenciasConfig({ sair }: { sair: () => void }) {
                     </label>
                 ))}
             </div>
+
+            {ehGestor && (
+                <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded p-3">
+                    <div>
+                        <p className="text-gray-700 text-sm md:text-base font-medium">Seus dados</p>
+                        <p className="text-gray-500 text-xs md:text-sm">Planilha do Excel com todos os clientes, notas e pagamentos.</p>
+                    </div>
+                    <a href="/api/exportar" download
+                        className="cursor-pointer bg-marca-700 hover:bg-marca-800 active:scale-95 transition-all text-white py-2 px-4 rounded shrink-0 text-sm md:text-base">
+                        Baixar planilha
+                    </a>
+                </div>
+            )}
 
             <button
                 onClick={hardRefresh}
