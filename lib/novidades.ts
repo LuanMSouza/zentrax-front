@@ -10,6 +10,19 @@ export type Novidade = {
 
 export const NOVIDADES: Novidade[] = [
     {
+        id: '2026-10-31-pix',
+        data: '2026-10-31',
+        titulo: 'Pix, lembretes e mais controle',
+        itens: [
+            { titulo: 'Pix', texto: 'Cadastre a chave Pix em Configurações > Preferências > Pix. O comprovante, a cobrança e o extrato do cliente passam a ter o QR code com o valor que falta.' },
+            { titulo: 'Lembrar vencimentos', texto: 'Na tela principal, o botão "Lembrar vencimentos" passa por quem combinou de pagar hoje ou amanhã, com uma mensagem gentil pronta.' },
+            { titulo: 'Bloquear fiado', texto: 'Em Editar clientes, marque "Não vender mais fiado". Ao lançar nota pra esse cliente, aparece um aviso vermelho.' },
+            { titulo: 'Desfazer pagamento', texto: 'Lançou um pagamento errado? Na aba Pagamentos, o gestor pode desfazer com a senha. O valor volta pras notas.' },
+            { titulo: 'Resumo do mês por e-mail', texto: 'Todo dia 1º chega no seu e-mail o resumo do mês anterior. Dá pra desligar em Preferências > Avisos.' },
+            { titulo: 'Preferências organizadas', texto: 'As preferências agora são separadas em Avisos, Cobrança, Comprovante, Pix e Dados.' },
+        ]
+    },
+    {
         id: '2026-10-31-comprovante',
         data: '2026-10-31',
         titulo: 'Comprovante mais completo',

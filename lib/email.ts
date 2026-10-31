@@ -84,3 +84,54 @@ export async function enviarEmailVencimentos(destinatario: string, nomeResponsav
         throw new Error(`Falha ao enviar e-mail via Resend: ${error.message}`)
     }
 }
+
+export type ResumoMensal = {
+    loja: string
+    mes: string // "outubro de 2026"
+    vendido: string, notas: number, variacaoVendido: string | null
+    recebido: string, pagamentos: number, variacaoRecebido: string | null
+    naRua: string
+    clientesNovos: number
+    maisDevem: ItemVencimento[]
+    maisPagaram: ItemVencimento[]
+}
+
+// Resumo do mês anterior pro dono da loja, todo dia 1º (ver app/api/admin/resumo-mensal).
+export async function enviarEmailResumoMensal(destinatario: string, nomeResponsavel: string, r: ResumoMensal, link: string) {
+    const resend = getResend()
+
+    const linha = (rotulo: string, valor: string, detalhe?: string | null) => `
+        <tr>
+            <td style="padding: 8px 0; color: #475569;">${rotulo}</td>
+            <td style="padding: 8px 0; text-align: right; font-weight: bold;">${valor}${detalhe ? `<br><span style="font-weight: normal; font-size: 12px; color: #64748b;">${detalhe}</span>` : ''}</td>
+        </tr>`
+
+    const { error } = await resend.emails.send({
+        from: FROM,
+        to: destinatario,
+        subject: `Seu fiado em ${r.mes}: ${r.recebido} recebidos`,
+        html: `
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #0f172a;">
+                <p>Oi, ${escapar(nomeResponsavel.split(' ')[0])}! Aqui vai o resumo de ${escapar(r.mes)} da ${escapar(r.loja)}.</p>
+                <table style="width: 100%; border-collapse: collapse; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+                    ${linha('Vendido fiado', r.vendido, `${r.notas} ${r.notas === 1 ? 'nota' : 'notas'}${r.variacaoVendido ? `, ${r.variacaoVendido} que o mês anterior` : ''}`)}
+                    ${linha('Recebido', r.recebido, `${r.pagamentos} ${r.pagamentos === 1 ? 'pagamento' : 'pagamentos'}${r.variacaoRecebido ? `, ${r.variacaoRecebido} que o mês anterior` : ''}`)}
+                    ${linha('Na rua hoje', r.naRua)}
+                    ${linha('Clientes novos', String(r.clientesNovos))}
+                </table>
+                ${r.maisPagaram.length ? `<p style="margin: 16px 0 0;"><strong>Quem mais pagou:</strong></p>${lista(r.maisPagaram)}` : ''}
+                ${r.maisDevem.length ? `<p style="margin: 16px 0 0;"><strong>Quem mais deve:</strong></p>${lista(r.maisDevem)}` : ''}
+                <p>
+                    <a href="${link}" style="display: inline-block; background: #004b6b; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                        Ver os relatórios
+                    </a>
+                </p>
+                <p style="color: #666; font-size: 13px;">Chega uma vez por mês, no dia 1º. Pra não receber mais, desliga em Configurações › Preferências.</p>
+            </div>
+        `
+    })
+
+    if (error) {
+        throw new Error(`Falha ao enviar e-mail via Resend: ${error.message}`)
+    }
+}
