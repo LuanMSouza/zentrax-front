@@ -9,7 +9,8 @@ type AlterarClienteProps = EntradaExtras & {
     id: number,
     nome: string,
     whatsapp: string,
-    documento: string
+    documento: string,
+    bloqueado?: boolean
 }
 
 export async function AlterarClienteBack(dados: AlterarClienteProps) {
@@ -65,9 +66,20 @@ export async function AlterarClienteBack(dados: AlterarClienteProps) {
                 nome,
                 whatsapp: whatsappDigitos ? BigInt(whatsappDigitos) : null,
                 documento: documento || null,
-                ...extras.campos
+                ...extras.campos,
+                // bloquear pra fiado é decisão do gestor
+                ...(Auth.role === 'gestor' && typeof dados.bloqueado === 'boolean' ? { bloqueado: dados.bloqueado } : {})
             }
         })
+
+        if (clienteAtualizado.bloqueado !== alvo.bloqueado) {
+            await RegistrarAcao({
+                tabela: 'Clientes',
+                operacao: clienteAtualizado.bloqueado ? `Bloqueou o fiado de ${nome}` : `Liberou o fiado de ${nome}`,
+                empresa_id: empresaId,
+                usuario_id: Number(Auth.usuario_id)
+            })
+        }
 
         await RegistrarAcao({
             tabela: 'Clientes',

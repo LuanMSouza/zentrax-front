@@ -27,7 +27,7 @@ export async function pegarClientesBack() {
                 SELECT id_cliente, AVG(dias) AS media, COUNT(*) AS n FROM quitadas WHERE ordem <= 10 GROUP BY id_cliente
             )
             SELECT 
-                c.id, c.nome, c.apelido, c.whatsapp, c.papel_grande,
+                c.id, c.nome, c.apelido, c.bloqueado, c.whatsapp, c.papel_grande,
                 pg.media AS media_dias_quitar, COALESCE(pg.n, 0) AS notas_quitadas,
                 -- ">0", não "<>0": uma nota com saldo NEGATIVO (pago a mais que o valor — sempre um bug/erro de
                 -- lançamento, nunca deveria existir) contava aqui mas era excluída do "Notas em aberto" do modal
@@ -46,7 +46,7 @@ export async function pegarClientesBack() {
             LEFT JOIN pedidos p ON c.id = p.id_cliente
             LEFT JOIN pagador pg ON pg.id_cliente = c.id
             WHERE c.empresa_id = ${empresaId}
-            GROUP BY c.id, c.nome, c.apelido, c.whatsapp, c.papel_grande, pg.media, pg.n
+            GROUP BY c.id, c.nome, c.apelido, c.bloqueado, c.whatsapp, c.papel_grande, pg.media, pg.n
             HAVING COUNT(p.id) FILTER (WHERE p.valor_restante > 0) > 0;
         `;
 

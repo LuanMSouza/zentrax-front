@@ -5,6 +5,7 @@ export type Cliente = {
     documento: string | null
     // cadastro completo, tudo opcional (lib/cliente.ts)
     apelido?: string | null,
+    bloqueado?: boolean, // "não vender mais fiado" (só aviso, a loja decide)
     email?: string | null,
     endereco?: string | null,
     aniversario_dia?: number | null,
@@ -62,6 +63,7 @@ export type ClienteEmAberto = {
     atrasado: boolean;
     vence_hoje: boolean;
     apelido?: string | null;
+    bloqueado?: boolean;
     // média de dias entre a nota e o pagamento que a quitou, e em quantas notas isso foi medido (pro selo de pagador)
     media_dias_quitar?: number | null;
     notas_quitadas?: number;

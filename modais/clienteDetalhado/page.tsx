@@ -322,6 +322,11 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                 <Titulo cor="preto" texto={cliente.nome} />
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="g" corTexto="branco" />
 
+                {resumo?.cadastro.bloqueado && (
+                    <p className="rounded-xl bg-red-50 ring-1 ring-red-600/20 px-4 py-2.5 text-sm font-medium text-red-700">
+                        Fiado bloqueado pra esse cliente.
+                    </p>
+                )}
                 {resumo?.cadastro.observacoes && (
                     <p className="rounded-xl bg-slate-50 ring-1 ring-slate-900/10 px-4 py-2.5 text-sm text-slate-700 whitespace-pre-line">
                         <span className="font-medium">Obs.:</span> {resumo.cadastro.observacoes}

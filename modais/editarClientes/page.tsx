@@ -26,6 +26,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
     const [editandoId, setEditandoId] = useState<number | null>(null)
     const [form, setForm] = useState({ nome: '', whatsapp: '', documento: '' })
     const [extras, setExtras] = useState(EXTRAS_VAZIOS)
+    const [bloqueado, setBloqueado] = useState(false)
     const [salvando, setSalvando] = useState(false)
     const [excluindoId, setExcluindoId] = useState<number | null>(null)
     const topo = useRef<HTMLDivElement>(null)
@@ -41,6 +42,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
             documento: c.documento ?? ''
         })
         setExtras(extrasDoCliente(c))
+        setBloqueado(c.bloqueado === true)
     }
 
     function cancelarEdicao() {
@@ -56,7 +58,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
         setSalvando(true)
 
         try {
-            const res = await AlterarClienteBack({ id, ...form, ...extras })
+            const res = await AlterarClienteBack({ id, ...form, ...extras, bloqueado })
 
             if (res.success && res.clienteAtualizado) {
                 Swal.fire('Sucesso!', 'Cliente atualizado com sucesso!', 'success')
@@ -187,6 +189,17 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                                     </label>
                                 </div>
                             </section>
+
+                            {role === 'gestor' && (
+                                <label className={`flex items-start gap-3 rounded-xl px-4 py-3 cursor-pointer ring-1 transition-colors ${bloqueado ? 'bg-red-50 ring-red-600/20' : 'bg-slate-50 ring-slate-900/5'}`}>
+                                    <input type="checkbox" checked={bloqueado} onChange={(e) => setBloqueado(e.target.checked)}
+                                        className="mt-0.5 accent-red-600 w-5 h-5 cursor-pointer shrink-0" />
+                                    <span>
+                                        <span className={`block text-sm font-medium ${bloqueado ? 'text-red-700' : 'text-slate-700'}`}>Não vender mais fiado pra esse cliente</span>
+                                        <span className="block text-xs text-slate-500 mt-0.5">Ao lançar uma nota pra ele, aparece um aviso vermelho pedindo confirmação.</span>
+                                    </span>
+                                </label>
+                            )}
 
                             <section className="flex flex-col gap-4 border-t border-slate-100 pt-5">
                                 <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mais detalhes (opcional)</h3>

@@ -84,6 +84,20 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
             Swal.fire('Opa...', 'A data combinada pra pagar não pode ser antes da data da venda.', 'warning');
             return;
         }
+        // cliente bloqueado pra fiado: aviso forte, mas quem está no balcão ainda decide
+        if (info?.bloqueado) {
+            const { isConfirmed } = await Swal.fire({
+                title: 'Fiado bloqueado',
+                text: 'Esse cliente está marcado pra não vender mais fiado. Quer lançar a nota mesmo assim?',
+                icon: 'error',
+                showCancelButton: true,
+                confirmButtonText: 'Lançar mesmo assim',
+                cancelButtonText: 'Voltar',
+                confirmButtonColor: '#dc2626',
+                focusCancel: true
+            });
+            if (!isConfirmed) return;
+        }
         // limite de fiado é só aviso: a loja decide se vende mesmo assim
         if (info?.limite && valorTotal > 0 && info.deve + valorTotal > info.limite) {
             const { isConfirmed } = await Swal.fire({
@@ -183,6 +197,11 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
                         </Selects>
                     </Label>
 
+                    {info?.bloqueado && (
+                        <p className="w-full rounded-lg bg-red-50 ring-1 ring-red-600/20 px-3 py-2 text-sm font-medium text-red-700">
+                            Fiado bloqueado pra esse cliente.
+                        </p>
+                    )}
                     {info && (info.observacoes || info.limite) && (
                         <div className="w-full rounded-lg bg-slate-50 ring-1 ring-slate-900/10 px-3 py-2 text-sm text-slate-700 space-y-0.5">
                             {info.observacoes && <p className="whitespace-pre-line"><span className="font-medium">Obs.:</span> {info.observacoes}</p>}

@@ -119,7 +119,7 @@ export async function infoDoClienteNaNota(clienteId: number) {
         }),
         prisma.clientes.findFirst({
             where: { id: Number(clienteId), empresa_id: empresaId },
-            select: { limite_fiado: true, observacoes: true }
+            select: { limite_fiado: true, observacoes: true, bloqueado: true }
         }),
         prisma.pedidos.aggregate({
             where: { id_cliente: Number(clienteId), empresa_id: empresaId, valor_restante: { gt: 0 } },
@@ -131,6 +131,7 @@ export async function infoDoClienteNaNota(clienteId: number) {
         dia: ultima?.vencimento ? ultima.vencimento.getUTCDate() : null,
         limite: cliente?.limite_fiado != null ? Number(cliente.limite_fiado) : null,
         observacoes: cliente?.observacoes ?? null,
+        bloqueado: cliente?.bloqueado === true,
         deve: Number(saldo._sum.valor_restante ?? 0)
     }
 }

@@ -59,7 +59,7 @@ export function lerCamposExtras(e: EntradaExtras): { ok: true, campos: CamposExt
 }
 
 // Linha do banco → formato que vai pro navegador (Decimal não atravessa a Server Action).
-export function extrasParaTela(c: Partial<Record<keyof CamposExtras, unknown>>) {
+export function extrasParaTela(c: Partial<Record<keyof CamposExtras | 'bloqueado', unknown>>) {
     return {
         apelido: (c.apelido as string | null) ?? null,
         email: (c.email as string | null) ?? null,
@@ -68,11 +68,12 @@ export function extrasParaTela(c: Partial<Record<keyof CamposExtras, unknown>>) 
         aniversario_mes: c.aniversario_mes != null ? Number(c.aniversario_mes) : null,
         observacoes: (c.observacoes as string | null) ?? null,
         limite_fiado: c.limite_fiado != null ? Number(c.limite_fiado) : null,
+        bloqueado: c.bloqueado === true,
     }
 }
 
 export const SELECT_EXTRAS = {
-    apelido: true, email: true, endereco: true, aniversario_dia: true, aniversario_mes: true, observacoes: true, limite_fiado: true
+    apelido: true, email: true, endereco: true, aniversario_dia: true, aniversario_mes: true, observacoes: true, limite_fiado: true, bloqueado: true
 } as const
 
 export const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']

@@ -52,6 +52,7 @@ export function BlocoClientes({ clientes, onClick, valor }: BlocoProps) {
                                 <p className="font-semibold text-slate-900 truncate">{c.nome}{c.apelido && <span className="font-normal text-slate-500"> ({c.apelido})</span>}</p>
                                 <p className="mt-0.5 text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <span>{valor ? c.quantidade_de_notas : '•'} {c.quantidade_de_notas === 1 ? 'nota' : 'notas'}</span>
+                                    {c.bloqueado && <span className="inline-flex px-2 py-0.5 rounded-full ring-1 ring-inset font-medium bg-red-50 text-red-700 ring-red-600/20">fiado bloqueado</span>}
                                     {f && <span className={`inline-flex px-2 py-0.5 rounded-full ring-1 ring-inset font-medium ${f.cls}`}>{f.rotulo}</span>}
                                     {selo && (
                                         <span title={`Em média ${Math.round(c.media_dias_quitar!)} dias pra quitar (últimas ${c.notas_quitadas} notas)`}
