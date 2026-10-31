@@ -1,16 +1,15 @@
 'use client'
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Swal from "sweetalert2"
 import Cortina from "@/componentes/cortina"
 import Container from "@/componentes/Container"
 import Titulo from "@/componentes/Titulo"
 import { Button } from "@/componentes/Buttons"
-import Input from "@/componentes/Inputs"
 import { AlterarClienteBack, ApagarClienteBack, PegarImpactoClienteBack } from "./actions"
 import { ConfirmarSenha } from "@/modais/configuracoes/abas/actions"
 import { Cliente } from "@/types"
-import CamposExtrasCliente, { EXTRAS_VAZIOS, extrasDoCliente } from "@/componentes/CamposExtrasCliente"
+import CamposExtrasCliente, { EXTRAS_VAZIOS, extrasDoCliente, campo, rotulo } from "@/componentes/CamposExtrasCliente"
 import { bateBusca, textoAniversario } from "@/lib/cliente"
 
 type EditarClientesProps = {
@@ -29,6 +28,10 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
     const [extras, setExtras] = useState(EXTRAS_VAZIOS)
     const [salvando, setSalvando] = useState(false)
     const [excluindoId, setExcluindoId] = useState<number | null>(null)
+    const topo = useRef<HTMLDivElement>(null)
+
+    // lista e formulário dividem a mesma rolagem: sem isso, no celular o formulário abre no meio
+    useEffect(() => { topo.current?.scrollIntoView({ block: 'start' }) }, [editandoId])
 
     function iniciarEdicao(c: Cliente) {
         setEditandoId(c.id)
@@ -122,6 +125,7 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
             if (res.success) {
                 Swal.fire('Excluído!', 'Cliente removido com sucesso.', 'success')
                 remover(c.id)
+                setEditandoId(null)
             } else {
                 Swal.fire('Opa...', res.error, 'error')
             }
@@ -136,88 +140,126 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
         .filter(c => bateBusca(c, filtro))
         .sort((a, b) => a.nome.localeCompare(b.nome))
 
+    const editando = clientes.find(c => c.id === editandoId) ?? null
+
     return (
         <Cortina onClick={sair}>
             <Container tamanho="mg">
-                <Titulo texto="Editar clientes" cor="preto" />
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="g" corTexto="branco" />
 
-                <Input name="filtro" tamanho="g" type="text" value={filtro} placeholder="Filtrar pelo nome ou apelido..." onChange={(e) => setFiltro(e)} />
+                <div ref={topo} className="absolute top-0" aria-hidden />
 
-                <div className="w-full flex flex-col gap-2 max-h-96 overflow-y-auto">
-                    {clientesFiltrados.length === 0 && (
-                        <p className="text-gray-500 italic text-center py-4">Nenhum cliente encontrado.</p>
-                    )}
-
-                    {clientesFiltrados.map(c => (
-                        <div key={c.id} className="border border-gray-300 rounded-xl p-3 shadow-sm bg-white">
-                            {editandoId === c.id ? (
-                                <div className="flex flex-col gap-2">
-                                    <label className="flex flex-col gap-1">
-                                        <span className="text-xs text-gray-500">Nome</span>
-                                        <input
-                                            value={form.nome}
-                                            onChange={(e) => setForm(prev => ({ ...prev, nome: e.target.value }))}
-                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-marca-700"
-                                        />
-                                    </label>
-                                    <label className="flex flex-col gap-1">
-                                        <span className="text-xs text-gray-500">Whatsapp</span>
-                                        <input
-                                            value={form.whatsapp}
-                                            onChange={(e) => setForm(prev => ({ ...prev, whatsapp: e.target.value }))}
-                                            placeholder="ex: 11 99887-7665"
-                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-marca-700"
-                                        />
-                                    </label>
-                                    <label className="flex flex-col gap-1">
-                                        <span className="text-xs text-gray-500">CPF/CNPJ</span>
-                                        <input
-                                            value={form.documento}
-                                            onChange={(e) => setForm(prev => ({ ...prev, documento: e.target.value }))}
-                                            placeholder="Opcional"
-                                            className="border border-gray-300 rounded-lg p-2 text-gray-900 outline-none focus:border-marca-700"
-                                        />
-                                    </label>
-
-                                    <CamposExtrasCliente valor={extras} onChange={setExtras}
-                                        abertoDeInicio={Object.values(extrasDoCliente(c)).some(Boolean)} />
-
-                                    <div className="flex gap-2 mt-1">
-                                        <Button onClick={() => salvar(c.id)} texto={salvando ? 'Salvando...' : 'Salvar'} tipo="btn01" tamanho="m" corTexto="branco" />
-                                        <Button onClick={cancelarEdicao} texto="Cancelar" tipo="btn05" tamanho="m" corTexto="branco" />
-                                    </div>
+                {editando ? (
+                    <>
+                        <div className="pr-10">
+                            <button onClick={cancelarEdicao}
+                                className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 cursor-pointer transition-colors">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m15 18-6-6 6-6" /></svg>
+                                Voltar pra lista
+                            </button>
+                            <div className="mt-3 flex items-center gap-3 min-w-0">
+                                <Iniciais nome={editando.nome} grande />
+                                <div className="min-w-0">
+                                    <Titulo texto={editando.nome} cor="preto" />
+                                    <p className="text-sm text-slate-500">Editando cadastro</p>
                                 </div>
-                            ) : (
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="min-w-0">
-                                        <p className="font-semibold text-gray-900 truncate">
-                                            {c.nome}{c.apelido && <span className="font-normal text-gray-500"> ({c.apelido})</span>}
-                                        </p>
-                                        <p className="text-sm text-gray-500 truncate">
-                                            {c.whatsapp ? `Whats: ${c.whatsapp}` : 'Sem whatsapp'}
-                                            {c.documento ? ` · Doc: ${c.documento}` : ''}
-                                            {textoAniversario(c.aniversario_dia, c.aniversario_mes) ? ` · Aniversário: ${textoAniversario(c.aniversario_dia, c.aniversario_mes)}` : ''}
-                                        </p>
-                                    </div>
-                                    <div className="flex gap-1 shrink-0">
-                                        <Button onClick={() => iniciarEdicao(c)} texto="Editar" tipo="btn03" tamanho="p" corTexto="branco" />
-                                        {role === 'gestor' && (
-                                            <Button
-                                                onClick={() => excluir(c)}
-                                                texto={excluindoId === c.id ? '...' : 'Excluir'}
-                                                tipo="btn05"
-                                                tamanho="p"
-                                                corTexto="branco"
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                            )}
+                            </div>
                         </div>
-                    ))}
-                </div>
+
+                        <section className="flex flex-col gap-4">
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Principal</h3>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <label className={`${rotulo} sm:col-span-2`}>
+                                    Nome
+                                    <input value={form.nome} onChange={(e) => setForm(prev => ({ ...prev, nome: e.target.value }))} className={campo} />
+                                </label>
+                                <label className={rotulo}>
+                                    WhatsApp
+                                    <input value={form.whatsapp} inputMode="tel" placeholder="ex.: 11 99887-7665"
+                                        onChange={(e) => setForm(prev => ({ ...prev, whatsapp: e.target.value }))} className={campo} />
+                                </label>
+                                <label className={rotulo}>
+                                    CPF/CNPJ
+                                    <input value={form.documento} placeholder="Opcional"
+                                        onChange={(e) => setForm(prev => ({ ...prev, documento: e.target.value }))} className={campo} />
+                                </label>
+                            </div>
+                        </section>
+
+                        <section className="flex flex-col gap-4 border-t border-slate-100 pt-5">
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mais detalhes (opcional)</h3>
+                            <CamposExtrasCliente valor={extras} onChange={setExtras} solto />
+                        </section>
+
+                        <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 border-t border-slate-100 pt-5">
+                            {role === 'gestor' && (
+                                <button onClick={() => excluir(editando)} disabled={excluindoId !== null}
+                                    className="sm:mr-auto text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg px-3 py-2 cursor-pointer transition-colors disabled:opacity-50">
+                                    {excluindoId === editando.id ? 'Excluindo...' : 'Excluir cliente'}
+                                </button>
+                            )}
+                            <button onClick={cancelarEdicao}
+                                className="sm:ml-auto px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 ring-1 ring-slate-900/10 hover:bg-slate-50 cursor-pointer transition-colors">
+                                Cancelar
+                            </button>
+                            <button onClick={() => salvar(editando.id)} disabled={salvando}
+                                className="px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-marca-700 hover:bg-marca-800 cursor-pointer transition-colors disabled:opacity-60">
+                                {salvando ? 'Salvando...' : 'Salvar alterações'}
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="pr-10">
+                            <Titulo texto="Editar clientes" cor="preto" />
+                            <p className="text-sm text-slate-500 mt-0.5">{clientes.length} {clientes.length === 1 ? 'cliente cadastrado' : 'clientes cadastrados'}. Toque num cliente pra editar.</p>
+                        </div>
+
+                        <div className="relative">
+                            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                            <input name="filtro" type="search" value={filtro} onChange={(e) => setFiltro(e.target.value)}
+                                placeholder="Buscar pelo nome ou apelido" className={`${campo} pl-10`} />
+                        </div>
+
+                        <ul className="-mx-2 flex flex-col max-h-[26rem] overflow-y-auto">
+                            {clientesFiltrados.length === 0 && (
+                                <li className="text-sm text-slate-500 text-center py-8">Nenhum cliente encontrado.</li>
+                            )}
+
+                            {clientesFiltrados.map(c => {
+                                const aniversario = textoAniversario(c.aniversario_dia, c.aniversario_mes)
+                                const detalhes = [c.whatsapp ? String(c.whatsapp) : 'Sem WhatsApp', aniversario && `aniversário ${aniversario}`].filter(Boolean).join(' · ')
+                                return (
+                                    <li key={c.id}>
+                                        <button onClick={() => iniciarEdicao(c)}
+                                            className="w-full flex items-center gap-3 px-2 py-2.5 rounded-xl text-left hover:bg-slate-50 cursor-pointer transition-colors group">
+                                            <Iniciais nome={c.nome} />
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block font-medium text-slate-900 truncate">
+                                                    {c.nome}{c.apelido && <span className="font-normal text-slate-500"> ({c.apelido})</span>}
+                                                </span>
+                                                <span className="block text-sm text-slate-500 truncate">{detalhes}</span>
+                                            </span>
+                                            <svg className="shrink-0 text-slate-300 group-hover:text-slate-500 transition-colors" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m9 18 6-6-6-6" /></svg>
+                                        </button>
+                                    </li>
+                                )
+                            })}
+                        </ul>
+                    </>
+                )}
             </Container>
         </Cortina>
+    )
+}
+
+// Bolinha com as iniciais (MS pra Maria Silva): ajuda a achar o cliente na lista sem ler o nome todo
+function Iniciais({ nome, grande = false }: { nome: string, grande?: boolean }) {
+    const partes = nome.trim().split(/\s+/)
+    const letras = (partes[0]?.[0] ?? '') + (partes.length > 1 ? partes[partes.length - 1][0] : '')
+    return (
+        <span aria-hidden className={`shrink-0 inline-flex items-center justify-center rounded-full bg-marca-100 text-marca-700 font-semibold uppercase ${grande ? 'w-12 h-12 text-base' : 'w-10 h-10 text-sm'}`}>
+            {letras}
+        </span>
     )
 }
