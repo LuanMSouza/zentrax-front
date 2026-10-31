@@ -21,6 +21,7 @@ export async function fechamentoDoDiaBack(dia: string) {
                 FROM recibos r JOIN clientes c ON c.id = r.id_cliente
                 WHERE r.empresa_id = ${empresaId}
                   AND (r.criado_em AT TIME ZONE 'America/Sao_Paulo')::date = ${dia}::date
+                  AND r.estornado_em IS NULL -- pagamento desfeito não entrou no caixa
                 ORDER BY r.criado_em DESC
             `,
             // pagamento sem recibo (antigo ou de importação): entra no total, mas sem forma

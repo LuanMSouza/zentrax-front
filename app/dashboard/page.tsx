@@ -13,7 +13,7 @@ import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import EditarClientes from "@/modais/editarClientes/page";
 import FechamentoDia from "@/modais/fechamentoDia/page";
-import CobrarAtrasados from "@/modais/cobrarAtrasados/page";
+import CobrarAtrasados, { filaDoModo, ModoCobranca } from "@/modais/cobrarAtrasados/page";
 import ImportarCaderno from "@/modais/importarCaderno/page";
 import Aniversarios from "@/blocos/Aniversarios";
 import { bateBusca } from "@/lib/cliente";
@@ -30,7 +30,7 @@ export default function Home() {
     const [modalEditarClientes, setModalEditarClientes] = useState(false)
     const [modalImportar, setModalImportar] = useState(false)
     const [modalFechamento, setModalFechamento] = useState(false)
-    const [modalCobrarAtrasados, setModalCobrarAtrasados] = useState(false)
+    const [modalCobranca, setModalCobranca] = useState<ModoCobranca | null>(null)
 
     const [mostrarValores, setMostrarValores] = useState(false)
     const [filtro, setFiltro] = useState('')
@@ -145,6 +145,7 @@ export default function Home() {
 
     function atualizarClienteEditado(clienteEditado: Cliente) {
         setClientes((prev) => prev.map(c => c.id === clienteEditado.id ? clienteEditado : c));
+        recarregarClientes(); // a lista de devedores mostra apelido e "fiado bloqueado": refaz pra refletir a edição
     }
 
     function removerCliente(id: number) {
@@ -180,6 +181,7 @@ export default function Home() {
         }`
 
     const qtdAtrasados = emAberto.filter(c => c.atrasado).length
+    const qtdLembrar = filaDoModo(emAberto, 'lembrete').length
 
     return (
         <>
@@ -283,11 +285,21 @@ export default function Home() {
                         </button>
                     </div>
                     {/* ação de cada aba fica do lado das abas */}
-                    {aba === 'devedores' && qtdAtrasados > 0 && (
-                        <button onClick={() => setModalCobrarAtrasados(true)}
-                            className="bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 active:scale-[0.98] text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-all cursor-pointer">
-                            Cobrar atrasados <span className="tabular-nums text-slate-400">({qtdAtrasados})</span>
-                        </button>
+                    {aba === 'devedores' && (qtdAtrasados > 0 || qtdLembrar > 0) && (
+                        <div className="flex flex-wrap gap-2">
+                            {qtdLembrar > 0 && (
+                                <button onClick={() => setModalCobranca('lembrete')}
+                                    className="bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 active:scale-[0.98] text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-all cursor-pointer">
+                                    Lembrar vencimentos <span className="tabular-nums text-slate-400">({qtdLembrar})</span>
+                                </button>
+                            )}
+                            {qtdAtrasados > 0 && (
+                                <button onClick={() => setModalCobranca('atrasados')}
+                                    className="bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 active:scale-[0.98] text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-all cursor-pointer">
+                                    Cobrar atrasados <span className="tabular-nums text-slate-400">({qtdAtrasados})</span>
+                                </button>
+                            )}
+                        </div>
                     )}
                     {aba === 'pagamentos' && (
                         <button onClick={() => setModalFechamento(true)}
@@ -341,6 +353,8 @@ export default function Home() {
                         temMaisNoServidor={temMaisPagamentos}
                         carregandoMais={carregandoMaisPagamentos}
                         carregarMais={carregarMaisPagamentos}
+                        role={role}
+                        aposDesfazer={() => { recarregarPagamentos(); recarregarClientes() }}
                     />
                 )}
             </main>
@@ -349,7 +363,7 @@ export default function Home() {
             {modalCriarCliente && <CriarCliente atualizar={atualizarClientes} sair={() => setModalCriarCliente(false)} />}
             {modalEditarClientes && <EditarClientes clientes={clientes} role={role} atualizar={atualizarClienteEditado} remover={removerCliente} sair={() => setModalEditarClientes(false)} />}
             {modalFechamento && <FechamentoDia sair={() => setModalFechamento(false)} />}
-            {modalCobrarAtrasados && <CobrarAtrasados emAberto={emAberto} sair={() => setModalCobrarAtrasados(false)} />}
+            {modalCobranca && <CobrarAtrasados modo={modalCobranca} emAberto={emAberto} sair={() => setModalCobranca(null)} />}
             {modalImportar && <ImportarCaderno concluir={() => carregarDados()} sair={() => setModalImportar(false)} />}
             {modalLancarNotas && <ModalLançarNotas clientes={clientes} atualizar={() => recarregarClientes()} sair={() => setModalLancarNotas(false)} />}
             {modalClienteDetalhado && clienteSelect && (

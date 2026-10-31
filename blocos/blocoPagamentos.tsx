@@ -7,16 +7,20 @@ import { formatarDataBR } from "@/lib/mask";
 import { DadosComprovante, oferecerComprovante } from "@/lib/comprovante";
 import { nomeForma } from "@/lib/formas";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
+import { desfazerPagamentoBack } from "@/modais/clienteDetalhado/actions";
+import Swal from "sweetalert2";
 
 type PagamentoProps = {
     pagamentos: Pagamentos[],
     MostrarValor: boolean,
     temMaisNoServidor: boolean,
     carregandoMais: boolean,
-    carregarMais: () => void
+    carregarMais: () => void,
+    role?: string | null,
+    aposDesfazer?: () => void
 }
 
-export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoServidor, carregandoMais, carregarMais }: PagamentoProps) {
+export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoServidor, carregandoMais, carregarMais, role, aposDesfazer }: PagamentoProps) {
 
 
     const [mostrando, setMostrando] = useState(4);
@@ -70,6 +74,33 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
         });
     }
 
+    // Pagamento lançado errado: devolve o valor pras notas. Só gestor, com a senha (o servidor confere as duas coisas).
+    async function desfazer(p: Pagamentos) {
+        if (!p.recibo) return;
+        const { value: senha, isConfirmed } = await Swal.fire({
+            titleText: `Desfazer o pagamento de ${formatarValor(p.recibo.valor)}?`,
+            text: `${p.clientes?.nome ?? 'Cliente'}, recibo nº ${String(p.recibo.numero).padStart(6, '0')}. O valor volta pras notas que ele abateu e o recibo fica marcado como desfeito. Digite sua senha pra confirmar.`,
+            icon: 'warning',
+            input: 'password',
+            inputAttributes: { autocomplete: 'current-password', 'aria-label': 'Sua senha' },
+            inputPlaceholder: 'Sua senha',
+            showCancelButton: true,
+            confirmButtonText: 'Desfazer pagamento',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancelar',
+            inputValidator: (v) => (!v ? 'Digite sua senha' : null),
+        });
+        if (!isConfirmed) return;
+
+        const res = await desfazerPagamentoBack(p.recibo.numero, String(senha));
+        if (!res.success) {
+            Swal.fire('Opa...', res.error, 'error');
+            return;
+        }
+        Swal.fire('Pronto!', 'Pagamento desfeito. O valor voltou pras notas do cliente.', 'success');
+        aposDesfazer?.();
+    }
+
     function aumentar() {
         if (carregandoMais) return;
         if (mostrando + 4 < lista) {
@@ -109,6 +140,16 @@ export default function BlocoPagamentos({ pagamentos, MostrarValor, temMaisNoSer
                                     >
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" /></svg>
                                     </button>
+                                    {role === 'gestor' && p.recibo && (
+                                        <button
+                                            onClick={() => desfazer(p)}
+                                            aria-label={`Desfazer pagamento de ${p.clientes?.nome ?? 'cliente'}`}
+                                            title="Desfazer pagamento"
+                                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 active:scale-[0.98] transition-all cursor-pointer"
+                                        >
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></svg>
+                                        </button>
+                                    )}
                                 </div>
                             </li>
                         ))}
