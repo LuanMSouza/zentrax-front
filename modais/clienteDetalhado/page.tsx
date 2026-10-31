@@ -367,27 +367,21 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                     </div>
                 )}
 
-                <div className="flex flex-wrap gap-2">
-                    <Button onClick={lancarPagamento} texto="Registrar pagamento" tipo="btn01" tamanho="g" corTexto="branco" />
-                    <button
-                        onClick={() => cobrar(cliente.id)}
-                        className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
-                    >
-                        Cobrar pelo WhatsApp
+                {/* 2 por linha no celular, 4 numa linha só no computador: sem botão sobrando sozinho embaixo */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <button onClick={lancarPagamento} className="px-2 sm:px-3 py-2.5 rounded-lg text-[13px] sm:text-sm whitespace-nowrap font-medium bg-marca-700 hover:bg-marca-800 text-white active:scale-[0.98] transition-all cursor-pointer">
+                        Registrar pagamento
                     </button>
-                    <button
-                        onClick={mandarExtrato}
-                        className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
-                    >
-                        Mandar extrato
-                    </button>
-                    <button
-                        onClick={extrato}
-                        disabled={carregandoNotas}
-                        className="px-4 py-2 rounded-lg text-sm md:text-base font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] disabled:opacity-60 transition-all cursor-pointer"
-                    >
-                        Imprimir notas em aberto
-                    </button>
+                    {[
+                        { texto: 'Cobrar no WhatsApp', acao: () => cobrar(cliente.id) },
+                        { texto: 'Mandar extrato', acao: mandarExtrato },
+                        { texto: 'Imprimir notas', acao: extrato, desligado: carregandoNotas },
+                    ].map(b => (
+                        <button key={b.texto} onClick={b.acao} disabled={b.desligado}
+                            className="px-2 sm:px-3 py-2.5 rounded-lg text-[13px] sm:text-sm whitespace-nowrap font-medium bg-white ring-1 ring-slate-900/10 hover:ring-marca-700/40 text-slate-700 active:scale-[0.98] disabled:opacity-60 transition-all cursor-pointer">
+                            {b.texto}
+                        </button>
+                    ))}
                 </div>
 
                 <div className="cursor-default flex flex-col w-full gap-2 max-h-80 overflow-y-auto">

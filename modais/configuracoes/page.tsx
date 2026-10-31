@@ -26,9 +26,10 @@ export default function Configuracoes({ sair, usuario, empresa, atualizarPerfil 
     return (
         <Cortina onClick={sair}>
 
-            <div className="bg-white relative z-50 text-gray-900 shadow-2xl rounded-2xl p-6 px-10 lg:px-20 w-fit max-w-full lg:max-w-2xl mx-auto border border-gray-200">
+            {/* cabe na tela com respiro em cima e embaixo: as abas ficam paradas e só o conteúdo rola */}
+            <div className="bg-white relative z-50 text-gray-900 shadow-2xl rounded-2xl p-6 px-10 lg:px-20 w-fit max-w-full lg:max-w-2xl mx-auto border border-gray-200 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-5rem)]">
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="m" corTexto="branco" />
-                <nav className="flex gap-2 md:flex-row flex-col lg:gap-8 md:border-b border-gray-200 mb-6">
+                <nav className="shrink-0 flex gap-2 md:flex-row flex-col lg:gap-8 md:border-b border-gray-200 mb-6">
                     <button
                         onClick={() => setSelecionado("perfil")}
                         className={`${tabBase} ${selecionado === "perfil" ? tabAtiva : tabInativa}`}
@@ -55,7 +56,7 @@ export default function Configuracoes({ sair, usuario, empresa, atualizarPerfil 
                     </button>
                 </nav>
 
-                <div className="min-h-50 animate-in fade-in duration-500">
+                <div className="min-h-0 flex-1 overflow-y-auto -mx-1 px-1 pb-1 animate-in fade-in duration-500">
 
 
                     {selecionado === "perfil" && (
