@@ -30,8 +30,8 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
     const [excluindoId, setExcluindoId] = useState<number | null>(null)
     const topo = useRef<HTMLDivElement>(null)
 
-    // lista e formulário dividem a mesma rolagem: sem isso, no celular o formulário abre no meio
-    useEffect(() => { topo.current?.scrollIntoView({ block: 'start' }) }, [editandoId])
+    // lista e formulário dividem a rolagem da Cortina: sem isso, no celular o formulário abre no meio
+    useEffect(() => { topo.current?.closest('[role=dialog]')?.scrollTo({ top: 0 }) }, [editandoId])
 
     function iniciarEdicao(c: Cliente) {
         setEditandoId(c.id)
@@ -150,8 +150,9 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                 <div ref={topo} className="absolute top-0" aria-hidden />
 
                 {editando ? (
-                    <>
-                        <div className="pr-10">
+                    // o card cabe na tela (respiro em cima e embaixo) e só os campos rolam: Salvar sempre à vista
+                    <div className="flex flex-col gap-5 max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100dvh-9rem)]">
+                        <div className="pr-10 shrink-0">
                             <button onClick={cancelarEdicao}
                                 className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 cursor-pointer transition-colors">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m15 18-6-6 6-6" /></svg>
@@ -166,48 +167,51 @@ export default function EditarClientes({ clientes, role, sair, atualizar, remove
                             </div>
                         </div>
 
-                        <section className="flex flex-col gap-4">
-                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Principal</h3>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <label className={`${rotulo} sm:col-span-2`}>
-                                    Nome
-                                    <input value={form.nome} onChange={(e) => setForm(prev => ({ ...prev, nome: e.target.value }))} className={campo} />
-                                </label>
-                                <label className={rotulo}>
-                                    WhatsApp
-                                    <input value={form.whatsapp} inputMode="tel" placeholder="ex.: 11 99887-7665"
-                                        onChange={(e) => setForm(prev => ({ ...prev, whatsapp: e.target.value }))} className={campo} />
-                                </label>
-                                <label className={rotulo}>
-                                    CPF/CNPJ
-                                    <input value={form.documento} placeholder="Opcional"
-                                        onChange={(e) => setForm(prev => ({ ...prev, documento: e.target.value }))} className={campo} />
-                                </label>
-                            </div>
-                        </section>
+                        <div className="min-h-0 flex-1 overflow-y-auto -mx-1 px-1 pb-1 flex flex-col gap-5">
+                            <section className="flex flex-col gap-4">
+                                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Principal</h3>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <label className={`${rotulo} sm:col-span-2`}>
+                                        Nome
+                                        <input value={form.nome} onChange={(e) => setForm(prev => ({ ...prev, nome: e.target.value }))} className={campo} />
+                                    </label>
+                                    <label className={rotulo}>
+                                        WhatsApp
+                                        <input value={form.whatsapp} inputMode="tel" placeholder="ex.: 11 99887-7665"
+                                            onChange={(e) => setForm(prev => ({ ...prev, whatsapp: e.target.value }))} className={campo} />
+                                    </label>
+                                    <label className={rotulo}>
+                                        CPF/CNPJ
+                                        <input value={form.documento} placeholder="Opcional"
+                                            onChange={(e) => setForm(prev => ({ ...prev, documento: e.target.value }))} className={campo} />
+                                    </label>
+                                </div>
+                            </section>
 
-                        <section className="flex flex-col gap-4 border-t border-slate-100 pt-5">
-                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mais detalhes (opcional)</h3>
-                            <CamposExtrasCliente valor={extras} onChange={setExtras} solto />
-                        </section>
+                            <section className="flex flex-col gap-4 border-t border-slate-100 pt-5">
+                                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Mais detalhes (opcional)</h3>
+                                <CamposExtrasCliente valor={extras} onChange={setExtras} solto />
+                            </section>
 
-                        <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 border-t border-slate-100 pt-5">
+                        </div>
+
+                        <div className="shrink-0 border-t border-slate-100 pt-4 sm:pt-5 flex items-center gap-2 sm:gap-3">
                             {role === 'gestor' && (
                                 <button onClick={() => excluir(editando)} disabled={excluindoId !== null}
-                                    className="sm:mr-auto text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg px-3 py-2 cursor-pointer transition-colors disabled:opacity-50">
+                                    className="-ml-3 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg px-3 py-2 cursor-pointer transition-colors disabled:opacity-50">
                                     {excluindoId === editando.id ? 'Excluindo...' : 'Excluir cliente'}
                                 </button>
                             )}
                             <button onClick={cancelarEdicao}
-                                className="sm:ml-auto px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 ring-1 ring-slate-900/10 hover:bg-slate-50 cursor-pointer transition-colors">
+                                className="ml-auto px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 ring-1 ring-slate-900/10 hover:bg-slate-50 cursor-pointer transition-colors">
                                 Cancelar
                             </button>
                             <button onClick={() => salvar(editando.id)} disabled={salvando}
                                 className="px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-marca-700 hover:bg-marca-800 cursor-pointer transition-colors disabled:opacity-60">
-                                {salvando ? 'Salvando...' : 'Salvar alterações'}
+                                {salvando ? 'Salvando...' : <>Salvar<span className="hidden sm:inline"> alterações</span></>}
                             </button>
                         </div>
-                    </>
+                    </div>
                 ) : (
                     <>
                         <div className="pr-10">

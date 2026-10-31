@@ -17,7 +17,7 @@ export default function Cortina({ children, onClick, classname }: CortinaProps) 
             onClick={(e) => { if (e.target === e.currentTarget) onClick?.() }}
             role="dialog"
             aria-modal="true"
-            className={`${classname ?? ''} fixed inset-0 z-50 overflow-y-auto bg-marca-950/60 backdrop-blur-[2px] flex items-start justify-center p-4 [&>*]:my-auto`}
+            className={`${classname ?? ''} fixed inset-0 z-50 overflow-y-auto bg-marca-950/60 backdrop-blur-[2px] flex items-start justify-center p-4 sm:py-10 [&>*]:my-auto`}
         >
             {children}
         </div>
