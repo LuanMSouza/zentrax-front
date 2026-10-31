@@ -101,6 +101,13 @@ function quitou(dados: DadosComprovante) {
     return dados.saldo !== undefined && !dados.saldoDeHoje && dados.saldo < 0.01;
 }
 
+// Quanto o cliente devia antes de pagar ("era 3000, deu 1000, ficou 2000"). Só quando o saldo é o de logo depois
+// do pagamento: num pagamento antigo, saldo de hoje + valor pago não dá o que ele devia naquele dia.
+function saldoAnterior(dados: DadosComprovante) {
+    if (dados.saldo === undefined || dados.saldoDeHoje) return null;
+    return Math.round((dados.saldo + dados.valor) * 100) / 100;
+}
+
 function htmlCabecalho(cab: Cabecalho) {
     return `
     <p class="centro empresa">${escapar(cab.nome)}</p>
@@ -185,6 +192,7 @@ export async function imprimirComprovante(dados: DadosComprovante, vias: Via[]) 
     const quitado = quitou(dados);
     const mostraSaldo = dados.saldo !== undefined && !quitado;
     const rotuloSaldo = dados.saldoDeHoje ? 'Saldo em aberto hoje' : 'Saldo em aberto';
+    const anterior = saldoAnterior(dados);
 
     const corpo = (via: Via) => `
     ${dados.reimpressao ? '<p class="centro reimpressao">REIMPRESSÃO</p>' : ''}
@@ -197,6 +205,7 @@ export async function imprimirComprovante(dados: DadosComprovante, vias: Via[]) 
     <p class="linha"><span>${dados.reimpressao ? 'Pago em' : 'Data'}</span><span>${quandoFoiPago(dados)}</span></p>
     ${dados.reimpressao ? `<p class="linha"><span>Reimpresso em</span><span>${dataHoraBR()}</span></p>` : ''}
     <hr>
+    ${anterior !== null ? `<p class="linha"><span>Saldo anterior</span><span><b>${FormatarValor(anterior)}</b></span></p>` : ''}
     <div class="centro">
         <p class="rotulo">VALOR PAGO</p>
         <p class="valor">${FormatarValor(dados.valor)}</p>
@@ -228,6 +237,7 @@ async function textoComprovante(dados: DadosComprovante) {
         '',
         `Cliente: ${dados.cliente}`,
         `Data: ${quandoFoiPago(dados)}`,
+        ...(saldoAnterior(dados) !== null ? [`Saldo anterior: ${FormatarValor(saldoAnterior(dados)!)}`] : []),
         `Valor pago: *${FormatarValor(dados.valor)}*${dados.forma ? ` (${nomeForma(dados.forma)})` : ''}`,
     ];
     if (quitado) linhas.push('Situação: *quitado* ✅');
