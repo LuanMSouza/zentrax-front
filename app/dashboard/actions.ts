@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import autenticar from "@/lib/auth";
 import { SELECT_EXTRAS, extrasParaTela } from "@/lib/cliente";
+import { ehEmpresaDemo } from "@/lib/demo";
 
 export async function pegarClientesBack() {
 
@@ -238,4 +239,34 @@ export async function pegarCabecalhoComprovanteBack() {
         console.error("Erro ao buscar cabeçalho do comprovante:", error);
         return { success: false, error: "Erro ao buscar os dados da loja." };
     }
+}
+
+// E-mails pro dono (aviso de vencimento de manhã e resumo do mês) só saem depois que a loja diz que quer.
+// Pergunta uma vez, pro gestor, mostrando pra qual e-mail vai (o do primeiro gestor, igual aos envios).
+async function emailDosAvisos(empresaId: number) {
+    const gestor = await prisma.usuarios.findFirst({ where: { empresa_id: empresaId, role: 'gestor' }, orderBy: { id: 'asc' } })
+    const email = gestor?.email || gestor?.usuario
+    return email?.includes('@') ? email : null
+}
+
+export async function perguntaEmailsBack() {
+    const Auth = await autenticar()
+    if (!Auth || Auth.role !== 'gestor') return null
+    const empresaId = Number(Auth.empresa_id)
+    if (await ehEmpresaDemo(empresaId)) return null
+
+    const s = await prisma.empresa_settings.findFirst({ where: { empresa_id: empresaId }, select: { emails_respondido_em: true } })
+    if (!s || s.emails_respondido_em) return null
+    const email = await emailDosAvisos(empresaId)
+    return email ? { email } : null
+}
+
+export async function responderEmailsBack(quer: boolean) {
+    const Auth = await autenticar()
+    if (!Auth || Auth.role !== 'gestor') return { success: false as const }
+    await prisma.empresa_settings.update({
+        where: { empresa_id: Number(Auth.empresa_id) },
+        data: { avisar_vencimentos: quer, resumo_mensal: quer, emails_respondido_em: new Date() }
+    })
+    return { success: true as const }
 }

@@ -13,6 +13,7 @@ import ModalLançarNotas from "@/modais/lancarNotas/pages";
 import ClienteDetalhado from "@/modais/clienteDetalhado/page";
 import EditarClientes from "@/modais/editarClientes/page";
 import FechamentoDia from "@/modais/fechamentoDia/page";
+import PerguntaEmails from "@/blocos/PerguntaEmails";
 import CobrarAtrasados, { filaDoModo, ModoCobranca } from "@/modais/cobrarAtrasados/page";
 import ImportarCaderno from "@/modais/importarCaderno/page";
 import Aniversarios from "@/blocos/Aniversarios";
@@ -227,6 +228,7 @@ export default function Home() {
                 </div>
 
                 <Aniversarios clientes={clientes} />
+                <PerguntaEmails />
 
                 <ResumoTopo emAberto={emAberto} role={role} mostrarValores={mostrarValores} situacao={situacao}
                     onFiltrar={(s) => { setSituacao(s); setAba('devedores') }} />

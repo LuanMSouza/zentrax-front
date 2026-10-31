@@ -13,7 +13,7 @@ import { FormatarValor } from '@/lib/mask'
 //   (no dia e no dia seguinte); atraso antigo não fica sendo repetido todo dia.
 // - loja sem data combinada em nenhuma nota nunca recebe nada.
 // - no máximo 1 por dia por loja (empresa_settings.ultimo_aviso_vencimentos), mesmo se o cron rodar duas vezes.
-// - desliga em Configurações › Preferências (avisar_vencimentos).
+// - só pra loja que respondeu que quer receber (emails_respondido_em); desliga em Configurações › Preferências.
 // Body { "simular": true } só conta quem receberia, sem mandar nem marcar nada.
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
           AND e.status = 'ativo'
           AND (e.data_expiracao IS NULL OR e.data_expiracao > now())
           AND e.id <> ${demoId}
-          AND COALESCE(s.avisar_vencimentos, true)
+          AND s.emails_respondido_em IS NOT NULL AND COALESCE(s.avisar_vencimentos, true)
           AND (s.ultimo_aviso_vencimentos IS NULL OR s.ultimo_aviso_vencimentos < hoje.dia)
         GROUP BY e.id, c.id, c.nome, (p.vencimento = hoje.dia)
         ORDER BY c.nome

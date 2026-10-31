@@ -272,7 +272,8 @@ export async function PegarPreferenciasBack() {
             resumo_mensal: true,
             pix_chave: true,
             pix_nome: true,
-            pix_cidade: true
+            pix_cidade: true,
+            emails_respondido_em: true
         }
     })
 
@@ -282,6 +283,10 @@ export async function PegarPreferenciasBack() {
             // Decimal do Prisma não atravessa pro navegador: vira número
             data: {
                 ...preferencias,
+                // enquanto a loja não respondeu se quer e-mails, nenhum sai: a tela mostra desligado, que é o que vale
+                avisar_vencimentos: preferencias.emails_respondido_em ? preferencias.avisar_vencimentos : false,
+                resumo_mensal: preferencias.emails_respondido_em ? preferencias.resumo_mensal : false,
+                emails_respondido_em: undefined,
                 juros_mes: Number(preferencias.juros_mes ?? 0),
                 multa_atraso: Number(preferencias.multa_atraso ?? 0),
             }
@@ -320,6 +325,18 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
         return { success: false, error: "Essa imagem não deu pra usar. Tente um PNG ou JPG menor." }
     }
 
+    // mexer nos avisos por e-mail aqui também vale como resposta ao "quer receber?" (mesma regra do que a tela mostra)
+    const atual = await prisma.empresa_settings.findFirst({
+        where: { empresa_id: Number(Auth.empresa_id) },
+        select: { avisar_vencimentos: true, resumo_mensal: true, emails_respondido_em: true }
+    })
+    const respondido = !!atual?.emails_respondido_em
+    const vencimentosAgora = preferencias.avisar_vencimentos !== false
+    const resumoAgora = preferencias.resumo_mensal !== false
+    const mexeuNosEmails = respondido
+        ? true
+        : vencimentosAgora !== false || resumoAgora !== false
+
     try {
         await prisma.empresa_settings.update({
             where: {
@@ -327,13 +344,16 @@ export async function AtualizarPreferencias(preferencias: Preferencias) {
             },
             data: {
                 avisar: Boolean(preferencias.avisar),
-                avisar_vencimentos: preferencias.avisar_vencimentos !== false,
+                ...(mexeuNosEmails ? {
+                    avisar_vencimentos: vencimentosAgora,
+                    resumo_mensal: resumoAgora,
+                    ...(respondido ? {} : { emails_respondido_em: new Date() }),
+                } : {}),
                 cobranca_text: Number(preferencias.cobranca_text),
                 telefone: textoOuNull(preferencias.telefone, 20),
                 endereco: textoOuNull(preferencias.endereco, 120),
                 rodape_comprovante: textoOuNull(preferencias.rodape_comprovante, 80),
                 ...(preferencias.logo_comprovante !== undefined ? { logo_comprovante: preferencias.logo_comprovante || null } : {}),
-                resumo_mensal: preferencias.resumo_mensal !== false,
                 // chave Pix decide pra onde vai o dinheiro: só gestor muda
                 ...(Auth.role === 'gestor' && preferencias.pix_chave !== undefined ? {
                     pix_chave: chavePix ? normalizarChavePix(chavePix) : null,

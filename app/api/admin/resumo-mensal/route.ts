@@ -9,7 +9,7 @@ import { MESES } from '@/lib/cliente'
 // Endpoint interno pro cron do dia 1º: manda pro gestor de cada loja o resumo do MÊS ANTERIOR (vendido, recebido,
 // comparação com o mês antes dele, quem mais pagou e quem mais deve).
 //
-// - Só loja ativa, fora a demo, com resumo_mensal ligado (Configurações › Preferências) e que vendeu ou recebeu algo.
+// - Só loja ativa, fora a demo, que disse que quer receber (emails_respondido_em + resumo_mensal) e que vendeu ou recebeu algo.
 // - No máximo 1 por mês por loja (empresa_settings.ultimo_resumo_mensal), mesmo se o cron rodar duas vezes.
 // Body { "simular": true } só conta quem receberia, sem mandar nem marcar nada.
 export const dynamic = 'force-dynamic'
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const empresas = await prisma.$queryRaw<{ id: number, nome: string }[]>`
         SELECT e.id, e.nome FROM empresa e LEFT JOIN empresa_settings s ON s.empresa_id = e.id
         WHERE e.status = 'ativo' AND (e.data_expiracao IS NULL OR e.data_expiracao > now()) AND e.id <> ${demoId}
-          AND COALESCE(s.resumo_mensal, true)
+          AND s.emails_respondido_em IS NOT NULL AND s.resumo_mensal
           AND (s.ultimo_resumo_mensal IS NULL OR s.ultimo_resumo_mensal < ${p.este_mes}::date)
           AND EXISTS (SELECT 1 FROM pedidos WHERE empresa_id = e.id AND data BETWEEN ${p.inicio}::date AND ${p.fim}::date
                       UNION ALL
