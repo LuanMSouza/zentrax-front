@@ -21,6 +21,7 @@ export type DadosComprovante = {
 
 type ExtratoProps = {
     cliente: string,
+    clienteDesde?: string | null, // data da primeira nota: sai "Cliente desde 03/2024" no extrato
     notas: {
         data: Date | string,
         descricao: string | null,
@@ -252,7 +253,7 @@ async function enviarComprovanteWhatsApp(dados: DadosComprovante, whatsapp: stri
 }
 
 // Extrato do que o cliente deve: uma linha por nota em aberto (da mais antiga pra mais nova) e o total.
-export async function imprimirExtrato({ cliente, notas }: ExtratoProps) {
+export async function imprimirExtrato({ cliente, clienteDesde, notas }: ExtratoProps) {
     const cab = await cabecalho();
 
     const emAberto = notas
@@ -274,6 +275,7 @@ export async function imprimirExtrato({ cliente, notas }: ExtratoProps) {
     <p class="centro titulo">NOTAS EM ABERTO</p>
     <hr>
     <p class="linha"><span>Cliente</span><span><b>${escapar(cliente)}</b></span></p>
+    ${clienteDesde ? `<p class="linha"><span>Cliente desde</span><span>${formatarDataBR(clienteDesde).slice(3)}</span></p>` : ''}
     <p class="linha"><span>Emitido em</span><span>${dataHoraBR()}</span></p>
     <hr>
     ${emAberto.length === 0 ? '<p class="centro">Nenhuma nota em aberto.</p>' : linhas}

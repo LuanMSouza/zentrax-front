@@ -5,24 +5,22 @@ import Container from "@/componentes/Container";
 import Cortina from "@/componentes/cortina";
 import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
-import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento } from "./actions";
+import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento, resumoDoClienteBack } from "./actions";
+import Resumo, { DadosResumo } from "./Resumo";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
 import { formatarDataBR, linkWhatsApp, diasAteVencer } from "@/lib/mask";
 import { imprimirExtrato, oferecerComprovante } from "@/lib/comprovante";
 import { FORMAS } from "@/lib/formas";
 import { Recibo } from "@/types";
 
-type ClienteEmAberto = {
+// Só id e nome são usados: a ficha também abre pelos Relatórios, pra cliente que não deve nada.
+type ClienteDaFicha = {
     id: number;
     nome: string;
-    total: string;
-    quantidade_de_notas: number;
-    mais_nova: string;
-    mais_antiga: string;
 }
 
 type DetalhadoPops = {
-    cliente: ClienteEmAberto;
+    cliente: ClienteDaFicha;
     sair: () => void;
     atualizarClientes: () => void; // refaz o agregado (total/quantidade) na tela principal
     atualizarPagamentos: () => void;
@@ -31,6 +29,22 @@ type DetalhadoPops = {
 export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atualizarPagamentos }: DetalhadoPops) {
     const [notas, setNotas] = useState<any[]>([]);
     const [carregandoNotas, setCarregandoNotas] = useState(true);
+    const [aba, setAba] = useState<'notas' | 'resumo'>('notas');
+    const [resumo, setResumo] = useState<DadosResumo | null>(null);
+    const [erroResumo, setErroResumo] = useState<string | null>(null);
+
+    async function recarregarResumo() {
+        try {
+            const res = await resumoDoClienteBack(cliente.id);
+            if (res.success) {
+                setResumo(res);
+                setErroResumo(null);
+            } else setErroResumo(res.error);
+        } catch (error) {
+            console.error("Erro ao buscar resumo do cliente:", error);
+            setErroResumo('Não deu pra carregar o resumo agora.');
+        }
+    }
 
     async function recarregarNotas() {
         setCarregandoNotas(true);
@@ -48,6 +62,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
 
     useEffect(() => {
         recarregarNotas();
+        recarregarResumo(); // junto: as observações do cadastro aparecem já na aba Notas
     }, [cliente.id]);
 
     async function remarcar(nota: { id: number, data: string, vencimento: string | null }) {
@@ -72,6 +87,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
             return
         }
         recarregarNotas()
+        recarregarResumo()
         atualizarClientes() // etiqueta e resumo do topo dependem da data
     }
 
@@ -104,6 +120,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
     // Depois de qualquer pagamento gravado: atualiza a tela e oferece o comprovante (imprimir e/ou WhatsApp).
     async function pagamentoRegistrado(recibo: Recibo | null | undefined, whatsapp: string | null | undefined) {
         recarregarNotas();
+        recarregarResumo();
         atualizarClientes();
         atualizarPagamentos();
 
@@ -133,6 +150,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
     function extrato() {
         imprimirExtrato({
             cliente: cliente.nome,
+            clienteDesde: resumo?.resumo.clienteDesde ?? null,
             notas: notas.map(n => ({
                 data: n.data,
                 descricao: n.descricao,
@@ -267,6 +285,27 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                 <Titulo cor="preto" texto={cliente.nome} />
                 <Button onClick={sair} texto="X" tipo="fechar" tamanho="g" corTexto="branco" />
 
+                {resumo?.cadastro.observacoes && (
+                    <p className="rounded-xl bg-slate-50 ring-1 ring-slate-900/10 px-4 py-2.5 text-sm text-slate-700 whitespace-pre-line">
+                        <span className="font-medium">Obs.:</span> {resumo.cadastro.observacoes}
+                    </p>
+                )}
+
+                <div className="flex gap-1 p-1 bg-slate-200/60 rounded-xl w-fit" role="tablist">
+                    {(['notas', 'resumo'] as const).map(a => (
+                        <button key={a} role="tab" aria-selected={aba === a} onClick={() => setAba(a)}
+                            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${aba === a ? 'bg-marca-950 text-white' : 'text-slate-600 hover:bg-slate-200/70'}`}>
+                            {a === 'notas' ? 'Notas' : 'Resumo'}
+                        </button>
+                    ))}
+                </div>
+
+                {aba === 'resumo' && (
+                    resumo ? <Resumo dados={resumo} />
+                        : <p className="text-center text-sm text-slate-500 py-6">{erroResumo ?? 'Carregando resumo...'}</p>
+                )}
+
+                {aba === 'notas' && <>
                 <dl className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl bg-marca-950 text-white px-4 py-3">
                         <dt className="text-xs text-slate-300">Total em aberto</dt>
@@ -371,6 +410,7 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
                         )
                     })}
                 </div>
+                </>}
             </Container>
         </Cortina >
     )

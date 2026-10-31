@@ -9,6 +9,7 @@ import autenticar from "@/lib/auth";
 import { Prisma } from "@prisma/client";
 import { formaValida } from "@/lib/formas";
 import { Recibo } from "@/types";
+import { SELECT_EXTRAS, extrasParaTela } from "@/lib/cliente";
 
 type PagAvulsoProps = {
     id: number,
@@ -512,4 +513,111 @@ export async function combinarVencimento(notaId: number, vencimento: string | nu
     })
 
     return { success: true }
+}
+
+
+// Aba "Resumo" da ficha: os números do cliente e o cadastro completo. Tudo leitura, numa consulta só.
+// Regras: nota de 0001-01-01 (lixo de importação antiga) fica fora de tudo; "dias pra quitar" só conta nota quitada
+// que tem o pagamento registrado (as de antes do histórico de pagamentos não têm data de quando foram pagas);
+// "total já pago" soma o abatido das notas, que inclui esses pagamentos antigos.
+export async function resumoDoClienteBack(clienteId: number) {
+    const Auth = await autenticar()
+    if (!Auth) return { success: false as const, error: "Sessão expirada ou inválida" }
+
+    const empresaId = Number(Auth.empresa_id)
+    const id = Number(clienteId)
+
+    const cliente = await prisma.clientes.findFirst({
+        where: { id, empresa_id: empresaId },
+        select: { id: true, nome: true, whatsapp: true, documento: true, ...SELECT_EXTRAS }
+    })
+    if (!cliente) return { success: false as const, error: "Cliente não encontrado." }
+
+    try {
+        const [linha] = await prisma.$queryRaw<any[]>`
+            WITH hoje AS (SELECT (now() AT TIME ZONE 'America/Sao_Paulo')::date AS dia),
+            n AS (
+                SELECT * FROM pedidos
+                WHERE empresa_id = ${empresaId} AND id_cliente = ${id} AND data > DATE '1900-01-01'
+            ),
+            ult5 AS (SELECT valor_inicial FROM n ORDER BY data DESC, id DESC LIMIT 5),
+            quitadas AS (
+                SELECT GREATEST(MAX(g.data) - n.data, 0) AS dias
+                FROM n JOIN pagamentos g ON g.nota_abatida = n.id
+                WHERE n.valor_restante <= 0
+                GROUP BY n.id, n.data
+            ),
+            -- frequência: intervalo médio entre os últimos 10 dias em que ele comprou
+            datas AS (SELECT DISTINCT data FROM n ORDER BY data DESC LIMIT 10)
+            SELECT
+                (SELECT AVG(valor_inicial) FROM ult5) AS media_ultimas,
+                (SELECT COUNT(*) FROM ult5) AS qtd_ultimas,
+                (SELECT AVG(dias) FROM quitadas) AS media_dias_quitar,
+                (SELECT MAX(dias) FROM quitadas) AS maior_demora,
+                (SELECT COUNT(*) FROM quitadas) AS notas_quitadas,
+                (SELECT MIN(data) FROM n WHERE valor_restante > 0) AS aberta_mais_antiga,
+                (SELECT COALESCE(SUM(valor_restante), 0) FROM n WHERE valor_restante > 0) AS deve,
+                (SELECT COUNT(*) FROM n, hoje WHERE date_trunc('month', data) = date_trunc('month', hoje.dia)) AS notas_mes,
+                (SELECT COALESCE(SUM(valor_inicial), 0) FROM n, hoje WHERE date_trunc('month', data) = date_trunc('month', hoje.dia)) AS valor_mes,
+                (SELECT COUNT(*) FROM n, hoje WHERE date_trunc('year', data) = date_trunc('year', hoje.dia)) AS notas_ano,
+                (SELECT COALESCE(SUM(valor_inicial), 0) FROM n, hoje WHERE date_trunc('year', data) = date_trunc('year', hoje.dia)) AS valor_ano,
+                (SELECT COUNT(*) FROM n) AS notas_total,
+                (SELECT COALESCE(SUM(valor_inicial), 0) FROM n) AS total_comprado,
+                (SELECT COALESCE(SUM(valor_abatido), 0) FROM n) AS total_pago,
+                (SELECT MIN(data) FROM n) AS cliente_desde,
+                (SELECT MAX(data) FROM n) AS ultima_compra,
+                (SELECT hoje.dia - MAX(n.data) FROM n, hoje GROUP BY hoje.dia) AS dias_sem_comprar,
+                (SELECT (MAX(data) - MIN(data))::float / NULLIF(COUNT(*) - 1, 0) FROM datas) AS intervalo_medio,
+                (SELECT COUNT(*) FROM datas) AS dias_com_compra
+        `
+
+        // últimos 12 meses (incluindo o atual): comprado pela data da nota, pago pela data do pagamento
+        const meses = await prisma.$queryRaw<{ mes: string, comprado: any, pago: any }[]>`
+            WITH hoje AS (SELECT date_trunc('month', (now() AT TIME ZONE 'America/Sao_Paulo')::date)::date AS mes),
+            serie AS (SELECT generate_series(hoje.mes - INTERVAL '11 months', hoje.mes, INTERVAL '1 month')::date AS mes FROM hoje)
+            SELECT to_char(s.mes, 'YYYY-MM') AS mes,
+                (SELECT COALESCE(SUM(valor_inicial), 0) FROM pedidos
+                    WHERE empresa_id = ${empresaId} AND id_cliente = ${id} AND date_trunc('month', data) = s.mes) AS comprado,
+                (SELECT COALESCE(SUM(valor), 0) FROM pagamentos
+                    WHERE empresa_id = ${empresaId} AND id_cliente = ${id} AND date_trunc('month', data) = s.mes) AS pago
+            FROM serie s ORDER BY s.mes
+        `
+
+        const num = (v: any) => (v == null ? null : Number(v))
+        const data = (v: any) => (v ? new Date(v).toISOString() : null)
+        const frequenciaConfiavel = Number(linha.dias_com_compra) >= 3
+
+        return {
+            success: true as const,
+            cadastro: {
+                ...cliente,
+                ...extrasParaTela(cliente),
+                whatsapp: cliente.whatsapp ? String(cliente.whatsapp) : null
+            },
+            resumo: {
+                mediaUltimas: num(linha.media_ultimas),
+                qtdUltimas: Number(linha.qtd_ultimas),
+                mediaDiasQuitar: num(linha.media_dias_quitar),
+                maiorDemora: num(linha.maior_demora),
+                notasQuitadas: Number(linha.notas_quitadas),
+                abertaMaisAntiga: data(linha.aberta_mais_antiga),
+                deve: Number(linha.deve),
+                notasMes: Number(linha.notas_mes),
+                valorMes: Number(linha.valor_mes),
+                notasAno: Number(linha.notas_ano),
+                valorAno: Number(linha.valor_ano),
+                notasTotal: Number(linha.notas_total),
+                totalComprado: Number(linha.total_comprado),
+                totalPago: Number(linha.total_pago),
+                clienteDesde: data(linha.cliente_desde),
+                ultimaCompra: data(linha.ultima_compra),
+                diasSemComprar: num(linha.dias_sem_comprar),
+                intervaloMedio: frequenciaConfiavel ? num(linha.intervalo_medio) : null
+            },
+            meses: meses.map(m => ({ mes: m.mes, comprado: Number(m.comprado), pago: Number(m.pago) }))
+        }
+    } catch (error) {
+        console.error("[resumoDoClienteBack]", error)
+        return { success: false as const, error: "Erro ao montar o resumo do cliente." }
+    }
 }
