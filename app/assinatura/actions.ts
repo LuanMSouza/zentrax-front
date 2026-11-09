@@ -29,6 +29,9 @@ async function iniciarCheckout(empresaId: number, ciclo: CicloAssinatura): Promi
 
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
+            // só cartão: boleto leva 1-3 dias úteis pra compensar e a assinatura "incomplete" expira em 23h,
+            // então o cliente pagava e ficava suspenso mesmo assim (e confundia boleto com Pix)
+            payment_method_types: ['card'],
             line_items: [{ price: PRECOS_STRIPE[ciclo], quantity: 1 }],
             ...(comFundador ? { discounts: [{ coupon: CUPOM_FUNDADOR }] } : {}),
             customer: empresa.stripe_customer_id ?? undefined,
