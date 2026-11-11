@@ -18,6 +18,21 @@ function periodoFinal(subscription: Stripe.Subscription): Date | null {
     return fim ? new Date(fim * 1000) : null
 }
 
+// Renovação por boleto: no dia da cobrança o Stripe gera o boleto novo e a assinatura vira past_due até ele
+// compensar (1-3 dias úteis). Sem folga, a loja era bloqueada no mesmo dia. Aqui ela segue ativa até
+// FOLGA_DIAS depois do início do período novo; quando o boleto cai, o subscription.updated (active) põe o fim do período.
+const FOLGA_DIAS = 3
+
+function dadosDaAssinatura(subscription: Stripe.Subscription) {
+    if (subscription.status === 'past_due') {
+        const inicio = subscription.items.data[0]?.current_period_start
+        const base = inicio ? new Date(inicio * 1000) : new Date()
+        return { status: 'ativo' as const, data_expiracao: new Date(base.getTime() + FOLGA_DIAS * 24 * 60 * 60 * 1000) }
+    }
+    const fim = periodoFinal(subscription)
+    return { status: statusDaAssinatura(subscription.status), ...(fim ? { data_expiracao: fim } : {}) }
+}
+
 export async function POST(request: Request) {
     const body = await request.text()
     const signature = request.headers.get('stripe-signature')
@@ -67,8 +82,7 @@ export async function POST(request: Request) {
                         stripe_customer_id: String(session.customer),
                         stripe_subscription_id: subscription.id,
                         stripe_ciclo: subscription.metadata?.ciclo ?? null,
-                        status: statusDaAssinatura(subscription.status),
-                        ...(periodoFinal(subscription) ? { data_expiracao: periodoFinal(subscription) } : {})
+                        ...dadosDaAssinatura(subscription)
                     }
                 })
                 break
@@ -88,12 +102,9 @@ export async function POST(request: Request) {
 
                 await prisma.empresa.update({
                     where: { id: empresa.id },
-                    data: {
-                        status: event.type === 'customer.subscription.deleted'
-                            ? 'inativo'
-                            : statusDaAssinatura(subscription.status),
-                        ...(periodoFinal(subscription) ? { data_expiracao: periodoFinal(subscription) } : {})
-                    }
+                    data: event.type === 'customer.subscription.deleted'
+                        ? { status: 'inativo', ...(periodoFinal(subscription) ? { data_expiracao: periodoFinal(subscription) } : {}) }
+                        : dadosDaAssinatura(subscription)
                 })
                 break
             }
