@@ -1,13 +1,22 @@
 // Gerador mínimo de planilha .xlsx (Excel, Google Planilhas, LibreOffice), sem biblioteca.
-// Um .xlsx é um .zip com alguns XMLs dentro. Aqui o zip é "sem compressão" (método store): o arquivo fica um pouco
-// maior, mas o código cabe nesta página e não puxa dependência nova pro projeto.
+// Um .xlsx é um .zip com alguns XMLs dentro.
+//
+// Loja grande (100k notas) travava o servidor ~40 s e deixava o processo com quase 2 GB de RAM: a versão antiga
+// montava a planilha inteira numa string, zipava sem compressão e calculava o CRC em JavaScript puro. Agora:
+//   - as linhas chegam aos poucos (AsyncIterable, a rota busca do banco em lotes);
+//   - o XML vira texto de 1000 em 1000 linhas e vai direto pro compressor do Node (zlib, roda fora do JavaScript);
+//   - o CRC também é do zlib (zlib.crc32, Node >= 20.15) e, entre um lote e outro, o servidor atende os outros.
+// Só o arquivo já comprimido (uns 10% do tamanho) fica na memória.
+import zlib from 'node:zlib'
+import { once } from 'node:events'
+import { setImmediate as proximaVolta } from 'node:timers/promises'
 
 export type Celula = string | number | null | undefined | { data: Date | string | null } | { dinheiro: number | null }
 
 export type Aba = {
     nome: string
     colunas: { titulo: string, largura?: number }[]
-    linhas: Celula[][]
+    linhas: Iterable<Celula[]> | AsyncIterable<Celula[]>
 }
 
 // ---------- XML ----------
@@ -45,19 +54,36 @@ function xmlCelula(c: Celula, ref: string) {
     return `<c r="${ref}" s="2"><v>${c.dinheiro}</v></c>`
 }
 
-function xmlAba(aba: Aba) {
+const LINHAS_POR_LOTE = 1000
+
+// XML da aba em pedaços (cabeçalho, lotes de linhas, rodapé). O autoFilter precisa da última linha, por isso vem
+// no fim (é o lugar dele no XML mesmo).
+async function* xmlAba(aba: Aba): AsyncGenerator<string> {
+    const larguras = aba.colunas.map((col, i) => `<col min="${i + 1}" max="${i + 1}" width="${col.largura ?? 14}" customWidth="1"/>`).join('')
     const cabecalho = `<row r="1">${aba.colunas.map((col, i) =>
         `<c r="${nomeColuna(i)}1" t="inlineStr" s="3"><is><t>${escaparXml(col.titulo)}</t></is></c>`).join('')}</row>`
-    const linhas = aba.linhas.map((linha, l) =>
-        `<row r="${l + 2}">${linha.map((c, i) => xmlCelula(c, `${nomeColuna(i)}${l + 2}`)).join('')}</row>`).join('')
-    const larguras = aba.colunas.map((col, i) => `<col min="${i + 1}" max="${i + 1}" width="${col.largura ?? 14}" customWidth="1"/>`).join('')
-    const ultima = `${nomeColuna(Math.max(aba.colunas.length - 1, 0))}${aba.linhas.length + 1}`
-
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    yield `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
 <cols>${larguras}</cols>
-<sheetData>${cabecalho}${linhas}</sheetData>
+<sheetData>${cabecalho}`
+
+    const letras = aba.colunas.map((_, i) => nomeColuna(i))
+    let r = 1
+    let lote: string[] = []
+    for await (const linha of aba.linhas) {
+        r++
+        lote.push(`<row r="${r}">${linha.map((c, i) => xmlCelula(c, `${letras[i] ?? nomeColuna(i)}${r}`)).join('')}</row>`)
+        if (lote.length >= LINHAS_POR_LOTE) {
+            yield lote.join('')
+            lote = []
+            await proximaVolta() // deixa o servidor responder os outros clientes entre um lote e outro
+        }
+    }
+    if (lote.length) yield lote.join('')
+
+    const ultima = `${nomeColuna(Math.max(aba.colunas.length - 1, 0))}${r}`
+    yield `</sheetData>
 <autoFilter ref="A1:${ultima}"/>
 </worksheet>`
 }
@@ -77,7 +103,9 @@ const ESTILOS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 </cellXfs>
 </styleSheet>`
 
-function arquivosDaPlanilha(abas: Aba[]): [string, string][] {
+type Arquivo = [string, string | AsyncIterable<string>]
+
+function arquivosDaPlanilha(abas: Aba[]): Arquivo[] {
     // nome de aba: até 31 caracteres e sem : \ / ? * [ ]
     const nomes = abas.map(a => a.nome.replace(/[:\\/?*[\]]/g, ' ').slice(0, 31))
     return [
@@ -103,47 +131,53 @@ ${abas.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxm
 <Relationship Id="rId${abas.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`],
         ['xl/styles.xml', ESTILOS],
-        ...abas.map((aba, i): [string, string] => [`xl/worksheets/sheet${i + 1}.xml`, xmlAba(aba)]),
+        ...abas.map((aba, i): Arquivo => [`xl/worksheets/sheet${i + 1}.xml`, xmlAba(aba)]),
     ]
 }
 
-// ---------- ZIP (sem compressão) ----------
+// ---------- ZIP (deflate) ----------
 
-const TABELA_CRC = (() => {
-    const t = new Uint32Array(256)
-    for (let n = 0; n < 256; n++) {
-        let c = n
-        for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1
-        t[n] = c >>> 0
+type Comprimido = { dados: Buffer, crc: number, tamanho: number }
+
+// comprime o conteúdo (texto inteiro ou em pedaços) com deflate "cru", que é o que o zip usa (método 8)
+async function comprimir(conteudo: string | AsyncIterable<string>): Promise<Comprimido> {
+    const deflate = zlib.createDeflateRaw({ level: 6 })
+    const saida: Buffer[] = []
+    deflate.on('data', (b: Buffer) => saida.push(b))
+    const terminou = once(deflate, 'end')
+
+    let crc = 0
+    let tamanho = 0
+    const pedacos = typeof conteudo === 'string' ? [conteudo] : conteudo
+    for await (const texto of pedacos) {
+        const buf = Buffer.from(texto, 'utf8')
+        crc = zlib.crc32(buf, crc)
+        tamanho += buf.length
+        if (!deflate.write(buf)) await once(deflate, 'drain')
     }
-    return t
-})()
-
-function crc32(dados: Buffer) {
-    let c = 0xFFFFFFFF
-    for (const byte of dados) c = TABELA_CRC[(c ^ byte) & 0xFF] ^ (c >>> 8)
-    return (c ^ 0xFFFFFFFF) >>> 0
+    deflate.end()
+    await terminou
+    return { dados: Buffer.concat(saida), crc: crc >>> 0, tamanho }
 }
 
-function zipar(arquivos: [string, string][]) {
+async function zipar(arquivos: Arquivo[]) {
     const partes: Buffer[] = []
     const central: Buffer[] = []
     let deslocamento = 0
 
     for (const [nome, conteudo] of arquivos) {
         const nomeBuf = Buffer.from(nome, 'utf8')
-        const dados = Buffer.from(conteudo, 'utf8')
-        const crc = crc32(dados)
+        const { dados, crc, tamanho } = await comprimir(conteudo)
 
         const local = Buffer.alloc(30)
         local.writeUInt32LE(0x04034b50, 0)
         local.writeUInt16LE(20, 4)        // versão necessária
         local.writeUInt16LE(0x0800, 6)    // nomes em UTF-8
-        local.writeUInt16LE(0, 8)         // método 0 = store
+        local.writeUInt16LE(8, 8)         // método 8 = deflate
         local.writeUInt32LE(0, 10)        // hora/data (zerado)
         local.writeUInt32LE(crc, 14)
-        local.writeUInt32LE(dados.length, 18)
-        local.writeUInt32LE(dados.length, 22)
+        local.writeUInt32LE(dados.length, 18) // tamanho comprimido
+        local.writeUInt32LE(tamanho, 22)      // tamanho original
         local.writeUInt16LE(nomeBuf.length, 26)
         local.writeUInt16LE(0, 28)
         partes.push(local, nomeBuf, dados)
@@ -153,11 +187,11 @@ function zipar(arquivos: [string, string][]) {
         cab.writeUInt16LE(20, 4)
         cab.writeUInt16LE(20, 6)
         cab.writeUInt16LE(0x0800, 8)
-        cab.writeUInt16LE(0, 10)
+        cab.writeUInt16LE(8, 10)
         cab.writeUInt32LE(0, 12)
         cab.writeUInt32LE(crc, 16)
         cab.writeUInt32LE(dados.length, 20)
-        cab.writeUInt32LE(dados.length, 24)
+        cab.writeUInt32LE(tamanho, 24)
         cab.writeUInt16LE(nomeBuf.length, 28)
         cab.writeUInt32LE(deslocamento, 42)
         central.push(cab, nomeBuf)
@@ -176,6 +210,6 @@ function zipar(arquivos: [string, string][]) {
     return Buffer.concat([...partes, ...central, fim])
 }
 
-export function gerarXlsx(abas: Aba[]): Buffer {
+export async function gerarXlsx(abas: Aba[]): Promise<Buffer> {
     return zipar(arquivosDaPlanilha(abas))
 }
