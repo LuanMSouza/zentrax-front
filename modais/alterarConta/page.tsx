@@ -16,7 +16,7 @@ export default function AlterarUsuario({ usuario, sair, atualizar }: { usuario: 
     const form = [
         { id: 1, label: 'Nome', name: 'nome', placeholder: 'Nome Completo...', tipoInput: 'text' },
         { id: 2, label: 'Usuario', name: 'usuario', placeholder: 'Nome de usuario...', tipoInput: 'text' },
-        { id: 3, label: 'Senha', name: 'senha', placeholder: 'Senha temporária', tipoInput: 'password' },
+        { id: 3, label: 'Senha', name: 'senha', placeholder: 'Senha temporária (mínimo 8 caracteres)', tipoInput: 'password' },
         { id: 4, label: 'Confimar senha', name: 'senhaConfirm', placeholder: 'Confirmar senha temporária', tipoInput: 'password' },
     ]
 

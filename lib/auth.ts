@@ -1,41 +1,19 @@
 'use server'
 
-import { jwtVerify } from "jose";
+import { jwtVerify, type JWTPayload } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from 'next/navigation'
-import prisma from './prisma'
+import { dadosDaSessao } from './sessao'
 
-// autenticar() roda em toda action autenticada - sem cache isso vira 1
-// query no banco por clique de cada usuario so pra checar se a assinatura
-// segue ativa. Cache curto (30s) tira a maior parte dessa carga; pior caso
-// e uma empresa bloqueada/ativada demorar ate 30s pra refletir no acesso.
-type StatusEmpresa = { status: string | null; data_expiracao: Date | null; expiraEm: number }
-const CACHE_TTL_MS = 30_000
-const cacheStatusEmpresa = new Map<number, StatusEmpresa>()
-
-async function statusEmpresaDoUsuario(usuarioId: number): Promise<StatusEmpresa> {
-    const emCache = cacheStatusEmpresa.get(usuarioId)
-    if (emCache && emCache.expiraEm > Date.now()) {
-        return emCache
-    }
-
-    const usuario = await prisma.usuarios.findUnique({
-        where: { id: usuarioId },
-        select: { empresa: { select: { status: true, data_expiracao: true } } }
-    })
-
-    const entrada: StatusEmpresa = {
-        status: usuario?.empresa?.status ?? null,
-        data_expiracao: usuario?.empresa?.data_expiracao ?? null,
-        expiraEm: Date.now() + CACHE_TTL_MS
-    }
-    cacheStatusEmpresa.set(usuarioId, entrada)
-    return entrada
-}
-
+// Toda action/rota autenticada passa por aqui. Confere, nesta ordem:
+//   1. o token (assinatura e validade);
+//   2. que é token de SESSÃO (o billingToken do checkout tem "purpose" e não tem usuario_id: só serve pra assinar);
+//   3. que o usuário ainda existe e que a versão da sessão bate com a do banco (sair/trocar senha/mudar papel
+//      derrubam as sessões antigas, ver lib/sessao.ts);
+//   4. que a loja está ativa e não venceu.
+// Devolve o payload com role e empresa_id lidos do BANCO: quem foi rebaixado perde o acesso de gestor na hora.
 export default async function autenticar() {
-    let authenticated = false;
-    let payload = null;
+    let payload: JWTPayload | null = null;
 
     try {
         const cookieStore = await cookies()
@@ -43,28 +21,33 @@ export default async function autenticar() {
 
         if (token) {
             const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-            const verified = await jwtVerify(token, secret);
-            payload = verified.payload;
-            authenticated = true;
+            payload = (await jwtVerify(token, secret)).payload;
         }
-    } catch (error) {
-        authenticated = false;
+    } catch {
+        payload = null;
     }
 
-    if (!authenticated) {
+    if (!payload || payload.purpose || !payload.usuario_id) {
         redirect('/login');
     }
 
-    const info = await statusEmpresaDoUsuario(Number(payload!.usuario_id));
+    const sessao = await dadosDaSessao(Number(payload.usuario_id));
 
-    const expirada = info.data_expiracao
-        ? new Date(info.data_expiracao) < new Date()
-        : false;
-
-    if (info.status !== 'ativo' || expirada) {
+    if (!sessao || Number(payload.sv ?? 0) !== sessao.versao) {
         (await cookies()).delete('token');
         redirect('/login?msg=sessao-invalida');
     }
 
-    return payload;
+    const expirada = sessao.dataExpiracao
+        ? new Date(sessao.dataExpiracao) < new Date()
+        : false;
+
+    if (sessao.status !== 'ativo' || expirada) {
+        (await cookies()).delete('token');
+        redirect('/login?msg=sessao-invalida');
+    }
+
+    const usuarioLogado: JWTPayload & { usuario_id: number, role: string | null, empresa_id: number | null } =
+        { ...payload, usuario_id: Number(payload.usuario_id), role: sessao.role, empresa_id: sessao.empresaId };
+    return usuarioLogado;
 }

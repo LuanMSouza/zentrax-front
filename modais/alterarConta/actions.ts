@@ -4,6 +4,9 @@ import autenticar from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from 'bcrypt';
 import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo";
+import { erroDaSenhaNova } from "@/lib/senha";
+import { encerrarSessoes } from "@/lib/sessao";
+import { Prisma } from "@prisma/client";
 
 type AlterarUsuarioProps = {
     id: number,
@@ -75,6 +78,9 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
             return { success: false, error: 'Papel inválido.' }
         }
 
+        dados.usuario = String(dados.usuario ?? '').trim()
+        if (!dados.usuario || dados.usuario.length > 50) return { success: false, error: 'Informe um nome de usuário de até 50 caracteres.' }
+
         let DATA: UsuarioUpdate = { nome: dados.nome, usuario: dados.usuario, role: dados.role };
 
         if (dados.senha.trim()) {
@@ -85,10 +91,11 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
                 };
             }
 
-            if (dados.senha.trim().length < 6) {
+            const erroSenha = erroDaSenhaNova(dados.senha.trim())
+            if (erroSenha) {
                 return {
                     success: false,
-                    error: 'A senha precisa ter pelo menos 6 caracteres.'
+                    error: erroSenha
                 };
             }
 
@@ -119,6 +126,12 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
             data: DATA
         })
 
+        // papel ou senha mudou: as sessões abertas dessa pessoa caem na hora (antes o gestor rebaixado seguia gestor
+        // até o token vencer, 24h). Se for o próprio gestor se alterando, ele também precisa entrar de novo.
+        if (alvo.role !== DATA.role || DATA.senha) {
+            await encerrarSessoes(Number(dados.id))
+        }
+
         const { senha: _senha, reset_token: _resetToken, ...usuarioSeguro } = usuarioAlterado
 
         return {
@@ -127,6 +140,9 @@ export async function AlterarUsuarioBack(dados: AlterarUsuarioProps) {
         }
 
     } catch (error: any) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+            return { success: false, error: 'Esse nome de usuario já está sendo utilizado, por favor, escolha outro!!' }
+        }
         console.error("Erro ao alterar usuario:", error)
 
         return {

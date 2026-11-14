@@ -1,8 +1,7 @@
 'use server'
 
 import prisma from "@/lib/prisma"
-import { sign } from 'jsonwebtoken'
-import { cookies } from 'next/headers'
+import { abrirSessao } from "@/lib/sessao"
 import { USUARIO_DEMO } from "@/lib/demo"
 
 // Entrada da demonstração pública: emite a sessão da empresa de exemplo sem
@@ -19,19 +18,7 @@ export async function entrarDemo() {
     }
 
     // sessão curta: quem gostou cria a conta dele
-    const token = sign(
-        { usuario_id: usuario.id, empresa_id: usuario.empresa_id, role: usuario.role },
-        process.env.JWT_SECRET!,
-        { expiresIn: '2h' }
-    )
-    const cookieStore = await cookies()
-    cookieStore.set('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 2
-    })
+    await abrirSessao({ id: usuario.id, empresa_id: usuario.empresa_id, role: usuario.role }, 2)
 
     return {
         success: true as const,

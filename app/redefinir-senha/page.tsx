@@ -78,7 +78,7 @@ function RedefinirSenhaForm() {
                                     name="novaSenha"
                                     autoComplete="new-password"
                                     required
-                                    minLength={6}
+                                    minLength={8}
                                     className="w-full rounded-lg bg-white ring-1 ring-slate-900/10 pl-3.5 pr-11 py-2.5 outline-none focus:ring-2 focus:ring-marca-700 transition-shadow"
                                 />
                                 <button
@@ -98,7 +98,7 @@ function RedefinirSenhaForm() {
                                 name="confirmarSenha"
                                 autoComplete="new-password"
                                 required
-                                minLength={6}
+                                minLength={8}
                                 className="w-full rounded-lg bg-white ring-1 ring-slate-900/10 px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-marca-700 transition-shadow mb-6"
                             />
 
