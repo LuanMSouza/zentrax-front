@@ -20,6 +20,11 @@ const RESPOSTA_GENERICA = {
 }
 
 export async function solicitarRecuperacaoSenha(email: string) {
+    // Server Action é chamável direto: e-mail que não é texto (ou absurdo) dava erro 500. Responde igual a "não achei".
+    if (typeof email !== 'string' || !email.trim() || email.length > 255) {
+        return RESPOSTA_GENERICA
+    }
+
     const usuario = await prisma.usuarios.findFirst({
         where: { email: { equals: email.trim(), mode: 'insensitive' } }
     })

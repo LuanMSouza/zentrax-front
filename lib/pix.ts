@@ -29,8 +29,10 @@ export function chavePixValida(chave: string) {
         || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c) || /^[0-9a-f-]{36}$/.test(c)
 }
 
+// O tamanho de cada campo do BR Code é em BYTES (UTF-8): "joão@x.com" tem 10 letras e 11 bytes. Contar letras
+// deixava o código com acento inválido no app do banco.
 function campo(id: string, valor: string) {
-    return id + String(valor.length).padStart(2, '0') + valor
+    return id + String(new TextEncoder().encode(valor).length).padStart(2, '0') + valor
 }
 
 // CRC16-CCITT (polinômio 0x1021, começa em 0xFFFF), exigido no fim do BR Code

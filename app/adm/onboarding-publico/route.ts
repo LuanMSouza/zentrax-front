@@ -3,7 +3,13 @@ import bcrypt from 'bcrypt'
 import prisma from '@/lib/prisma'
 import { codigoValido, registrarIndicacao } from '@/lib/indicacao'
 import { DIAS_TRIAL } from '@/lib/trial'
-import { permitir } from '@/lib/rateLimit'
+import { permitir, ipDoRequest } from '@/lib/rateLimit'
+import { erroDaSenhaNova } from '@/lib/senha'
+
+// texto de nome vindo do formulário público: sem tags, sem controle, espaços normais, cortado no tamanho
+function textoDeNome(valor: unknown, max: number) {
+    return String(valor ?? '').replace(/[<>\u0000-\u001F\u007F]/g, '').replace(/\s+/g, ' ').trim().slice(0, max)
+}
 
 // Endpoint publico chamado pela LP (lp-zentrax/app/cadastro/actions.ts) pra
 // criar conta nova a partir do teste gratis. Sem autenticacao por design -
@@ -70,19 +76,26 @@ export async function OPTIONS(request: Request) {
 export async function POST(request: Request) {
     const headers = corsHeaders(request.headers.get('origin'))
 
-    // Endpoint público. O formulário da LP envia do SERVIDOR da Vercel, então o IP que chega aqui é o da Vercel (não o
-    // do visitante) e um limite por IP bloquearia todo mundo — o limite por visitante fica na LP. Aqui vai só um teto
-    // GLOBAL, pra um ataque direto não criar contas em série nem usar o e-mail de boas-vindas pra mandar mensagem
-    // a terceiros. Volume real é baixo; ajuste se o lançamento passar de 40 cadastros por hora.
-    if (!permitir('onboarding:global:h', 40, 60 * 60 * 1000) || !permitir('onboarding:global:m', 8, 60 * 1000)) {
+    // Endpoint público. O formulário da LP envia do SERVIDOR da Vercel (o limite por visitante fica na LP), mas um
+    // robô pode chamar direto. Antes só havia um teto GLOBAL de 8/min: um robô sozinho esgotava e travava os
+    // cadastros de verdade. Agora o limite apertado é por IP (X-Real-IP, que o nginx precisa sobrescrever; ver
+    // qa/INFRA-PARA-O-LUAN.md) e o global fica bem mais alto, só como freio de emergência. As saídas da Vercel são
+    // muitos IPs, então o limite por IP não trava a LP.
+    const ip = ipDoRequest(request)
+    const porIp = ip !== 'desconhecido'
+        ? permitir(`onboarding:ip:${ip}:m`, 3, 60 * 1000) && permitir(`onboarding:ip:${ip}:h`, 10, 60 * 60 * 1000)
+        : true
+    if (!porIp || !permitir('onboarding:global:h', 120, 60 * 60 * 1000) || !permitir('onboarding:global:m', 30, 60 * 1000)) {
         return NextResponse.json({ error: 'Muitos cadastros no momento. Tente de novo em alguns minutos.' }, { status: 429, headers })
     }
 
     try {
         const body = await request.json().catch(() => null)
 
-        const nome = String(body?.nome ?? '').trim()
-        const nomeResponsavel = String(body?.nomeResponsavel ?? '').trim()
+        // nome da loja e do responsável vão pro e-mail de boas-vindas (HTML montado no leads-back): sem < > e sem
+        // caractere de controle, com tamanho de nome de verdade. Antes dava pra mandar HTML/link pra qualquer e-mail.
+        const nome = textoDeNome(body?.nome, 120)
+        const nomeResponsavel = textoDeNome(body?.nomeResponsavel, 120)
         const usuario = String(body?.usuario ?? '').trim().toLowerCase()
         const email = String(body?.email ?? '').trim().toLowerCase()
         const senha = String(body?.senha ?? '')
@@ -101,8 +114,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Informe um e-mail válido.' }, { status: 400, headers })
         }
 
-        if (senha.length < 6) {
-            return NextResponse.json({ error: 'A senha precisa ter pelo menos 6 caracteres.' }, { status: 400, headers })
+        const erroSenha = erroDaSenhaNova(senha)
+        if (erroSenha) {
+            return NextResponse.json({ error: erroSenha }, { status: 400, headers })
+        }
+        if (usuario.length > 50 || email.length > 255) {
+            return NextResponse.json({ error: 'Usuário ou e-mail grande demais.' }, { status: 400, headers })
         }
 
         const usuarioExiste = await prisma.usuarios.findFirst({

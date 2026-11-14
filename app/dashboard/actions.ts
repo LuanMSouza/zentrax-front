@@ -265,6 +265,8 @@ export async function perguntaEmailsBack() {
 export async function responderEmailsBack(quer: boolean) {
     const Auth = await autenticar()
     if (!Auth || Auth.role !== 'gestor') return { success: false as const }
+    // demo pública: o cron já ignora a loja demo, mas também não deixa visitante mexer no opt-in
+    if (await ehEmpresaDemo(Auth.empresa_id)) return { success: false as const }
     await prisma.empresa_settings.update({
         where: { empresa_id: Number(Auth.empresa_id) },
         data: { avisar_vencimentos: quer, resumo_mensal: quer, emails_respondido_em: new Date() }
