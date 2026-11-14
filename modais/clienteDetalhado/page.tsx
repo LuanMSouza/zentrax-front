@@ -5,7 +5,7 @@ import Container from "@/componentes/Container";
 import Cortina from "@/componentes/cortina";
 import Titulo from "@/componentes/Titulo";
 import Swal from "sweetalert2";
-import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento, resumoDoClienteBack, linkDoExtratoBack, configJurosBack } from "./actions";
+import { CobrarBack, pagamentoAvulso, pagamentoEspecifico, combinarVencimento, resumoDoClienteBack, linkDoExtratoBack, configJurosBack, desativarLinksDoExtratoBack } from "./actions";
 import { ConfigJuros, JUROS_DESLIGADO, jurosDaNota, hojeISOBR } from "@/lib/juros";
 import Resumo, { DadosResumo } from "./Resumo";
 import { pegarNotasDoClienteBack } from "@/app/dashboard/actions";
@@ -303,7 +303,26 @@ export default function ClienteDetalhado({ cliente, sair, atualizarClientes, atu
             cancelButtonColor: '#3085d6',
             confirmButtonText: res.whatsapp ? 'Mandar no WhatsApp' : 'Copiar mensagem',
             cancelButtonText: res.whatsapp ? 'Só copiar' : 'Fechar',
+            // link mandado pro número errado: desativa os links/QRs anteriores desse cliente
+            showDenyButton: true,
+            denyButtonText: 'Desativar links antigos',
+            denyButtonColor: '#64748b',
         });
+        if (escolha.isDenied) {
+            const conf = await Swal.fire({
+                title: 'Desativar links antigos?',
+                text: 'Todos os links e QR codes do extrato que já foram mandados pra esse cliente param de abrir (inclusive o de agora e o dos comprovantes impressos). Depois é só mandar um link novo.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Desativar',
+                cancelButtonText: 'Voltar',
+                confirmButtonColor: '#dc2626',
+            });
+            if (!conf.isConfirmed) return;
+            const r = await desativarLinksDoExtratoBack(cliente.id);
+            Swal.fire(r.success ? 'Pronto!' : 'Opa...', r.success ? 'Os links antigos não abrem mais. Toque em "Mandar extrato" pra gerar um novo.' : r.error, r.success ? 'success' : 'error');
+            return;
+        }
         if (escolha.isConfirmed && res.whatsapp) {
             window.open(linkWhatsApp(res.whatsapp, mensagem), '_blank');
         } else if (escolha.isConfirmed || (res.whatsapp && escolha.dismiss === Swal.DismissReason.cancel)) {

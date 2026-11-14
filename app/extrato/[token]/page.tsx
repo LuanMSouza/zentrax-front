@@ -31,7 +31,10 @@ function Aviso({ titulo, texto }: { titulo: string, texto: string }) {
 
 export default async function ExtratoPublico({ params }: { params: Promise<{ token: string }> }) {
     const { token } = await params
-    const clienteId = lerTokenExtrato(decodeURIComponent(token))
+    // %E0%A4%A e afins: decodeURIComponent lança erro (era erro 500); token torto = link expirado
+    let tokenLimpo = ''
+    try { tokenLimpo = decodeURIComponent(token) } catch { tokenLimpo = '' }
+    const clienteId = await lerTokenExtrato(tokenLimpo)
     if (!clienteId) {
         return <Aviso titulo="Link expirado" texto="Esse link não vale mais. Peça um novo pra loja." />
     }

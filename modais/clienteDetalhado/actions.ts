@@ -11,10 +11,12 @@ import { Prisma } from "@prisma/client";
 import { formaValida } from "@/lib/formas";
 import { Recibo } from "@/types";
 import { SELECT_EXTRAS, extrasParaTela } from "@/lib/cliente";
-import { criarTokenExtrato } from "@/lib/linkExtrato";
+import { criarTokenExtrato, desativarLinksDoExtrato } from "@/lib/linkExtrato";
+import { ehEmpresaDemo } from "@/lib/demo";
 import { configJurosDe, jurosDaNota, hojeISOBR } from "@/lib/juros";
 import { codigoPix, configPixDe } from "@/lib/pix";
 import bcrypt from "bcrypt";
+import { valorEmReais } from "@/lib/dinheiro";
 
 type PagAvulsoProps = {
     id: number,
@@ -93,12 +95,10 @@ export async function pagamentoAvulso({ id, valor, forma }: PagAvulsoProps) {
     try {
         const empresaId = Number(dados.empresa_id);
         const userId = Number(dados.usuario_id);
-        const valorNumerico = Number(valor)
-
-        // valor vazio, zero, negativo ou não numérico "passava" e devolvia "Pagamento processado" sem fazer nada
-        if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
-            return { success: false, error: 'Informe um valor maior que zero.' }
-        }
+        // centavos inteiros (lib/dinheiro.ts): 0,004 não vira mais recibo de R$ 0,00, nem Infinity/NaN passam
+        const v = valorEmReais(valor)
+        if (!v.ok) return { success: false, error: v.erro }
+        const valorNumerico = v.reais
         if (!formaValida(forma)) return FORMA_INVALIDA
 
         const resultado = await prisma.$transaction(async (tx) => {
@@ -224,10 +224,10 @@ export async function pagamentoEspecifico({ tipo, id, valor, forma }: PagEspecif
     if (tipo === 'parcial') {
 
         try {
-            const valorNumerico = Number(valor)
-            if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) {
-                return { success: false, error: 'Informe um valor maior que zero.' }
-            }
+            // arredonda pra centavos ANTES de gravar: abatido e restante andam juntos (33,335 virava 33,34 + 66,67)
+            const v = valorEmReais(valor)
+            if (!v.ok) return { success: false, error: v.erro }
+            const valorNumerico = v.reais
 
             // Tudo numa transação: o abatimento da nota e a linha em `pagamentos` (que alimenta a aba
             // Pagamentos) entram juntos ou nenhum entra. Antes só a nota era abatida e o pagamento
@@ -653,7 +653,7 @@ export async function linkDoExtratoBack(clienteId: number) {
 
     return {
         success: true as const,
-        url: urlDoExtrato(cliente.id),
+        url: await urlDoExtrato(cliente.id),
         nome: cliente.nome,
         whatsapp: cliente.whatsapp ? String(cliente.whatsapp) : null,
         loja: cliente.empresa?.nome ?? '',
@@ -671,9 +671,31 @@ export async function configJurosBack() {
     return configJurosDe(s)
 }
 
-function urlDoExtrato(clienteId: number, dias?: number) {
+async function urlDoExtrato(clienteId: number, dias?: number) {
     const base = (process.env.APP_URL ?? 'https://app.zentrax.dvls.com.br').replace(/\/$/, '')
-    return `${base}/extrato/${criarTokenExtrato(clienteId, dias)}`
+    return `${base}/extrato/${await criarTokenExtrato(clienteId, dias)}`
+}
+
+// Desativa todos os links/QRs do extrato já mandados pra esse cliente (ex.: foi pro número errado). Os próximos
+// links que a loja gerar funcionam normal.
+export async function desativarLinksDoExtratoBack(clienteId: number) {
+    const Auth = await autenticar()
+    if (await ehEmpresaDemo(Auth.empresa_id)) return { success: false as const, error: 'Na demonstração isso fica desligado.' }
+    const cliente = await prisma.clientes.findFirst({
+        where: { id: Number(clienteId), empresa_id: Number(Auth.empresa_id) },
+        select: { id: true, nome: true }
+    })
+    if (!cliente) return { success: false as const, error: "Cliente não encontrado." }
+    if (!(await desativarLinksDoExtrato(cliente.id))) {
+        return { success: false as const, error: "Isso ainda não está disponível. Tente de novo mais tarde." }
+    }
+    await RegistrarAcao({
+        tabela: 'Clientes',
+        operacao: `Desativou os links do extrato do cliente ${cliente.nome}`,
+        empresa_id: Number(Auth.empresa_id),
+        usuario_id: Number(Auth.usuario_id)
+    })
+    return { success: true as const }
 }
 
 // O que o comprovante precisa além do recibo: quais notas esse pagamento abateu (e quanto ficou em cada uma logo
@@ -715,7 +737,7 @@ export async function detalhesDoReciboBack(numero: number) {
             pago: Number(n.pago),
             ficou: Math.max(0, Number(n.ficou)),
         })),
-        linkExtrato: urlDoExtrato(recibo.id_cliente, 90),
+        linkExtrato: await urlDoExtrato(recibo.id_cliente, 90),
         // Pix do que ficou devendo (com o valor já preenchido); sem Pix configurado ou sem saldo, não vai
         pix: pix && saldo > 0.009 ? { codigo: codigoPix(pix, saldo), valor: saldo } : null,
         estornado: !!recibo.estornado_em,
