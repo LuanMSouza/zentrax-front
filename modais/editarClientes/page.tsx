@@ -7,7 +7,6 @@ import Container from "@/componentes/Container"
 import Titulo from "@/componentes/Titulo"
 import { Button } from "@/componentes/Buttons"
 import { AlterarClienteBack, ApagarClienteBack, PegarImpactoClienteBack } from "./actions"
-import { ConfirmarSenha } from "@/modais/configuracoes/abas/actions"
 import { Cliente } from "@/types"
 import { MapaPermissoes } from "@/lib/permissoes"
 import CamposExtrasCliente, { EXTRAS_VAZIOS, extrasDoCliente, campo, rotulo } from "@/componentes/CamposExtrasCliente"
@@ -91,7 +90,7 @@ export default function EditarClientes({ clientes, pode, sair, atualizar, remove
             const confirm1 = await Swal.fire({
                 titleText: `Excluir ${c.nome}?`, // titleText: o `title` do SweetAlert é HTML e o nome do cliente vem do usuário
                 html: temHistorico
-                    ? `Esse cliente tem <b>${impacto.quantidadeNotas} nota(s)</b> e <b>${impacto.quantidadePagamentos} pagamento(s)</b> registrados.<br/><br/><span style="color:#b91c1c">Tudo isso será apagado PERMANENTEMENTE junto com o cliente. Não dá pra desfazer.</span>`
+                    ? `Esse cliente tem <b>${impacto.quantidadeNotas} nota(s)</b> e <b>${impacto.quantidadePagamentos} pagamento(s)</b> registrados.<br/><br/><span style="color:#b91c1c">Tudo isso será apagado PERMANENTEMENTE junto com o cliente. Não dá pra desfazer.</span><br/><br/><span style="font-size:13px;color:#475569">Os recibos dele também somem: o fechamento de dias passados muda e a numeração dos recibos fica com um buraco. Se ele só parou de comprar, prefira deixar o cadastro.</span>`
                     : 'Esse cliente não tem notas nem pagamentos registrados. A exclusão não pode ser desfeita.',
                 icon: 'warning',
                 showCancelButton: true,
@@ -116,14 +115,8 @@ export default function EditarClientes({ clientes, pode, sair, atualizar, remove
 
             if (!confirm2.isConfirmed) return
 
-            const resSenha = await ConfirmarSenha({ senha: String(confirm2.value) })
-
-            if (!resSenha.success) {
-                Swal.fire('Opa...', 'Sua senha não coincide!', 'error')
-                return
-            }
-
-            const res = await ApagarClienteBack(c.id)
+            // a senha é conferida no servidor, junto com a exclusão
+            const res = await ApagarClienteBack(c.id, String(confirm2.value))
 
             if (res.success) {
                 Swal.fire('Excluído!', 'Cliente removido com sucesso.', 'success')

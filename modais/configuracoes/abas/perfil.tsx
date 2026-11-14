@@ -2,7 +2,7 @@
 import { useState } from "react"
 import Swal from "sweetalert2"
 import { motion, AnimatePresence } from "framer-motion"
-import { Alterarperfil, ConfirmarSenha } from "./actions"
+import { Alterarperfil } from "./actions"
 
 
 type resAtualizar = {
@@ -32,37 +32,30 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
             return Swal.fire('Opa...', 'Nome e usuario são obrigatórios', 'warning')
         }
 
-        if (form.senha) {
-            if (form.senha !== form.confirmarSenha) {
-                return Swal.fire('Opa...', 'As senhas não coincidem!', 'error')
-            }
+        if (form.senha && form.senha !== form.confirmarSenha) {
+            return Swal.fire('Opa...', 'As senhas não coincidem!', 'error')
+        }
 
+        // trocar senha ou login pede a senha atual; quem confere é o servidor (Alterarperfil)
+        let senhaAtual: string | null = null
+        if (form.senha || form.usuario.trim() !== usuario.usuario) {
             const result = await Swal.fire({
                 title: 'Senha atual',
-                text: 'Toda alteração de senha precisa de autenticação!',
+                text: 'Trocar a senha ou o usuário precisa da sua senha atual.',
                 icon: 'question',
                 input: 'password',
-                inputAttributes: { autocomplete: 'new-password' },
+                inputAttributes: { autocomplete: 'current-password' },
                 confirmButtonText: 'Alterar!',
                 showCancelButton: true,
                 cancelButtonText: 'Cancelar!',
             })
-
-            if (result.isConfirmed) {
-                const senhaAtual = String(result.value)
-                const resVerificacao = await ConfirmarSenha({ id: form.id, senha: senhaAtual })
-
-                if (!resVerificacao.success) {
-                    return Swal.fire('Opa...', 'Sua senha antiga não coincide!', 'error')
-                }
-            } else {
-                return // Usuário cancelou o modal de senha
-            }
+            if (!result.isConfirmed) return // cancelou o modal de senha
+            senhaAtual = String(result.value)
         }
 
-        const res = await Alterarperfil(form)
+        const res = await Alterarperfil({ ...form, senhaAtual })
 
-        if (res.success && res.usuarioNovo) {
+        if (res.success && 'usuarioNovo' in res && res.usuarioNovo) {
             await Swal.fire('Sucesso!!', 'Usuario alterado com sucesso!!', 'success')
 
             atualizar({ usuarioNovo: res.usuarioNovo })
@@ -70,7 +63,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
             setForm(prev => ({ ...prev, senha: '', confirmarSenha: '' }))
 
         } else {
-            Swal.fire('Erro', 'Não foi possível atualizar o perfil', 'error')
+            Swal.fire('Opa...', res.error ?? 'Não foi possível atualizar o perfil', 'error')
         }
     }
 
@@ -114,7 +107,7 @@ export default function PerfilConfig({ usuario, atualizar }: { usuario: any, atu
                         value={form.senha}
                         onChange={(e) => setForm(prev => ({ ...prev, senha: e.target.value }))}
                         className="w-full bg-gray-50 border border-gray-300 rounded p-2 mt-1 text-gray-900 focus:outline-none focus:border-marca-700 transition-colors"
-                        placeholder='Nova senha...'
+                        placeholder='Nova senha (mínimo 8 caracteres)...'
                         autoComplete="new-password"
                     />
                 </label>

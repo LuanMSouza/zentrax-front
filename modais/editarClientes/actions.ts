@@ -1,6 +1,7 @@
 'use server'
 
 import prisma from "@/lib/prisma"
+import { conferirSenhaDoUsuario, MENSAGEM_SENHA } from "@/lib/senha"
 import autenticar from "@/lib/auth"
 import { pode } from "@/lib/permissoesServidor"
 import RegistrarAcao from "@/lib/logger"
@@ -134,7 +135,8 @@ export async function PegarImpactoClienteBack(id: number) {
     }
 }
 
-export async function ApagarClienteBack(id: number) {
+// Excluir cliente pede a senha de quem está logado, conferida AQUI (antes só a tela pedia).
+export async function ApagarClienteBack(id: number, senha?: string) {
     const Auth = await autenticar()
 
     if (!Auth) {
@@ -143,6 +145,11 @@ export async function ApagarClienteBack(id: number) {
 
     if (!(await pode(Auth, 'excluir'))) {
         return { success: false, error: "Você não tem permissão pra excluir cliente." }
+    }
+
+    const conferida = await conferirSenhaDoUsuario(Number(Auth.usuario_id), senha)
+    if (conferida !== 'ok') {
+        return { success: false, error: conferida === 'errada' ? 'Sua senha não confere.' : MENSAGEM_SENHA[conferida] }
     }
 
     const empresaId = Number(Auth.empresa_id)

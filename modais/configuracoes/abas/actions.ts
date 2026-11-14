@@ -2,50 +2,24 @@
 import autenticar from "@/lib/auth";
 import prisma from "@/lib/prisma"
 import bcrypt from 'bcrypt';
-import { boolean, success } from "zod";
+import { Prisma } from "@prisma/client";
+import { conferirSenhaDoUsuario, erroDaSenhaNova, MENSAGEM_SENHA } from "@/lib/senha";
+import { abrirSessao, encerrarSessoes, esquecerSessao } from "@/lib/sessao";
 import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo";
 import { MAX_JUROS_MES, MAX_MULTA, MAX_CARENCIA } from "@/lib/juros";
 import { chavePixValida, normalizarChavePix } from "@/lib/pix";
 import { lerPermissoes, LISTA_PERMISSOES, PERMISSOES } from "@/lib/permissoes";
 import RegistrarAcao from "@/lib/logger";
 
+// Confere a senha de quem está logado (telas de usuários pedem antes de abrir). Só bcrypt e com limite de erros
+// (lib/senha.ts): antes aceitava a senha igual ao texto guardado e não tinha limite.
 export async function ConfirmarSenha({ senha }: { id?: number, senha: string }) {
+    const Auth = await autenticar()
+
     try {
-        const Auth = await autenticar()
-
-        if (!Auth) {
-            return { success: false, error: 'Sessão expirada ou inválida' };
-        }
-
-        const dadosUser = await prisma.usuarios.findUnique({
-            where: { id: Number(Auth.usuario_id) }
-        });
-
-        if (!dadosUser || !dadosUser.senha) {
-            return { success: false, error: 'Usuário não encontrado' };
-        }
-
-        const senhaFornecida = String(senha).trim();
-        const senhaNoBanco = String(dadosUser.senha).trim();
-
-        let senhaValida = false;
-
-        try {
-            senhaValida = await bcrypt.compare(senhaFornecida, senhaNoBanco);
-        } catch (e) {
-            senhaValida = false;
-        }
-
-        if (!senhaValida) {
-            senhaValida = senhaFornecida === senhaNoBanco;
-        }
-
-        if (!senhaValida) {
-            return { success: false, error: 'Senha incorreta' };
-        }
-
+        const r = await conferirSenhaDoUsuario(Number(Auth.usuario_id), senha)
+        if (r !== 'ok') return { success: false, error: MENSAGEM_SENHA[r] }
         return { success: true };
-
     } catch (error) {
         console.error("Erro na verificação de senha:", error);
         return { success: false, error: 'Erro interno no servidor' };
@@ -53,48 +27,72 @@ export async function ConfirmarSenha({ senha }: { id?: number, senha: string }) 
 }
 
 type AlterarPerfilProps = {
-    id: Number,
+    id?: number,
     nome: string,
     usuario: string,
     senha: string | null,
     confirmarSenha: string | null,
+    senhaAtual?: string | null,
 }
 
+// Perfil do próprio usuário. Trocar a SENHA ou o LOGIN pede a senha atual, conferida aqui no servidor (antes só a
+// tela conferia: quem pegasse um computador logado, ou o token, trocava a senha e tomava a conta).
 export async function Alterarperfil(form: AlterarPerfilProps) {
-    const { nome, usuario, senha } = form
-
-
     const Auth = await autenticar()
     if (await ehEmpresaDemo(Auth?.empresa_id)) return BLOQUEADO_NA_DEMO
 
-    if (!Auth) {
-        return {
-            success: false,
-            error: "Sessão expirada ou inválida"
-        }
-    }
+    const usuarioId = Number(Auth.usuario_id)
+    const nome = String(form.nome ?? '').trim()
+    const login = String(form.usuario ?? '').trim()
+    const senha = String(form.senha ?? '').trim()
+
+    if (!nome || !login) return { success: false, error: "Nome e usuário são obrigatórios." }
+    if (nome.length > 120 || login.length > 50) return { success: false, error: "Nome ou usuário grande demais." }
 
     try {
-        let dataUpdate: any = {
-            nome: String(nome),
-            usuario: String(usuario)
+        const atual = await prisma.usuarios.findUnique({ where: { id: usuarioId }, select: { usuario: true } })
+        if (!atual) return { success: false, error: "Usuário não encontrado." }
+
+        const mudaLogin = login !== atual.usuario
+        const mudaSenha = senha !== ''
+
+        if (mudaSenha) {
+            const erro = erroDaSenhaNova(senha)
+            if (erro) return { success: false, error: erro }
+            if (form.confirmarSenha != null && String(form.confirmarSenha).trim() !== senha) {
+                return { success: false, error: "As senhas não coincidem." }
+            }
         }
 
-        if (senha && senha.trim() !== "") {
-            if (senha.trim().length < 6) {
-                return {
-                    success: false,
-                    error: "A senha precisa ter pelo menos 6 caracteres."
-                }
-            }
+        if (mudaSenha || mudaLogin) {
+            const r = await conferirSenhaDoUsuario(usuarioId, form.senhaAtual)
+            if (r !== 'ok') return { success: false, error: r === 'errada' ? 'Sua senha atual não confere.' : MENSAGEM_SENHA[r] }
+        }
 
-            dataUpdate.senha = await bcrypt.hash(senha.trim(), 10)
+        // login é único sem olhar maiúscula: "GESTOR.A" não pode existir se já existe "gestor.a" (o login de outra
+        // pessoa parava de funcionar). O índice único em lower(usuario) segura o caso de dois salvando ao mesmo tempo.
+        if (mudaLogin) {
+            const jaExiste = await prisma.usuarios.findFirst({
+                where: { id: { not: usuarioId }, usuario: { equals: login, mode: 'insensitive' } },
+                select: { id: true }
+            })
+            if (jaExiste) return { success: false, error: "Esse nome de usuário já está em uso. Escolha outro." }
         }
 
         const update = await prisma.usuarios.update({
-            where: { id: Number(Auth.usuario_id) },
-            data: dataUpdate
+            where: { id: usuarioId },
+            data: {
+                nome,
+                usuario: login,
+                ...(mudaSenha ? { senha: await bcrypt.hash(senha, 10) } : {})
+            }
         })
+
+        // senha nova derruba as outras sessões abertas (outro aparelho, token roubado) e mantém esta logada
+        if (mudaSenha) {
+            await encerrarSessoes(usuarioId)
+            await abrirSessao({ id: usuarioId, empresa_id: update.empresa_id, role: update.role })
+        }
 
         const { senha: _senha, reset_token: _resetToken, ...usuarioSeguro } = update
 
@@ -104,6 +102,9 @@ export async function Alterarperfil(form: AlterarPerfilProps) {
         }
 
     } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+            return { success: false, error: "Esse nome de usuário já está em uso. Escolha outro." }
+        }
         console.error("Erro ao alterar perfil:", error)
         return {
             success: false,
@@ -186,6 +187,8 @@ export async function ApagarContaBack(id: number) {
         await prisma.usuarios.delete({
             where: { id: Number(id) }
         })
+        // sem isso o cache de 30 s do autenticar() deixava o removido usar o sistema mais um pouco
+        esquecerSessao(Number(id))
 
         return {
             success: true
@@ -230,7 +233,10 @@ type Preferencias = {
 // mesmo CHECK). Qualquer outra coisa é recusada em vez de gravada.
 const LOGO_MAX = 200_000
 function logoValida(valor: unknown): valor is string {
-    return typeof valor === 'string' && valor.length <= LOGO_MAX && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(valor)
+    if (typeof valor !== 'string' || valor.length > LOGO_MAX || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(valor)) return false
+    // e tem que ser PNG de verdade: os 8 primeiros bytes de todo PNG são sempre esses
+    const inicio = Buffer.from(valor.slice('data:image/png;base64,'.length, 'data:image/png;base64,'.length + 12), 'base64')
+    return inicio.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
 }
 
 // número de um campo de % ou dias: aceita "1,5", corta nos limites (os mesmos do CHECK no banco)
