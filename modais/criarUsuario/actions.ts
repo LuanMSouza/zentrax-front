@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma"
 import bcrypt from 'bcrypt'
 import autenticar from "@/lib/auth"
 import { ehEmpresaDemo, BLOQUEADO_NA_DEMO } from "@/lib/demo"
+import { erroDaSenhaNova } from "@/lib/senha"
 
 type NovoUsuarioProps = {
     empresa_id: number,
@@ -41,10 +42,11 @@ export async function CriarUsuarioBack(dados: NovoUsuarioProps) {
         }
     }
 
-    if (dados.senha.trim().length < 6) {
+    const erroSenha = erroDaSenhaNova(dados.senha)
+    if (erroSenha) {
         return {
             success: false,
-            error: 'A senha precisa ter pelo menos 6 caracteres.'
+            error: erroSenha
         }
     }
 

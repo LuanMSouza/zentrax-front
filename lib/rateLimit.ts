@@ -20,12 +20,33 @@ export function permitir(chave: string, max: number, janelaMs: number): boolean 
     return true
 }
 
-// IP do visitante atrás do nginx. X-Real-IP é definido pelo nginx; o ÚLTIMO item do X-Forwarded-For é o que o
-// nginx acrescentou (os anteriores podem ser forjados pelo próprio cliente).
+// IP do visitante atrás do nginx (rotas /api e /adm). Mesma regra do ipDosHeaders() abaixo: só o X-Real-IP, que o
+// nginx sobrescreve. O X-Forwarded-For não entra porque, enquanto o nginx não o define, o próprio cliente escolhe.
 export function ipDoRequest(request: Request): string {
-    const real = request.headers.get('x-real-ip')
-    if (real) return real.trim()
-    const xff = request.headers.get('x-forwarded-for')
-    if (xff) return xff.split(',').pop()!.trim()
-    return 'desconhecido'
+    return ipDosHeaders(request.headers)
+}
+
+export function estourou(chave: string, max: number, janelaMs: number): boolean {
+    const agora = Date.now()
+    const recentes = (janelas.get(chave) ?? []).filter(t => agora - t < janelaMs)
+    janelas.set(chave, recentes)
+    return recentes.length >= max
+}
+
+export function anotarFalha(chave: string) {
+    const lista = janelas.get(chave) ?? []
+    lista.push(Date.now())
+    janelas.set(chave, lista)
+}
+
+export function esquecer(chave: string) {
+    janelas.delete(chave)
+}
+
+// IP do visitante dentro de uma Server Action (headers() do Next). Só é confiável quando o nginx SOBRESCREVE o
+// X-Real-IP com $remote_addr (ver qa/INFRA-PARA-O-LUAN.md) e o Next escuta só em 127.0.0.1; sem isso devolve
+// 'desconhecido' e quem chama não deve limitar por IP (senão todo mundo cai no mesmo balde).
+export function ipDosHeaders(h: Headers): string {
+    const real = h.get('x-real-ip')
+    return real ? real.trim().slice(0, 64) : 'desconhecido'
 }

@@ -20,7 +20,7 @@ export default function CriarUsuario({ empresa, sair, atualizar }: CriarUsuarioP
         { id: 1, label: 'Nome', name: 'nome', placeholder: 'Nome Completo...', tipoInput: 'text' },
         { id: 2, label: 'Usuario', name: 'usuario', placeholder: 'Nome de usuario...', tipoInput: 'text' },
         { id: 5, label: 'E-mail', name: 'email', placeholder: 'E-mail (pra recuperação de senha)...', tipoInput: 'email' },
-        { id: 3, label: 'Senha', name: 'senha', placeholder: 'Senha temporária', tipoInput: 'password' },
+        { id: 3, label: 'Senha', name: 'senha', placeholder: 'Senha temporária (mínimo 8 caracteres)', tipoInput: 'password' },
         { id: 4, label: 'Confimar senha', name: 'senhaConfirm', placeholder: 'Confirmar senha temporária', tipoInput: 'password' },
     ]
 
