@@ -5,37 +5,47 @@ import RegistrarAcao from "@/lib/logger"
 import { formatarDataBR, FormatarValor } from "@/lib/mask"
 import prisma from "@/lib/prisma"
 import { revalidatePath } from 'next/cache';
+import { valorEmReais, reaisOuZero, dataValida } from "@/lib/dinheiro"
+import { permitir } from "@/lib/rateLimit"
 
 
-export async function salvarNota(dados: any) {
-    const { cliente, data, valor, valor_total, descricao, exta, quantidade, segmento, vencimento } = dados
+type DadosNota = {
+    cliente: number | string,
+    data: string,
+    valor?: number | string,
+    valor_total: number | string,
+    descricao?: string | null,
+    exta?: number | string,
+    quantidade?: number | string,
+    segmento?: string,
+    vencimento?: string | null,
+    // a tela pergunta "Lançar mesmo assim?" quando o cliente está bloqueado pra fiado; sem esse sim, o servidor recusa
+    confirmouBloqueio?: boolean,
+}
+
+export async function salvarNota(dados: DadosNota) {
+    const { cliente, data, valor, valor_total, descricao, exta, quantidade, segmento, vencimento } = dados ?? {} as DadosNota
+
+    // fora do try: o redirect de sessão inválida precisa subir
+    const auth = await autenticar()
 
     try {
-        const auth = await autenticar()
-
-        if (!auth) {
-            return {
-                success: false,
-                error: "Sessão expirada ou inválida"
-            }
-        }
-
         const empresaId = Number(auth.empresa_id)
-        const valorTotalNumerico = Number(valor_total)
 
-        if (!valorTotalNumerico || valorTotalNumerico <= 0) {
-            return {
-                success: false,
-                error: "O valor da nota precisa ser maior que zero."
-            }
+        const total = valorEmReais(valor_total)
+        if (!total.ok) {
+            return { success: false, error: total.erro === 'Informe um valor maior que zero.' ? "O valor da nota precisa ser maior que zero." : total.erro }
         }
+
+        const dataNota = dataValida(data)
+        if (!dataNota) return { success: false, error: "Data da nota inválida." }
 
         // data combinada pra pagar: opcional, mas se vier tem que ser válida e não pode ser antes da venda
-        const vencimentoData = vencimento ? new Date(vencimento) : null
-        if (vencimentoData && isNaN(vencimentoData.getTime())) {
+        const vencimentoData = vencimento ? dataValida(vencimento) : null
+        if (vencimento && !vencimentoData) {
             return { success: false, error: "Data combinada inválida." }
         }
-        if (vencimentoData && vencimentoData < new Date(data)) {
+        if (vencimentoData && vencimentoData < dataNota) {
             return { success: false, error: "A data combinada pra pagar não pode ser antes da data da venda." }
         }
 
@@ -43,7 +53,7 @@ export async function salvarNota(dados: any) {
         // sem isso, dava pra anexar uma nota a um cliente de outra empresa so
         // adivinhando o id (Server Action e chamavel direto, sem passar pela UI).
         const clienteInfos = await prisma.clientes.findFirst({
-            where: { id: Number(cliente), empresa_id: empresaId }
+            where: { id: Number(cliente) || 0, empresa_id: empresaId }
         })
 
         if (!clienteInfos) {
@@ -53,25 +63,39 @@ export async function salvarNota(dados: any) {
             }
         }
 
+        if (clienteInfos.bloqueado && dados.confirmouBloqueio !== true) {
+            return { success: false, error: "Esse cliente está marcado pra não vender fiado. Abra o lançamento de novo e confirme se quiser lançar mesmo assim." }
+        }
+
+        const textoDescricao = typeof descricao === 'string' ? descricao.trim().slice(0, 255) : ''
+        const qtd = Math.trunc(Number(quantidade))
+
+        // clique duplo / dois envios iguais em 5 s: a segunda nota igual é recusada (o app roda num processo só)
+        const chave = `nota:${empresaId}:${clienteInfos.id}:${total.centavos}:${data}:${textoDescricao}`
+        if (!permitir(chave, 1, 5_000)) {
+            return { success: false, error: "Essa nota acabou de ser lançada. Confira a lista antes de lançar de novo." }
+        }
+
         const novaNota = await prisma.pedidos.create({
             data: {
-                id_cliente: Number(cliente),
-                data: new Date(data),
-                valor_unitario: Number(valor) || 0,
-                valor_inicial: valorTotalNumerico,
-                valor_restante: valorTotalNumerico,
-                descricao: String(descricao) || null,
-                valor_extra: Number(exta) || 0,
-                quantidade: Number(quantidade) || 1,
+                id_cliente: clienteInfos.id,
+                data: dataNota,
+                valor_unitario: reaisOuZero(valor),
+                valor_inicial: total.reais,
+                valor_restante: total.reais,
+                // antes String(undefined) gravava o texto "undefined"
+                descricao: textoDescricao || null,
+                valor_extra: reaisOuZero(exta),
+                quantidade: qtd >= 1 && qtd <= 1_000_000 ? qtd : 1,
                 empresa_id: empresaId,
-                segmento: String(segmento),
+                segmento: typeof segmento === 'string' && segmento.trim() ? segmento.trim().slice(0, 20) : 'geral',
                 vencimento: vencimentoData
             }
         })
 
         revalidatePath('/dashboard');
 
-        const txt = `Criou uma nota para o cliente ${clienteInfos?.nome} no valor ${FormatarValor(valor)} e data ${formatarDataBR(data)}`;
+        const txt = `Criou uma nota para o cliente ${clienteInfos?.nome} no valor ${FormatarValor(total.reais)} e data ${formatarDataBR(data)}`;
 
         await RegistrarAcao({
             tabela: 'Notas',
@@ -92,11 +116,12 @@ export async function salvarNota(dados: any) {
             }
         }
 
-    } catch (error: any) {
-        console.log(error);
+    } catch (error) {
+        // o erro do Prisma fica só no log do servidor (antes ia cru pro navegador, com nome de tabela e coluna)
+        console.error('[salvarNota]', error);
         return {
             success: false,
-            error: error.message || "Erro interno ao salvar nota"
+            error: "Erro ao salvar a nota. Tente de novo."
         }
     }
 }

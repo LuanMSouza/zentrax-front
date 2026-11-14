@@ -34,30 +34,36 @@ export default async function cadastrarClienteBack(formData: FormData) {
             condicoes.push({ documento: String(documento) });
         }
 
-        const jaExiste = await prisma.clientes.findFirst({
-            where: {
-                empresa_id: Number(empresaId),
-                OR: condicoes
-            }
+        // Confere e cria dentro de uma transação com trava por loja (pg_advisory_xact_lock): sem ela, 5 cliques no
+        // "Cadastrar" ao mesmo tempo passavam todos pela conferência antes de qualquer um gravar (5 clientes iguais).
+        const novoCliente = await prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('cadastrar-cliente'), ${Number(empresaId)})`
+
+            const jaExiste = await tx.clientes.findFirst({
+                where: {
+                    empresa_id: Number(empresaId),
+                    OR: condicoes
+                }
+            })
+            if (jaExiste) return null
+
+            return tx.clientes.create({
+                data: {
+                    nome: nome,
+                    whatsapp: whatsappDigitos ? BigInt(whatsappDigitos) : null,
+                    documento: documento || null,
+                    ...extras.campos,
+                    empresa_id: Number(empresaId)
+                }
+            })
         })
 
-        if (jaExiste) {
+        if (!novoCliente) {
             return {
                 success: false,
                 error: 'Cliente ou n° de documento já cadastrado!!'
             }
         }
-
-
-        const novoCliente = await prisma.clientes.create({
-            data: {
-                nome: nome,
-                whatsapp: whatsappDigitos ? BigInt(whatsappDigitos) : null,
-                documento: documento || null,
-                ...extras.campos,
-                empresa_id: Number(empresaId)
-            }
-        })
         // registrando
 
         const txt = `Criou o cliente ${nome}`;

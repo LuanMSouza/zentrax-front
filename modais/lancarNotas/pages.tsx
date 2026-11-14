@@ -5,7 +5,7 @@ import Input from "@/componentes/Inputs";
 import Label from "@/componentes/Label";
 import Selects from "@/componentes/Select";
 import Titulo from "@/componentes/Titulo";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { salvarNota, infoDoClienteNaNota } from "./actions";
 import { FormatarValor } from "@/lib/mask";
@@ -43,6 +43,8 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
 
     const [cliente, setCliete] = useState('')
     const [loading, setLoading] = useState(false)
+    // trava de clique duplo: o setLoading só muda na próxima renderização, a ref muda na hora
+    const enviando = useRef(false)
 
     const empresaRaw = localStorage.getItem('empresa');
     const empresa = empresaRaw ? JSON.parse(empresaRaw) : '';
@@ -50,6 +52,16 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
 
     async function enviar(e: React.FormEvent) {
         e.preventDefault();
+        if (enviando.current) return;
+        enviando.current = true;
+        try {
+            await enviarNota(e);
+        } finally {
+            enviando.current = false;
+        }
+    }
+
+    async function enviarNota(e: React.FormEvent) {
 
         const formData = new FormData(e.currentTarget as HTMLFormElement);
 
@@ -117,14 +129,16 @@ export default function ModalLançarNotas({ sair, clientes, atualizar }: lancarN
         try {
             const dadosParaEnviar = {
                 cliente,
-                data,
+                data: String(data),
                 valor: valorUnitario,
                 valor_total: valorTotal,
-                descricao,
+                descricao: descricao ? String(descricao) : null,
                 exta: extra,
                 segmento,
                 quantidade,
-                vencimento
+                vencimento: vencimento ? String(vencimento) : null,
+                // só chega aqui com cliente bloqueado se a pessoa confirmou o "Lançar mesmo assim"
+                confirmouBloqueio: info?.bloqueado === true
             };
 
             const response = await salvarNota(dadosParaEnviar)
