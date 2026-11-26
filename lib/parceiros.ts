@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto'
 import prisma from './prisma'
 
 // Programa de parceiros: indicação EXTERNA com comissão em dinheiro (contador, consultor, outra empresa).
@@ -40,13 +41,14 @@ export async function criarParceiro(nome: string, opts: { percentual?: number; m
                 data: {
                     nome,
                     codigo: gerarCodigo(),
+                    token: randomBytes(18).toString('hex'),
                     percentual: opts.percentual ?? PERCENTUAL_PADRAO,
                     meses: opts.meses ?? MESES_PADRAO,
                     contato: opts.contato || null,
                 },
             })
-        } catch (e: any) {
-            if (e?.code !== 'P2002') throw e // só repete se o código colidiu
+        } catch (e) {
+            if ((e as { code?: string })?.code !== 'P2002') throw e // só repete se o código colidiu
         }
     }
     throw new Error('Não foi possível gerar o código do parceiro.')
@@ -57,4 +59,25 @@ export function comissaoMensal(ciclo: string | null, percentual: number): number
     const p = ciclo ? PRECO_CICLO[ciclo] : undefined
     if (!p) return 0
     return Math.round((p.valor / p.meses) * percentual) / 100
+}
+
+export const APP_URL = 'https://app.zentrax.dvls.com.br'
+export const LP_URL = 'https://zentrax.dvls.com.br/cadastro'
+
+export type Situacao = 'ativa' | 'teste' | 'teste_expirado' | 'cancelada'
+
+// situação da empresa indicada. Assinante com status 'inativo' é assinatura cancelada (o webhook marca assim);
+// assinatura 'ativa' também exige o período pago não ter vencido (data_expiracao).
+export function situacaoDaEmpresa(e: { stripe_subscription_id: string | null; status: string | null; data_expiracao: Date | null }, agora = new Date()): Situacao {
+    const vigente = !!e.data_expiracao && e.data_expiracao > agora
+    if (e.stripe_subscription_id) return e.status === 'ativo' && vigente ? 'ativa' : 'cancelada'
+    return vigente ? 'teste' : 'teste_expirado'
+}
+
+// a comissão vale por `meses` meses a partir do cadastro (aproximação: a data da 1ª cobrança não é guardada)
+export function fimDaComissao(cadastradaEm: Date | null, meses: number): Date | null {
+    if (!cadastradaEm) return null
+    const d = new Date(cadastradaEm)
+    d.setMonth(d.getMonth() + meses)
+    return d
 }

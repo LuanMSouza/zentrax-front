@@ -230,6 +230,7 @@ model parceiros {
   id         Int       @id @default(autoincrement())
   nome       String    @db.VarChar(120)
   codigo     String    @unique @db.VarChar(12)
+  token      String    @unique @db.VarChar(40)
   percentual Int       @default(30) @db.SmallInt
   meses      Int       @default(12) @db.SmallInt
   contato    String?   @db.VarChar(120)

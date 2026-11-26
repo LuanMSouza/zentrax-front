@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS parceiros (
     id         serial PRIMARY KEY,
     nome       varchar(120) NOT NULL,
     codigo     varchar(12)  NOT NULL UNIQUE,
+    token      varchar(40)  NOT NULL UNIQUE,  -- chave do painel do parceiro (/parceiro/<token>)
     percentual smallint     NOT NULL DEFAULT 30 CHECK (percentual BETWEEN 1 AND 100),
     meses      smallint     NOT NULL DEFAULT 12 CHECK (meses BETWEEN 1 AND 60),
     contato    varchar(120),
