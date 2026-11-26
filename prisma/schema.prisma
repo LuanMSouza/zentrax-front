@@ -69,6 +69,8 @@ model empresa {
   stripe_subscription_id                 String?           @unique @db.VarChar(40)
   stripe_ciclo                           String?           @db.VarChar(20)
   codigo_indicacao                       String?           @unique @db.VarChar(12)
+  parceiro_id                            Int?
+  parceiro                               parceiros?        @relation(fields: [parceiro_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   indicacoes_feitas                      indicacoes[]      @relation("indicador")
   indicacao_recebida                     indicacoes?       @relation("indicada")
   alteracoes_alteracoes_empresaToempresa alteracoes[]      @relation("alteracoes_empresaToempresa")
@@ -222,4 +224,17 @@ model indicacoes {
   indicada         empresa  @relation("indicada", fields: [indicada_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([indicador_id])
+}
+
+model parceiros {
+  id         Int       @id @default(autoincrement())
+  nome       String    @db.VarChar(120)
+  codigo     String    @unique @db.VarChar(12)
+  token      String    @unique @db.VarChar(40)
+  percentual Int       @default(30) @db.SmallInt
+  meses      Int       @default(12) @db.SmallInt
+  contato    String?   @db.VarChar(120)
+  ativo      Boolean   @default(true)
+  criado_em  DateTime  @default(now()) @db.Timestamp(6)
+  empresas   empresa[]
 }
