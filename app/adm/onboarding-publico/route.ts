@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcrypt'
 import prisma from '@/lib/prisma'
 import { codigoValido, registrarIndicacao } from '@/lib/indicacao'
+import { registrarParceiro } from '@/lib/parceiros'
 import { DIAS_TRIAL } from '@/lib/trial'
 import { permitir, ipDoRequest } from '@/lib/rateLimit'
 import { erroDaSenhaNova } from '@/lib/senha'
@@ -171,8 +172,10 @@ export async function POST(request: Request) {
 
         // indicação é best-effort: código errado/teto/qualquer falha aqui nunca
         // pode impedir o cadastro de quem acabou de criar a conta
+        // o mesmo ?ref= serve a parceiro (comissão em dinheiro) e a cliente (mês grátis): parceiro tem prioridade
         if (codigoIndicacao) {
-            registrarIndicacao(codigoIndicacao, novaEmpresaId, email)
+            registrarParceiro(codigoIndicacao, novaEmpresaId)
+                .then((ehParceiro) => ehParceiro ? undefined : registrarIndicacao(codigoIndicacao, novaEmpresaId, email))
                 .catch((err) => console.error('Falha ao registrar indicação:', err))
         }
 
