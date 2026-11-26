@@ -17,6 +17,11 @@ export const PRECO_CICLO: Record<string, { valor: number; meses: number }> = {
 
 const ALFABETO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
+// 36 caracteres hex = 144 bits: não dá pra adivinhar
+export function novoToken(): string {
+    return randomBytes(18).toString('hex')
+}
+
 function gerarCodigo(): string {
     let c = ''
     for (let i = 0; i < 6; i++) c += ALFABETO[Math.floor(Math.random() * ALFABETO.length)]
@@ -41,7 +46,7 @@ export async function criarParceiro(nome: string, opts: { percentual?: number; m
                 data: {
                     nome,
                     codigo: gerarCodigo(),
-                    token: randomBytes(18).toString('hex'),
+                    token: novoToken(),
                     percentual: opts.percentual ?? PERCENTUAL_PADRAO,
                     meses: opts.meses ?? MESES_PADRAO,
                     contato: opts.contato || null,
@@ -80,4 +85,14 @@ export function fimDaComissao(cadastradaEm: Date | null, meses: number): Date | 
     const d = new Date(cadastradaEm)
     d.setMonth(d.getMonth() + meses)
     return d
+}
+
+// nome da empresa indicada como o parceiro vê: "Padaria do Zé" -> "Pa***** do Zé". Palavras de até 3 letras ficam
+// inteiras (de, do, Zé, Bar) pra o parceiro ainda reconhecer quem indicou sem expor o nome inteiro.
+export function mascararNome(nome: string): string {
+    return nome.split(/\s+/).filter(Boolean).map(p => {
+        const letras = Array.from(p)
+        if (letras.length <= 3) return p
+        return letras.slice(0, 2).join('') + '*'.repeat(Math.min(letras.length - 2, 5))
+    }).join(' ')
 }

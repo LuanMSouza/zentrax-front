@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import prisma from "@/lib/prisma";
-import { LP_URL, comissaoMensal, fimDaComissao, situacaoDaEmpresa, type Situacao } from "@/lib/parceiros";
+import { LP_URL, comissaoMensal, mascararNome, fimDaComissao, situacaoDaEmpresa, type Situacao } from "@/lib/parceiros";
 import { formatarDataBR } from "@/lib/mask";
 import CopiarLink from "./CopiarLink";
 
@@ -60,7 +60,7 @@ export default async function PainelParceiro({ params }: { params: Promise<{ tok
         const fim = fimDaComissao(e.created_at, parceiro.meses)
         const comissionavel = situacao === 'ativa' && !!fim && fim > agora
         return {
-            id: e.id, nome: e.nome, cadastradaEm: e.created_at, situacao, ciclo: e.stripe_ciclo, fim, comissionavel,
+            id: e.id, nome: mascararNome(e.nome), cadastradaEm: e.created_at, situacao, ciclo: e.stripe_ciclo, fim, comissionavel,
             comissao: comissionavel ? comissaoMensal(e.stripe_ciclo, parceiro.percentual) : 0,
         }
     })
